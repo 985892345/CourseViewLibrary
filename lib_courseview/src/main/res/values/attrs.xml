@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="NetLayout">
+        <attr name="net_minRow" format="integer"/>
+        <attr name="net_minColumn" format="integer"/>
+        <attr name="net_orientation" format="enum">
+            <enum name="left-right" value="0"/>
+            <enum name="right-left" value="1"/>
+            <enum name="top-bottom" value="2"/>
+            <enum name="bottom-top" value="3"/>
+        </attr>
+    </declare-styleable>
+
+    <declare-styleable name="NetLayout_Layout">
+        <attr name="net_position" format="integer"/>
+        <attr name="net_start" format="integer"/>
+        <attr name="net_end" format="integer"/>
+    </declare-styleable>
+</resources>
