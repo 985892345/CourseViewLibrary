@@ -1,19 +1,51 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <declare-styleable name="CourseDayLayout">
+        <attr name="day_lessonCount" format="integer"/>
+    </declare-styleable>
+
+    <declare-styleable name="CourseDayLayout_Layout">
+        <attr name="day_lessonStartIndex" format="integer"/>
+        <attr name="day_lessonLength" format="integer"/>
+        <attr name="day_layoutGravity">
+            <!-- Push object to the top of its container, not changing its size. -->
+            <flag name="top" value="0x30" />
+            <!-- Push object to the bottom of its container, not changing its size. -->
+            <flag name="bottom" value="0x50" />
+            <!-- Push object to the left of its container, not changing its size. -->
+            <flag name="left" value="0x03" />
+            <!-- Push object to the right of its container, not changing its size. -->
+            <flag name="right" value="0x05" />
+            <!-- Place object in the vertical center of its container, not changing its size. -->
+            <flag name="center_vertical" value="0x10" />
+            <!-- Place object in the horizontal center of its container, not changing its size. -->
+            <flag name="center_horizontal" value="0x01" />
+            <!-- Place the object in the center of its container in both the vertical and horizontal axis, not changing its size. -->
+            <flag name="center" value="0x11" />
+            <!-- Push object to the beginning of its container, not changing its size. -->
+            <flag name="start" value="0x00800003" />
+            <!-- Push object to the end of its container, not changing its size. -->
+            <flag name="end" value="0x00800005" />
+        </attr>
+    </declare-styleable>
+
+
     <declare-styleable name="NetLayout">
         <attr name="net_minRow" format="integer"/>
         <attr name="net_minColumn" format="integer"/>
         <attr name="net_orientation" format="enum">
-            <enum name="left-right" value="0"/>
-            <enum name="right-left" value="1"/>
-            <enum name="top-bottom" value="2"/>
-            <enum name="bottom-top" value="3"/>
+            <enum name="left_right" value="0"/>
+            <enum name="right_left" value="1"/>
+            <enum name="top_bottom" value="2"/>
+            <enum name="bottom_top" value="3"/>
         </attr>
     </declare-styleable>
 
     <declare-styleable name="NetLayout_Layout">
-        <attr name="net_position" format="integer"/>
-        <attr name="net_start" format="integer"/>
-        <attr name="net_end" format="integer"/>
+        <attr name="net_startRow" format="integer"/>
+        <attr name="net_endRow" format="integer"/>
+        <attr name="net_startColumn" format="integer"/>
+        <attr name="net_endColumn" format="integer"/>
     </declare-styleable>
 </resources>
