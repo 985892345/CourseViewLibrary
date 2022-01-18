@@ -1,4 +1,4 @@
-package com.mredrock.cyxbs.lib.courseview.day.attrs
+package com.mredrock.cyxbs.lib.courseview.net.attrs
 
 import android.content.Context
 import android.util.AttributeSet
@@ -12,21 +12,24 @@ import com.mredrock.cyxbs.lib.courseview.base.BaseViewAttrs.Companion.newAttrs
  * @email 2767465918@qq.com
  * @date 2022/1/17
  */
-data class CourseDayLayoutAttrs(
-    internal val lessonCount: Int
+data class NetLayoutAttrs(
+    internal val rowCount: Int,
+    internal val columnCount: Int
 ) : BaseViewAttrs {
     companion object {
         fun newInstance(
             context: Context,
             attrs: AttributeSet
-        ): CourseDayLayoutAttrs {
-            return newAttrs(context, attrs, R.styleable.CourseDayLayout) {
-                CourseDayLayoutAttrs(
-                    R.styleable.CourseDayLayout_day_lessonCount.int(LESSON_COUNT)
+        ): NetLayoutAttrs {
+            return newAttrs(context, attrs, R.styleable.NetLayout) {
+                NetLayoutAttrs(
+                    R.styleable.NetLayout_net_rowCount.int(ROW_COUNT),
+                    R.styleable.NetLayout_net_columnCount.int(COLUMN_COUNT)
                 )
             }
         }
 
-        const val LESSON_COUNT = 4
+        const val ROW_COUNT = 4
+        const val COLUMN_COUNT = 4
     }
 }

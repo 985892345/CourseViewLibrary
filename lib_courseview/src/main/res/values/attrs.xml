@@ -1,14 +1,24 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <declare-styleable name="CourseDayLayout">
-        <attr name="day_lessonCount" format="integer"/>
+    <declare-styleable name="NetLayout">
+        <!--总行数-->
+        <attr name="net_rowCount" format="integer"/>
+        <!--总列数-->
+        <attr name="net_columnCount" format="integer"/>
     </declare-styleable>
 
-    <declare-styleable name="CourseDayLayout_Layout">
-        <attr name="day_lessonStartIndex" format="integer"/>
-        <attr name="day_lessonLength" format="integer"/>
-        <attr name="day_layoutGravity">
+    <declare-styleable name="NetLayout_Layout">
+        <!--开始行的索引值，以 0 开始，注意：如果不给属性赋值并且也没设置 Adapter，则默认不会显示 View-->
+        <attr name="net_startRow" format="integer"/>
+        <!--结束行的索引值，以 0 开始，注意：如果不给属性赋值并且也没设置 Adapter，则默认不会显示 View-->
+        <attr name="net_endRow" format="integer"/>
+        <!--开始列的索引值，以 0 开始，注意：如果不给属性赋值并且也没设置 Adapter，则默认不会显示 View-->
+        <attr name="net_startColumn" format="integer"/>
+        <!--结束列的索引值，以 0 开始，注意：如果不给属性赋值并且也没设置 Adapter，则默认不会显示 View-->
+        <attr name="net_endColumn" format="integer"/>
+        <!--子 View 的 layout_gravity-->
+        <attr name="net_layoutGravity">
             <!-- Push object to the top of its container, not changing its size. -->
             <flag name="top" value="0x30" />
             <!-- Push object to the bottom of its container, not changing its size. -->
@@ -30,22 +40,4 @@
         </attr>
     </declare-styleable>
 
-
-    <declare-styleable name="NetLayout">
-        <attr name="net_minRow" format="integer"/>
-        <attr name="net_minColumn" format="integer"/>
-        <attr name="net_orientation" format="enum">
-            <enum name="left_right" value="0"/>
-            <enum name="right_left" value="1"/>
-            <enum name="top_bottom" value="2"/>
-            <enum name="bottom_top" value="3"/>
-        </attr>
-    </declare-styleable>
-
-    <declare-styleable name="NetLayout_Layout">
-        <attr name="net_startRow" format="integer"/>
-        <attr name="net_endRow" format="integer"/>
-        <attr name="net_startColumn" format="integer"/>
-        <attr name="net_endColumn" format="integer"/>
-    </declare-styleable>
 </resources>

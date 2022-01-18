@@ -40,7 +40,7 @@ interface BaseViewAttrs {
         }
 
         /**
-         * 由于是属性读取时出错，应用会直接闪退，所以不用担心反射的性能消耗
+         * 由于是属性读取时出错，应用一般是直接闪退，所以不用担心反射的性能消耗
          */
         inline fun <reified E: RuntimeException> Int.intOrThrow(attrsName: String): Int {
             if (!ty.hasValue(this)) {

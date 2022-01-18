@@ -1,19 +1,18 @@
-package com.mredrock.cyxbs.lib.courseview.day
+package com.mredrock.cyxbs.lib.courseview.net
 
 import android.content.Context
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
-import com.mredrock.cyxbs.lib.courseview.day.adater.CourseDayAdapter
-import com.mredrock.cyxbs.lib.courseview.day.attrs.CourseDayLayoutAttrs
-import com.mredrock.cyxbs.lib.courseview.day.attrs.CourseDayLayoutParams
+import com.mredrock.cyxbs.lib.courseview.net.adater.NetAdapter
+import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutAttrs
+import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
 import java.util.ArrayList
 import kotlin.math.max
 
 /**
- * 显示一天课程的一个 ViewGroup
+ * 一个网状的 ViewGroup
  * ```
  * 1、为了更好的设计，该 ViewGroup 可以单独拿出来使用
  * 2、onMeasure、onLayout 设计思路参考了 FrameLayout，
@@ -23,45 +22,45 @@ import kotlin.math.max
  *    支持 wrap_content 和子 View 为 match_parent 时的使用（除此以外支持所有类型测量）
  * 4、设计得这么完善是为了让以后的人好扩展，该类被设计成了可继承的类，可以通过继承重构部分代码
  * ```
- * **NOTE：** 如果没有设置 [CourseDayAdapter]，且添加的 View 缺失课程属性，则 **View 将会添加失败**
+ * **NOTE：** 如果没有设置 [NetAdapter]，且添加的 View 缺失约束属性，则 **View 将会添加失败**
  *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/1/17
  */
-open class CourseDayLayout : ViewGroup {
+open class NetLayout : ViewGroup {
 
     /**
-     * 设置 [CourseDayAdapter]
+     * 设置 [NetAdapter]
      *
-     * **NOTE：** 如果没有设置 [CourseDayAdapter]，且添加的 View 缺失课程属性，则 **View 将会添加失败**
+     * **NOTE：** 如果没有设置 [NetAdapter]，且添加的 View 缺失约束属性，则 **View 将会添加失败**
      */
-    open fun setAdapter(adapter: CourseDayAdapter) {
+    open fun setAdapter(adapter: NetAdapter) {
         mAdapter = adapter
     }
 
     /**
      * 添加一节课
      *
-     * **NOTE：** 如果没有设置 [CourseDayAdapter]，且添加的 View 缺失课程属性，则 **View 将会添加失败**
+     * **NOTE：** 如果没有设置 [NetAdapter]，且添加的 View 缺失约束属性，则 **View 将会添加失败**
      */
-    open fun addLesson(view: View, lp: CourseDayLayoutParams) {
-        addView(view, lp) // addView 方法在后面被重写
+    open fun addLesson(view: View, lp: NetLayoutParams) {
+        addView(view, lp) // addView 方法在后面被重写用于添加课程
     }
 
     // 属性值
-    protected val mAttrs: CourseDayLayoutAttrs
+    protected val mAttrs: NetLayoutAttrs
 
     // 与外部连接的 Adapter
-    protected lateinit var mAdapter: CourseDayAdapter
+    protected lateinit var mAdapter: NetAdapter
 
     // 参考 FrameLayout，用于在自身 wrap_content 而子 View 为 match_parent 时的测量
     protected val mMatchParentChildren = ArrayList<View>(1)
 
     constructor(context: Context, attrs: AttributeSet) : super(context, attrs) {
-        mAttrs = CourseDayLayoutAttrs.newInstance(context, attrs)
+        mAttrs = NetLayoutAttrs.newInstance(context, attrs)
     }
-    constructor(context: Context, attrs: CourseDayLayoutAttrs) : super(context) {
+    constructor(context: Context, attrs: NetLayoutAttrs) : super(context) {
         mAttrs = attrs.copy()
     }
 
@@ -69,7 +68,7 @@ open class CourseDayLayout : ViewGroup {
      * 设计思路参考了 FrameLayout
      *
      * 为了更好的扩展性，该 onMeasure 支持全类型的测量，
-     * 意思就是 [CourseDayLayout] 可以单独拿出来当一个 ViewGroup 使用
+     * 意思就是 [NetLayout] 可以单独拿出来当一个 ViewGroup 使用
      */
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val childCount = childCount
@@ -79,22 +78,22 @@ open class CourseDayLayout : ViewGroup {
                     MeasureSpec.getMode(heightMeasureSpec) != MeasureSpec.EXACTLY
         mMatchParentChildren.clear()
 
-        var maxWidth = 0
-        var maxLessonHeight = 0 // 计算每节课的最大高度，与 FrameLayout 的不同点之一
+        var maxRowHeight = 0 // 记录行中最高值
+        var maxColumnWidth = 0 // 记录列中最宽值
         var childState = 0
 
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             if (child.visibility != GONE) {
                 measureChild(child, widthMeasureSpec, heightMeasureSpec)
-                val lp = child.layoutParams as CourseDayLayoutParams
-                maxWidth = max(
-                    maxWidth,
-                    child.measuredWidth + lp.leftMargin + lp.rightMargin
+                val lp = child.layoutParams as NetLayoutParams
+                maxRowHeight = max(
+                    maxRowHeight,
+                    (child.measuredHeight + lp.topMargin + lp.bottomMargin) / lp.netAttrs.rowCount
                 )
-                maxLessonHeight = max(
-                    maxLessonHeight,
-                    (child.measuredHeight + lp.topMargin + lp.bottomMargin) / lp.lessonAttrs.length
+                maxColumnWidth = max(
+                    maxColumnWidth,
+                    (child.measuredWidth + lp.leftMargin + lp.rightMargin) / lp.netAttrs.columnCount
                 )
                 childState = combineMeasuredStates(childState, child.measuredState)
                 if (measureMatchParentChildren) {
@@ -107,7 +106,8 @@ open class CourseDayLayout : ViewGroup {
             }
         }
 
-        var maxHeight = maxLessonHeight * mAttrs.lessonCount
+        var maxWidth = maxColumnWidth * mAttrs.columnCount
+        var maxHeight = maxRowHeight * mAttrs.rowCount
 
         // Account for padding too
         maxWidth += paddingLeft + paddingRight
@@ -115,6 +115,8 @@ open class CourseDayLayout : ViewGroup {
         // Check against our minimum height and width
         maxWidth = max(maxWidth, suggestedMinimumWidth)
         maxHeight = max(maxHeight, suggestedMinimumHeight)
+
+        // Check against our foreground's minimum height and width
 
         setMeasuredDimension(
             resolveSizeAndState(maxWidth, widthMeasureSpec, childState),
@@ -137,17 +139,15 @@ open class CourseDayLayout : ViewGroup {
         *
         * 在 FrameLayout 里面有两个及以上的子 View 为 match_parent 不会有这个问题
         * */
-        if (childCount > 1) {
+        if (childCount > 1) { // 等于 1 时说明只有一个子 View，此时如果自身 wrap_content，就没必要重新测量
+            // 在自身 wrap_content 的前提下，对 match_parent 的子 View 重新进行测量
             val count = mMatchParentChildren.size
             for (i in 0 until count) {
-                val child: View = mMatchParentChildren[i]
-                val lp = child.layoutParams as CourseDayLayoutParams
-                val childWidthMeasureSpec = if (lp.width == LayoutParams.MATCH_PARENT) {
-                    MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY)
-                } else widthMeasureSpec
-
+                // 这里与 FrameLayout 源码差异有点大，我这里直接将整个子 View 的测量交给了 measureChild 方法
+                // 提供的宽和高都是自身已经计算好的，所以与 FrameLayout 的写法无本质区别
                 measureChild(
-                    child, childWidthMeasureSpec,
+                    mMatchParentChildren[i],
+                    MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
                     MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
                 )
             }
@@ -155,57 +155,61 @@ open class CourseDayLayout : ViewGroup {
     }
 
     /**
-     * 在计算高度时进行了部分修改
+     * 在计算宽度和高度时进行了部分修改
      */
     override fun measureChild(
         child: View,
         parentWidthMeasureSpec: Int,
         parentHeightMeasureSpec: Int,
     ) {
-        val lp = child.layoutParams as CourseDayLayoutParams
+        val lp = child.layoutParams as NetLayoutParams
+        val parentWidth = MeasureSpec.getSize(parentWidthMeasureSpec) - paddingLeft - paddingRight
+        val wMode = MeasureSpec.getMode(parentWidthMeasureSpec)
         val childWidthMeasureSpec = getChildMeasureSpec(
-            parentWidthMeasureSpec,
-            paddingLeft + paddingRight + lp.leftMargin + lp.rightMargin, lp.width
+             MeasureSpec.makeMeasureSpec(
+                 parentWidth / mAttrs.columnCount * lp.netAttrs.columnCount,
+                 wMode
+             ),
+            lp.leftMargin + lp.rightMargin, lp.width
         )
         val parentHeight = MeasureSpec.getSize(parentHeightMeasureSpec) - paddingTop - paddingBottom
         val hMode = MeasureSpec.getMode(parentHeightMeasureSpec)
         val childHeightMeasureSpec = getChildMeasureSpec(
             MeasureSpec.makeMeasureSpec(
-                parentHeight / mAttrs.lessonCount * lp.lessonAttrs.length, hMode),
+                parentHeight / mAttrs.rowCount * lp.netAttrs.rowCount, // 计算课程的高度
+                hMode),
             lp.topMargin + lp.bottomMargin, lp.height
         )
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
     }
 
     /**
-     * 基于 FrameLayout 的部分代码修改，主要修改了高度的计算
+     * 基于 FrameLayout 的部分代码修改，主要修改了对 parentLeft、parentRight、parentTop、parentBottom 的计算
      */
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-        val parentLeft: Int = paddingLeft
-        val parentRight: Int = r - l - paddingRight
-        val lessonHeight = (b - t - paddingTop - paddingBottom) / mAttrs.lessonCount
+
+        val rowHeight = (b - t - paddingTop - paddingBottom) / mAttrs.rowCount
+        val columnWidth = (r - l - paddingLeft - paddingRight) / mAttrs.columnCount
 
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             if (child.visibility != GONE) {
-                val lp = child.layoutParams as CourseDayLayoutParams
+                val lp = child.layoutParams as NetLayoutParams
 
-                val startIndex = lp.lessonAttrs.startIndex
-                val length = lp.lessonAttrs.length
-                val parentTop: Int = paddingTop + lessonHeight * startIndex
-                val parentBottom: Int = parentTop + lessonHeight * length
+                val parentLeft: Int = paddingLeft + columnWidth * lp.netAttrs.startColumn
+                val parentRight: Int = parentLeft + columnWidth * lp.netAttrs.columnCount
+                val parentTop: Int = paddingTop + rowHeight * lp.netAttrs.startRow
+                val parentBottom: Int = parentTop + rowHeight * lp.netAttrs.rowCount
 
                 val width = child.measuredWidth
                 val height = child.measuredHeight
-                var childLeft: Int
-                var childTop: Int
                 var gravity = lp.gravity
                 if (gravity == -1) { gravity = Gravity.TOP or Gravity.START }
 
                 val layoutDirection = layoutDirection
                 val absoluteGravity = Gravity.getAbsoluteGravity(gravity, layoutDirection)
                 val verticalGravity = gravity and Gravity.VERTICAL_GRAVITY_MASK
-                childLeft = when (absoluteGravity and Gravity.HORIZONTAL_GRAVITY_MASK) {
+                val childLeft = when (absoluteGravity and Gravity.HORIZONTAL_GRAVITY_MASK) {
                     Gravity.CENTER_HORIZONTAL -> {
                         parentLeft + (parentRight - parentLeft - width) / 2 +
                                 lp.leftMargin - lp.rightMargin
@@ -216,7 +220,7 @@ open class CourseDayLayout : ViewGroup {
                     Gravity.LEFT -> parentLeft + lp.leftMargin
                     else -> parentLeft + lp.leftMargin
                 }
-                childTop = when (verticalGravity) {
+                val childTop = when (verticalGravity) {
                     Gravity.CENTER_VERTICAL -> {
                         parentTop + (parentBottom - parentTop - height) / 2 +
                                 lp.topMargin - lp.bottomMargin
@@ -232,26 +236,27 @@ open class CourseDayLayout : ViewGroup {
 
     /**
      * 1、保证 View 的排序有序
-     * 2、回调 [CourseDayAdapter] 设置课的属性
+     * 2、回调 [NetAdapter] 设置课的属性
      */
     override fun addView(child: View, index: Int, params: LayoutParams) {
-        val newParams: CourseDayLayoutParams =
-            if (checkLayoutParams(params)) params as CourseDayLayoutParams
-            else generateLayoutParams(params) as CourseDayLayoutParams
+        val newParams: NetLayoutParams =
+            if (checkLayoutParams(params)) params as NetLayoutParams
+            else generateLayoutParams(params) as NetLayoutParams
         if (!newParams.isComplete()) {
-            // 此时 child 的课程属性缺少，但又没有设置 Adapter，所以添加 View 失败
+            // 此时 child 缺少课程属性，但又没有设置 Adapter，所以直接 return，添加 View 失败
             if (!this::mAdapter.isInitialized) return
-            mAdapter.setLessonAttrs(newParams.lessonAttrs)
+            // 设置了 Adapter，就回调设置课程属性
+            mAdapter.setNetAttrs(child, newParams.netAttrs)
             // 属性不设置完整就不允许添加 View 进来
-            if (!newParams.isComplete()) { // tnnd，你就是不设置是吧？(一个梗)
-                return // 那我就不演了！
+            if (!newParams.isComplete()) {
+                return
             }
         }
         var newIndex = -1 // -1 默认插在末尾
         for (i in 0 until childCount) {
             val view = getChildAt(i)
-            val lp = view.layoutParams as CourseDayLayoutParams
-            if (newParams.lessonAttrs < lp.lessonAttrs) {
+            val lp = view.layoutParams as NetLayoutParams
+            if (newParams.netAttrs < lp.netAttrs) {
                 newIndex = i
                 break
             }
@@ -260,22 +265,22 @@ open class CourseDayLayout : ViewGroup {
     }
 
     override fun generateLayoutParams(attrs: AttributeSet): LayoutParams {
-        return CourseDayLayoutParams(context, attrs)
+        return NetLayoutParams(context, attrs)
     }
 
     override fun generateLayoutParams(lp: LayoutParams): LayoutParams {
         return when (lp) {
-            is CourseDayLayoutParams -> CourseDayLayoutParams(lp)
-            is MarginLayoutParams -> CourseDayLayoutParams(lp)
-            else -> CourseDayLayoutParams(lp)
+            is NetLayoutParams -> NetLayoutParams(lp)
+            is MarginLayoutParams -> NetLayoutParams(lp)
+            else -> NetLayoutParams(lp)
         }
     }
 
     override fun generateDefaultLayoutParams(): LayoutParams {
-        return CourseDayLayoutParams()
+        return NetLayoutParams()
     }
 
     override fun checkLayoutParams(p: LayoutParams): Boolean {
-        return p is CourseDayLayoutParams
+        return p is NetLayoutParams
     }
 }
