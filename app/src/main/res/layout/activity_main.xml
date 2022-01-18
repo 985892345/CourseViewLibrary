@@ -15,10 +15,10 @@
         app:net_columnCount="6">
 
         <View
-            android:layout_width="match_parent"
+            android:layout_width="120dp"
             android:layout_height="match_parent"
             android:background="@color/purple_500"
-            android:layout_margin="10dp"
+            android:layout_margin="20dp"
             app:net_startRow="0"
             app:net_endRow="1"
             app:net_startColumn="0"
