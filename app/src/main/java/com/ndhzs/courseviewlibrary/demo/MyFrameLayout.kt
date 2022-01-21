@@ -1,7 +1,9 @@
 package com.ndhzs.courseviewlibrary.demo
 
 import android.content.Context
+import android.graphics.Canvas
 import android.util.AttributeSet
+import android.util.Log
 import android.widget.FrameLayout
 
 /**
@@ -14,5 +16,10 @@ class MyFrameLayout(context: Context, attrs: AttributeSet?) : FrameLayout(contex
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val a = MeasureSpec.getMode(widthMeasureSpec)
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        Log.d("ggg", "(MyFrameLayout.kt:22)-->> onDraw")
     }
 }

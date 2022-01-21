@@ -1,6 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <declare-styleable name="VerticalLayout_Layout">
+        <attr name="vertical_layout_isShow" format="boolean"/>
+        <attr name="vertical_layout_weight" format="integer"/>
+        <attr name="vertical_layout_gravity" format="flags">
+            <!-- Push object to the top of its container, not changing its size. -->
+            <flag name="top" value="0x30" />
+            <!-- Push object to the bottom of its container, not changing its size. -->
+            <flag name="bottom" value="0x50" />
+            <!-- Push object to the left of its container, not changing its size. -->
+            <flag name="left" value="0x03" />
+            <!-- Push object to the right of its container, not changing its size. -->
+            <flag name="right" value="0x05" />
+            <!-- Place object in the vertical center of its container, not changing its size. -->
+            <flag name="center_vertical" value="0x10" />
+            <!-- Place object in the horizontal center of its container, not changing its size. -->
+            <flag name="center_horizontal" value="0x01" />
+            <!-- Place the object in the center of its container in both the vertical and horizontal axis, not changing its size. -->
+            <flag name="center" value="0x11" />
+            <!-- Push object to the beginning of its container, not changing its size. -->
+            <flag name="start" value="0x00800003" />
+            <!-- Push object to the end of its container, not changing its size. -->
+            <flag name="end" value="0x00800005" />
+        </attr>
+    </declare-styleable>
+
+    <declare-styleable name="CourseLayout_Layout">
+        <attr name="course_layout_day" format="integer"/>
+        <attr name="course_layout_startPos" format="integer"/>
+        <attr name="course_layout_length" format="integer"/>
+    </declare-styleable>
+
     <declare-styleable name="NetLayout">
         <!--总行数-->
         <attr name="net_rowCount" format="integer"/>
@@ -10,15 +41,15 @@
 
     <declare-styleable name="NetLayout_Layout">
         <!--开始行的索引值，以 0 开始，注意：如果不给属性赋值并且也没设置 Adapter，则默认不会显示 View-->
-        <attr name="net_startRow" format="integer"/>
+        <attr name="net_layout_startRow" format="integer"/>
         <!--结束行的索引值，以 0 开始，注意：如果不给属性赋值并且也没设置 Adapter，则默认不会显示 View-->
-        <attr name="net_endRow" format="integer"/>
+        <attr name="net_layout_endRow" format="integer"/>
         <!--开始列的索引值，以 0 开始，注意：如果不给属性赋值并且也没设置 Adapter，则默认不会显示 View-->
-        <attr name="net_startColumn" format="integer"/>
+        <attr name="net_layout_startColumn" format="integer"/>
         <!--结束列的索引值，以 0 开始，注意：如果不给属性赋值并且也没设置 Adapter，则默认不会显示 View-->
-        <attr name="net_endColumn" format="integer"/>
+        <attr name="net_layout_endColumn" format="integer"/>
         <!--子 View 的 layout_gravity-->
-        <attr name="net_layoutGravity">
+        <attr name="net_layout_gravity">
             <!-- Push object to the top of its container, not changing its size. -->
             <flag name="top" value="0x30" />
             <!-- Push object to the bottom of its container, not changing its size. -->

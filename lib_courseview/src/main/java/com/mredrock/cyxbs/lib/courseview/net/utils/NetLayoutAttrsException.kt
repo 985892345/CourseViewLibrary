@@ -8,4 +8,4 @@ import com.mredrock.cyxbs.lib.courseview.net.NetLayout
  * @email 2767465918@qq.com
  * @date 2022/1/17
  */
-class NetLayoutAttrsException(s: String) : IllegalArgumentException(s)
+open class NetLayoutAttrsException(s: String) : IllegalArgumentException(s)

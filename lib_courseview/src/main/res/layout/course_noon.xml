@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.mredrock.cyxbs.lib.courseview.course.CourseLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    app:net_rowCount="1"
+    app:net_columnCount="8">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="中\n午"
+        android:textColor="@color/black"
+        android:textSize="@dimen/tv_time"
+        android:textStyle="bold"
+        android:gravity="center"
+        app:course_day="0"
+        app:course_lessonStartPos="1"
+        app:course_lessonLength="1"
+        tools:ignore="HardcodedText,SpUsage" />
+
+</com.mredrock.cyxbs.lib.courseview.course.CourseLayout>

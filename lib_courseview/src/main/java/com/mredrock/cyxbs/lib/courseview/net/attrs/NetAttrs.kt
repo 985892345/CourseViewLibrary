@@ -12,11 +12,11 @@ import com.mredrock.cyxbs.lib.courseview.net.utils.NetLayoutAttrsException
  * @email 2767465918@qq.com
  * @date 2022/1/17
  */
-data class NetAttrs(
-    internal var _startRow: Int,
-    internal var _endRow: Int,
-    internal var _startColumn: Int,
-    internal var _endColumn: Int
+open class NetAttrs(
+    private var _startRow: Int,
+    private var _endRow: Int,
+    private var _startColumn: Int,
+    private var _endColumn: Int
 ) : BaseViewAttrs, Comparable<NetAttrs> {
     val startRow: Int
         get() = _startRow
@@ -51,13 +51,13 @@ data class NetAttrs(
         ): NetAttrs {
             return BaseViewAttrs.newAttrs(context, attrs, R.styleable.NetLayout_Layout) {
                 NetAttrs(
-                    R.styleable.NetLayout_Layout_net_startRow
+                    R.styleable.NetLayout_Layout_net_layout_startRow
                         .intOrThrow<NetLayoutAttrsException>("net_startRow"),
-                    R.styleable.NetLayout_Layout_net_endRow
+                    R.styleable.NetLayout_Layout_net_layout_endRow
                         .intOrThrow<NetLayoutAttrsException>("net_endRow"),
-                    R.styleable.NetLayout_Layout_net_startColumn
+                    R.styleable.NetLayout_Layout_net_layout_startColumn
                         .intOrThrow<NetLayoutAttrsException>("net_startColumn"),
-                    R.styleable.NetLayout_Layout_net_endColumn
+                    R.styleable.NetLayout_Layout_net_layout_endColumn
                         .intOrThrow<NetLayoutAttrsException>("net_endColumn")
                 )
             }

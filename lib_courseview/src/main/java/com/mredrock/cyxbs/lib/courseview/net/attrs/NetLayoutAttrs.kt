@@ -12,9 +12,9 @@ import com.mredrock.cyxbs.lib.courseview.base.BaseViewAttrs.Companion.newAttrs
  * @email 2767465918@qq.com
  * @date 2022/1/17
  */
-data class NetLayoutAttrs(
-    internal val rowCount: Int,
-    internal val columnCount: Int
+open class NetLayoutAttrs(
+    val rowCount: Int,
+    val columnCount: Int
 ) : BaseViewAttrs {
     companion object {
         fun newInstance(

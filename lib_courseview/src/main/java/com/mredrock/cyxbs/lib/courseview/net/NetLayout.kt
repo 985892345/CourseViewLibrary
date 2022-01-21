@@ -1,19 +1,16 @@
 package com.mredrock.cyxbs.lib.courseview.net
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Canvas
 import android.util.AttributeSet
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import com.mredrock.cyxbs.lib.courseview.net.attrs.NetAttrs
+import androidx.viewpager2.widget.ViewPager2
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
-import com.mredrock.cyxbs.lib.courseview.net.touch.MoveItemController
 import com.mredrock.cyxbs.lib.courseview.net.utils.NetLayoutAttrsException
 import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.math.max
 
 /**
@@ -24,12 +21,12 @@ import kotlin.math.max
  *    如果你对 FrameLayout 的 onMeasure、onLayout 有研究，基本可以看懂设计思路
  * 3、支持 padding 属性
  *    支持子 View 的 layout_margin 属性
- *    支持 wrap_content 和子 View 为 match_parent 时的使用（支持所有类型的测量）
+ *    支持 wrap_content 和子 View 为 match_parent 时的使用（几乎支持所有类型的测量）
  * 4、设计得这么完善是为了让以后的人好扩展，该类被设计成了可继承的类，可以通过继承重构部分代码
  *
  * 使用思路：
- * <com.mredrock.cyxbs.lib.courseview.net.NetLayout
- *     app:net_rowCount="6"
+ * <com...NetLayout
+ *     app:net_rowCount="6" // 控制总行数和总列数
  *     app:net_columnCount="6">
  *
  *     // 填写 net_startRow、net_endRow、net_startColumn、net_endColumn 后
@@ -45,7 +42,7 @@ import kotlin.math.max
  *         app:net_startColumn="0"
  *         app:net_endColumn="2"/>
  *
- * </com.mredrock.cyxbs.lib.courseview.net.NetLayout>
+ * </com...NetLayout>
  * ```
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
@@ -60,47 +57,102 @@ open class NetLayout : ViewGroup {
      * ```
      * @return 是否添加成功
      */
-    open fun addItem(child: View, lp: NetLayoutParams): Boolean {
+    fun addItem(item: View, lp: NetLayoutParams): Boolean {
         if (!lp.isComplete()) return false
-        super.addView(child, getViewAfterIndex(child, lp), lp)
+        super.addView(item, getViewAfterIndex(item, lp), lp)
         return true
     }
 
     /**
      * 改变 View 的测量范围
      */
-    open fun setViewNetAttrs(view: View, newNetAttrs: NetAttrs): Boolean {
-        val lp = view.layoutParams
-        return if (lp is NetLayoutParams) {
-            lp.netAttrs = newNetAttrs
-            if (lp.isComplete()) {
-                removeViewInLayout(view)
-                addItem(view, lp)
-            }
-            true
+    fun setItemAttrs(item: View, lp: NetLayoutParams): Boolean {
+        return if (lp.isComplete()) {
+            removeViewInLayout(item)
+            addItem(item, lp)
         } else false
     }
 
-    open fun setMoveItemController(controller: MoveItemController) {
-        mMoveItemController = controller
+    fun findItemUnder(x: Float, y: Float): View? {
+        val count = childCount
+        for (i in count - 1 downTo 0) {
+            val child = getChildAt(i)
+            val translationX = child.translationX
+            val translationY = child.translationY
+            if (x >= child.left + translationX
+                && x <= child.right + translationX
+                && y >= child.top + translationY
+                && y <= child.bottom + translationY
+            ) {
+                return child
+            }
+        }
+        return null
     }
+
+    fun setRowMultiple(row: Int, multiple: Float) {
+        setRowMultipleInLayout(row, multiple)
+        requestLayout()
+    }
+
+    fun setColumnMultiple(column: Int, multiple: Float) {
+        setColumnMultipleInLayout(column, multiple)
+        requestLayout()
+    }
+
+    fun setRowMultipleInLayout(row: Int, multiple: Float) {
+        if (row >= mRowMultiple.size || row < 0) {
+            throw IllegalArgumentException("row 不能大于或等于 ${mRowMultiple.size} 且小于 0！")
+        }
+        mTotalRowMultiple += multiple - mRowMultiple[row]
+        mRowMultiple[row] = multiple
+    }
+
+    fun setColumnMultipleInLayout(column: Int, multiple: Float) {
+        if (column >= mColumnMultiple.size || column < 0) {
+            throw IllegalArgumentException("column 不能大于或等于 ${mColumnMultiple.size} 且小于 0！")
+        }
+        mTotalColumnMultiple += multiple - mColumnMultiple[column]
+        mColumnMultiple[column] = multiple
+    }
+
 
 
     // 属性值
-    protected val mAttrs: NetLayoutAttrs
+    protected val mNetAttrs: NetLayoutAttrs
 
     // 参考 FrameLayout，用于在自身 wrap_content 而子 View 为 match_parent 时的测量
-    protected val mMatchParentChildren = ArrayList<View>(1)
+    private val mMatchParentChildren = ArrayList<View>(1)
 
-    protected var mMoveItemController: MoveItemController? = null
-    private var mMoveItemControllerIntercept = false
+    private val mRowMultiple: ArrayList<Float>
+    private var mTotalRowMultiple: Float = 0F
+
+    private val mColumnMultiple: ArrayList<Float>
+    private var mTotalColumnMultiple: Float = 0F
 
     constructor(context: Context, attrs: AttributeSet) : super(context, attrs) {
-        mAttrs = NetLayoutAttrs.newInstance(context, attrs)
+        mNetAttrs = NetLayoutAttrs.newInstance(context, attrs)
+        mRowMultiple = ArrayList(mNetAttrs.rowCount)
+        mColumnMultiple = ArrayList(mNetAttrs.columnCount)
+        initializeInterval()
     }
 
     constructor(context: Context, attrs: NetLayoutAttrs) : super(context) {
-        mAttrs = attrs.copy()
+        mNetAttrs = attrs
+        mRowMultiple = ArrayList(mNetAttrs.rowCount)
+        mColumnMultiple = ArrayList(mNetAttrs.columnCount)
+        initializeInterval()
+    }
+
+    private fun initializeInterval() {
+        for (i in 0 until mRowMultiple.size) {
+            mRowMultiple[i] = 1F
+        }
+        for (i in 0 until mColumnMultiple.size) {
+            mColumnMultiple[i] = 1F
+        }
+        resetTotalRowMultiple()
+        resetTotalColumnMultiple()
     }
 
     /**
@@ -142,17 +194,17 @@ open class NetLayout : ViewGroup {
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             if (child.visibility != GONE) {
-                measureChild(child, widthMeasureSpec, heightMeasureSpec)
                 val lp = child.layoutParams.net()
                 if (!lp.isComplete()) continue
+                measureChild(child, widthMeasureSpec, heightMeasureSpec)
 
                 maxRowHeight = max(
                     maxRowHeight,
-                    (child.measuredHeight + lp.topMargin + lp.bottomMargin) / lp.netAttrs.rowCount
+                    (child.measuredHeight + lp.topMargin + lp.bottomMargin) / lp.rowCount
                 )
                 maxColumnWidth = max(
                     maxColumnWidth,
-                    (child.measuredWidth + lp.leftMargin + lp.rightMargin) / lp.netAttrs.columnCount
+                    (child.measuredWidth + lp.leftMargin + lp.rightMargin) / lp.columnCount
                 )
                 childState = combineMeasuredStates(childState, child.measuredState)
                 if (measureMatchParentChildren) {
@@ -165,8 +217,8 @@ open class NetLayout : ViewGroup {
             }
         }
 
-        var maxWidth = maxColumnWidth * mAttrs.columnCount
-        var maxHeight = maxRowHeight * mAttrs.rowCount
+        var maxWidth = maxColumnWidth * mNetAttrs.columnCount
+        var maxHeight = maxRowHeight * mNetAttrs.rowCount
 
         // Account for padding too
         maxWidth += paddingLeft + paddingRight
@@ -227,7 +279,7 @@ open class NetLayout : ViewGroup {
         val wMode = MeasureSpec.getMode(parentWidthMeasureSpec)
         val childWidthMeasureSpec = getChildMeasureSpec(
             MeasureSpec.makeMeasureSpec(
-                parentWidth / mAttrs.columnCount * lp.netAttrs.columnCount,
+                parentWidth / mNetAttrs.columnCount * lp.columnCount,
                 wMode
             ),
             lp.leftMargin + lp.rightMargin, lp.width
@@ -236,7 +288,7 @@ open class NetLayout : ViewGroup {
         val hMode = MeasureSpec.getMode(parentHeightMeasureSpec)
         val childHeightMeasureSpec = getChildMeasureSpec(
             MeasureSpec.makeMeasureSpec(
-                parentHeight / mAttrs.rowCount * lp.netAttrs.rowCount, // 计算课程的高度
+                parentHeight / mNetAttrs.rowCount * lp.rowCount, // 计算课程的高度
                 hMode
             ),
             lp.topMargin + lp.bottomMargin, lp.height
@@ -248,9 +300,10 @@ open class NetLayout : ViewGroup {
      * 基于 FrameLayout 的部分代码修改，主要修改了对 parentLeft、parentRight、parentTop、parentBottom 的计算
      */
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        val childCount = childCount
 
-        val rowHeight = (b - t - paddingTop - paddingBottom) / mAttrs.rowCount
-        val columnWidth = (r - l - paddingLeft - paddingRight) / mAttrs.columnCount
+        val totalRowHeight = b - t - paddingTop - paddingBottom
+        val totalColumnWidth = r - l - paddingLeft - paddingRight
 
         for (i in 0 until childCount) {
             val child = getChildAt(i)
@@ -258,10 +311,14 @@ open class NetLayout : ViewGroup {
                 val lp = child.layoutParams.net()
                 if (!lp.isComplete()) continue
 
-                val parentLeft: Int = paddingLeft + columnWidth * lp.netAttrs.startColumn
-                val parentRight: Int = parentLeft + columnWidth * lp.netAttrs.columnCount
-                val parentTop: Int = paddingTop + rowHeight * lp.netAttrs.startRow
-                val parentBottom: Int = parentTop + rowHeight * lp.netAttrs.rowCount
+                val parentLeft = paddingLeft +
+                        getColumnWidth(0, lp.startColumn - 1, totalColumnWidth)
+                val parentRight = parentLeft +
+                        getColumnWidth(lp.startColumn, lp.endColumn, totalColumnWidth)
+                val parentTop = paddingTop +
+                        getRowHeight(0, lp.startRow - 1, totalRowHeight)
+                val parentBottom = parentTop +
+                        getRowHeight(lp.startRow, lp.endRow, totalRowHeight)
 
                 val width = child.measuredWidth
                 val height = child.measuredHeight
@@ -298,102 +355,40 @@ open class NetLayout : ViewGroup {
         }
     }
 
-    override fun onDraw(canvas: Canvas?) {
-        super.onDraw(canvas)
-    }
-
-    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-        when (ev.action) {
-            MotionEvent.ACTION_DOWN -> {
-                mMoveItemControllerIntercept = false
-                mMoveItemController?.let {
-                    val item = findItemUnder(ev.x, ev.y)
-                    if (item != null) {
-                        mMoveItemControllerIntercept =
-                            it.onInterceptDownEvent(ev, item, item.layoutParams.net().netAttrs)
-                        it.onTouchEvent(ev)
-                        return true
-                    }
-                }
-            }
-            MotionEvent.ACTION_MOVE,
-            MotionEvent.ACTION_UP,
-            MotionEvent.ACTION_CANCEL -> {
-                if (mMoveItemControllerIntercept) {
-                    mMoveItemController?.onTouchEvent(ev)
-                }
-            }
+    private fun getRowHeight(start: Int, end: Int, totalRowHeight: Int): Int {
+        if (end < start) return 0
+        var startEndRowMultiple = 0F
+        for (i in start..end) {
+            startEndRowMultiple += mRowMultiple[i]
         }
-        if (ev.action == MotionEvent.ACTION_DOWN) {
+        return (startEndRowMultiple / mTotalRowMultiple * totalRowHeight).toInt()
+    }
 
+    private fun getColumnWidth(start: Int, end: Int, totalColumnWidth: Int): Int {
+        if (end < start) return 0
+        var startEndColumnMultiple = 0F
+        for (i in start..end) {
+            startEndColumnMultiple += mColumnMultiple[i]
         }
-        return super.onInterceptTouchEvent(ev)
+        return (startEndColumnMultiple / mTotalColumnMultiple * totalColumnWidth).toInt()
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (mMoveItemControllerIntercept) {
-
+    private fun resetTotalRowMultiple() {
+        mTotalRowMultiple = 0F
+        for (value in mRowMultiple) {
+            mTotalRowMultiple += value
         }
-        return super.onTouchEvent(event)
     }
 
-    fun findItemUnder(x: Float, y: Float): View? {
-        val count = childCount
-        for (i in count - 1 downTo 0) {
-            val child = getChildAt(i)
-            val translationX = child.translationX
-            val translationY = child.translationY
-            if (x >= child.left + translationX
-                && x <= child.right + translationX
-                && y >= child.top + translationY
-                && y <= child.bottom + translationY
-            ) {
-                return child
-            }
+    private fun resetTotalColumnMultiple() {
+        mTotalColumnMultiple = 0F
+        for (value in mColumnMultiple) {
+            mTotalColumnMultiple += value
         }
-        return null
     }
 
-
-    @Deprecated(
-        "禁止调用",
-        ReplaceWith("addNetChild(child, params)"),
-        DeprecationLevel.HIDDEN
-    )
-    override fun addView(child: View) {
-    }
-
-    @Deprecated(
-        "禁止调用",
-        ReplaceWith("addNetChild(child, params)"),
-        DeprecationLevel.HIDDEN
-    )
-    override fun addView(child: View, index: Int) {
-    }
-
-    @Deprecated(
-        "禁止调用",
-        ReplaceWith("addNetChild(child, params)"),
-        DeprecationLevel.HIDDEN
-    )
-    override fun addView(child: View, width: Int, height: Int) {
-    }
-
-    @Deprecated(
-        "禁止调用",
-        ReplaceWith("addNetChild(child, params)"),
-        DeprecationLevel.HIDDEN
-    )
-    override fun addView(child: View, params: LayoutParams) {
-    }
-
-    @Deprecated(
-        "禁止调用",
-        ReplaceWith("addNetChild(child, params)"),
-        DeprecationLevel.HIDDEN
-    )
     override fun addView(child: View, index: Int, params: LayoutParams) {
+        super.addView(child, index, params)
     }
 
     override fun generateLayoutParams(attrs: AttributeSet): LayoutParams {
@@ -403,12 +398,20 @@ open class NetLayout : ViewGroup {
     override fun generateLayoutParams(lp: LayoutParams): LayoutParams {
         return when (lp) {
             is NetLayoutParams -> NetLayoutParams(lp)
-            else -> throw NetLayoutAttrsException("LayoutParams 必须是 NetLayoutParams！")
+            is MarginLayoutParams -> NetLayoutParams(lp)
+            else -> NetLayoutParams(lp)
         }
     }
 
     override fun generateDefaultLayoutParams(): LayoutParams {
-        throw NetLayoutAttrsException("强制要求 LayoutParams 必须是 NetLayoutParams！")
+        return NetLayoutParams(
+            LayoutParams.MATCH_PARENT,
+            LayoutParams.MATCH_PARENT,
+            NetLayoutParams.UNSET,
+            NetLayoutParams.UNSET,
+            NetLayoutParams.UNSET,
+            NetLayoutParams.UNSET
+        )
     }
 
     override fun checkLayoutParams(p: LayoutParams): Boolean {
