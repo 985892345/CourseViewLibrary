@@ -2,14 +2,14 @@ package com.mredrock.cyxbs.lib.courseview.net
 
 import android.content.Context
 import android.util.AttributeSet
+import android.util.Log
+import android.util.SparseArray
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import androidx.viewpager2.widget.ViewPager2
+import androidx.core.util.forEach
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
-import com.mredrock.cyxbs.lib.courseview.net.utils.NetLayoutAttrsException
-import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.math.max
 
@@ -22,6 +22,9 @@ import kotlin.math.max
  * 3、支持 padding 属性
  *    支持子 View 的 layout_margin 属性
  *    支持 wrap_content 和子 View 为 match_parent 时的使用（几乎支持所有类型的测量）
+ * 4、支持单独设置某几行或某几列的比重
+ *    ①、在宽高为 match_parent 或 精确值 时，比重减少，所有包含这列或这行的子 View 全部减少
+ *    ②、在宽高为 wrap_content 时，注意：比重减少，会使该父布局的宽高一起减少
  * 4、设计得这么完善是为了让以后的人好扩展，该类被设计成了可继承的类，可以通过继承重构部分代码
  *
  * 使用思路：
@@ -53,13 +56,13 @@ open class NetLayout : ViewGroup {
     /**
      * 添加一个子 View
      * ```
-     * 1、保证 View 的排序有序
+     * 1、该方法保证 View 的排序有序
      * ```
      * @return 是否添加成功
      */
     fun addItem(item: View, lp: NetLayoutParams): Boolean {
         if (!lp.isComplete()) return false
-        super.addView(item, getViewAfterIndex(item, lp), lp)
+        addView(item, lp) // 注意：addView 方法被重写
         return true
     }
 
@@ -73,6 +76,12 @@ open class NetLayout : ViewGroup {
         } else false
     }
 
+    /**
+     * 倒叙查找子 View
+     *
+     * 如果要修改子 View 的添加顺序可以重写 [getChildAfterIndex]
+     * @see getChildAfterIndex
+     */
     fun findItemUnder(x: Float, y: Float): View? {
         val count = childCount
         for (i in count - 1 downTo 0) {
@@ -90,75 +99,102 @@ open class NetLayout : ViewGroup {
         return null
     }
 
-    fun setRowMultiple(row: Int, multiple: Float) {
-        setRowMultipleInLayout(row, multiple)
+    /**
+     * 重新分配第 [column] 列的比重
+     * @param weight 比重，默认情况下为 1F
+     */
+    fun setColumnWeight(column: Int, weight: Float) {
+        if (column >= mNetAttrs.columnCount || column < 0) {
+            throw IllegalArgumentException("column 不能大于或等于 ${mNetAttrs.columnCount} 且小于 0！")
+        }
+        if (weight == 1F) {
+            mColumnChangedSize.remove(column)
+        } else {
+            mColumnChangedSize.put(column, weight)
+        }
         requestLayout()
     }
 
-    fun setColumnMultiple(column: Int, multiple: Float) {
-        setColumnMultipleInLayout(column, multiple)
+    /**
+     * 重新分配第 [row] 行的比重
+     * @param weight 比重，默认情况下为 1F
+     */
+    fun setRowWeight(row: Int, weight: Float) {
+        if (row >= mNetAttrs.rowCount || row < 0) {
+            throw IllegalArgumentException("row 不能大于或等于 ${mNetAttrs.rowCount} 且小于 0！")
+        }
+        if (weight == 1F) {
+            mRowChangedSize.remove(row)
+        } else {
+            mRowChangedSize.put(row, weight)
+        }
         requestLayout()
     }
 
-    fun setRowMultipleInLayout(row: Int, multiple: Float) {
-        if (row >= mRowMultiple.size || row < 0) {
-            throw IllegalArgumentException("row 不能大于或等于 ${mRowMultiple.size} 且小于 0！")
-        }
-        mTotalRowMultiple += multiple - mRowMultiple[row]
-        mRowMultiple[row] = multiple
+    /**
+     * 设置第 [column] 列（以 0 开始）的***初始比重***，如果是布局后需要改变比重，请使用 [setColumnWeight] 方法
+     *
+     * **NOTE：** 与 [setColumnWeight] 的区别在于：会立即使初始状态的列比重分配失效
+     *
+     * **NOTE：** 初始分配值只有在 `layout_width` 为 `wrap_content` 时才有用，
+     * 所以该方法应该在 `layout_width` 为 `wrap_content` 时使用
+     *
+     * @param weight 比重，默认情况下为 1F
+     * @see setColumnWeight
+     */
+    fun setColumnInitialWeight(column: Int, weight: Float) {
+        setColumnWeight(column, weight)
+        mInitialSelfColumnSize = 0F // 重置
     }
 
-    fun setColumnMultipleInLayout(column: Int, multiple: Float) {
-        if (column >= mColumnMultiple.size || column < 0) {
-            throw IllegalArgumentException("column 不能大于或等于 ${mColumnMultiple.size} 且小于 0！")
-        }
-        mTotalColumnMultiple += multiple - mColumnMultiple[column]
-        mColumnMultiple[column] = multiple
+    /**
+     * 设置第 [row] 行（以 0 开始）的***初始比重***，如果是布局后需要改变比重，请使用 [setRowWeight] 方法
+     *
+     * **NOTE：** 与 [setRowWeight] 的区别在于：会立即使初始状态的行比重分配失效
+     *
+     * **NOTE：** 初始分配值只有在 `layout_height` 为 `wrap_content` 时才有用，
+     * 所以该方法应该在 `layout_height` 为 `wrap_content` 时使用
+     *
+     * @param weight 比重，默认情况下为 1F
+     * @see setRowWeight
+     */
+    fun setRowInitialWeight(row: Int, weight: Float) {
+        setRowWeight(row, weight)
+        mInitialSelfRowSize = 0F // 重置
     }
-
-
 
     // 属性值
     protected val mNetAttrs: NetLayoutAttrs
 
     // 参考 FrameLayout，用于在自身 wrap_content 而子 View 为 match_parent 时的测量
-    private val mMatchParentChildren = ArrayList<View>(1)
+    private val mMatchParentChildren = ArrayList<View>()
 
-    private val mRowMultiple: ArrayList<Float>
-    private var mTotalRowMultiple: Float = 0F
+    private val mRowChangedSize = LinkedHashMap<Int, Float>()
+    private val mColumnChangedSize = LinkedHashMap<Int, Float>()
 
-    private val mColumnMultiple: ArrayList<Float>
-    private var mTotalColumnMultiple: Float = 0F
+    private var mInitialSelfRowSize = 0F
+    private var mInitialSelfColumnSize = 0F
 
     constructor(context: Context, attrs: AttributeSet) : super(context, attrs) {
         mNetAttrs = NetLayoutAttrs.newInstance(context, attrs)
-        mRowMultiple = ArrayList(mNetAttrs.rowCount)
-        mColumnMultiple = ArrayList(mNetAttrs.columnCount)
-        initializeInterval()
     }
 
     constructor(context: Context, attrs: NetLayoutAttrs) : super(context) {
         mNetAttrs = attrs
-        mRowMultiple = ArrayList(mNetAttrs.rowCount)
-        mColumnMultiple = ArrayList(mNetAttrs.columnCount)
-        initializeInterval()
-    }
-
-    private fun initializeInterval() {
-        for (i in 0 until mRowMultiple.size) {
-            mRowMultiple[i] = 1F
-        }
-        for (i in 0 until mColumnMultiple.size) {
-            mColumnMultiple[i] = 1F
-        }
-        resetTotalRowMultiple()
-        resetTotalColumnMultiple()
     }
 
     /**
-     * 控制 View 被添加进来时的顺序，如果有重复的相同值，则是最后一位的索引加 1
+     * 控制 View 被添加进来时的顺序，如果有重复的相同值，则是最后一位相同值的索引加 1
+     * ```
+     * 如：
+     *             2  4  6  6  8
+     * 添加 6 进来: 2  4  6  6  6  8
+     *                         ↑
+     * ```
+     * **NOTE：** 排序基于 [NetLayoutParams.compareTo] 方法，
+     * 可在继承该 ViewGroup 的前提下重写该 compareTo 方法
      */
-    protected open fun getViewAfterIndex(child: View, params: NetLayoutParams): Int {
+    protected open fun getChildAfterIndex(child: View, params: NetLayoutParams): Int {
         var start = 0
         var end = childCount
         while (start < end) {
@@ -182,43 +218,70 @@ open class NetLayout : ViewGroup {
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val childCount = childCount
 
-        val measureMatchParentChildren =
-            MeasureSpec.getMode(widthMeasureSpec) != MeasureSpec.EXACTLY ||
-                    MeasureSpec.getMode(heightMeasureSpec) != MeasureSpec.EXACTLY
+        val widthIsExactly = MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY
+        val heightIsExactly = MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.EXACTLY
+
+        val widthIsWrap = layoutParams.width == LayoutParams.WRAP_CONTENT
+        val heightIsWrap = layoutParams.height == LayoutParams.WRAP_CONTENT
+
         mMatchParentChildren.clear()
 
-        var maxRowHeight = 0 // 记录行中最高值
-        var maxColumnWidth = 0 // 记录列中最宽值
+        var maxWidth = 0
+        var maxHeight = 0
         var childState = 0
+
+        val parentColumnSize = getSelfColumnsSize()
+        val parentRowSize = getSelfRowsSize()
 
         for (i in 0 until childCount) {
             val child = getChildAt(i)
             if (child.visibility != GONE) {
                 val lp = child.layoutParams.net()
                 if (!lp.isComplete()) continue
-                measureChild(child, widthMeasureSpec, heightMeasureSpec)
 
-                maxRowHeight = max(
-                    maxRowHeight,
-                    (child.measuredHeight + lp.topMargin + lp.bottomMargin) / lp.rowCount
+                val childColumnSize = getColumnsSize(lp.startColumn, lp.endColumn)
+                val childRowSize = getRowsSize(lp.startRow, lp.endRow)
+
+                val childWithParentColumnMultiple = childColumnSize / parentColumnSize
+                val childWithParentRowMultiple = childRowSize / parentRowSize
+
+                val childWidthRatio =
+                    if (widthIsWrap) childColumnSize / getInitialSelfColumnSize()
+                    else childWithParentColumnMultiple
+
+                val childHeightRatio =
+                    if (heightIsWrap) childRowSize / getInitialSelfRowSize()
+                    else childWithParentRowMultiple
+
+                lp.oldChildWidthRatio = childWidthRatio
+                lp.oldChildHeightRatio = childHeightRatio
+
+                measureChildWithRatio(
+                    child,
+                    widthMeasureSpec, heightMeasureSpec,
+                    childWidthRatio, childHeightRatio
                 )
-                maxColumnWidth = max(
-                    maxColumnWidth,
-                    (child.measuredWidth + lp.leftMargin + lp.rightMargin) / lp.columnCount
+
+                maxWidth = max(
+                    maxWidth,
+                    if (childWithParentColumnMultiple == 0F) 0
+                    else ((child.measuredWidth + lp.leftMargin + lp.rightMargin) /
+                            childWithParentColumnMultiple).toInt()
+                )
+                maxHeight = max(
+                    maxHeight,
+                    if (childWithParentRowMultiple == 0F) 0
+                    else ((child.measuredHeight + lp.topMargin + lp.bottomMargin) /
+                            childWithParentRowMultiple).toInt()
                 )
                 childState = combineMeasuredStates(childState, child.measuredState)
-                if (measureMatchParentChildren) {
-                    if (lp.width == LayoutParams.MATCH_PARENT ||
-                        lp.height == LayoutParams.MATCH_PARENT
-                    ) {
-                        mMatchParentChildren.add(child)
-                    }
+                if (!widthIsExactly && lp.width == LayoutParams.MATCH_PARENT ||
+                    !heightIsExactly && lp.height == LayoutParams.MATCH_PARENT
+                ) {
+                    mMatchParentChildren.add(child)
                 }
             }
         }
-
-        var maxWidth = maxColumnWidth * mNetAttrs.columnCount
-        var maxHeight = maxRowHeight * mNetAttrs.rowCount
 
         // Account for padding too
         maxWidth += paddingLeft + paddingRight
@@ -226,8 +289,6 @@ open class NetLayout : ViewGroup {
         // Check against our minimum height and width
         maxWidth = max(maxWidth, suggestedMinimumWidth)
         maxHeight = max(maxHeight, suggestedMinimumHeight)
-
-        // Check against our foreground's minimum height and width
 
         setMeasuredDimension(
             resolveSizeAndState(maxWidth, widthMeasureSpec, childState),
@@ -255,44 +316,136 @@ open class NetLayout : ViewGroup {
             val count = mMatchParentChildren.size
             for (i in 0 until count) {
                 val child = mMatchParentChildren[i]
-                // 这里与 FrameLayout 源码差异有点大，我这里直接将整个子 View 的测量交给了 measureChild 方法
-                // 提供的宽和高都是自身已经计算好的，所以与 FrameLayout 的写法无本质区别
-                measureChild(
+                val lp = child.layoutParams.net()
+                // 这里与 FrameLayout 源码差异有点大，我这里直接将整个子 View 的测量交给了 measureChildWithRatio 方法
+                // 提供的宽和高都是自身的，所以与 FrameLayout 的写法无本质区别
+                measureChildWithRatio(
                     child,
                     MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY),
-                    MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
+                    MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY),
+                    lp.oldChildWidthRatio, lp.oldChildHeightRatio
                 )
             }
         }
     }
 
     /**
-     * 在计算宽度和高度时进行了部分修改，使其用行和列的总数计算最大值来测量子 View
+     * 获取开始列到结束列所占的总比例大小
      */
-    override fun measureChild(
+    private fun getColumnsSize(startColumn: Int, endColumn: Int): Float {
+        var childColumnSize = 0F
+        for (column in startColumn..endColumn) {
+            childColumnSize += mColumnChangedSize[column] ?: 1F
+        }
+        return childColumnSize
+    }
+
+    /**
+     * 获取开始行到结束行所占的总比例大小
+     */
+    private fun getRowsSize(startRow: Int, endRow: Int): Float {
+        var childRowSize = 0F
+        for (row in startRow..endRow) {
+            childRowSize += mRowChangedSize[row] ?: 1F
+        }
+        return childRowSize
+    }
+
+    /**
+     * 获取自身全部列所占的比例大小
+     */
+    private fun getSelfColumnsSize(): Float {
+        var parentColumnSize = 0F
+        mColumnChangedSize.forEach {
+            parentColumnSize += it.value
+        }
+        parentColumnSize += mNetAttrs.columnCount - mColumnChangedSize.size
+        return parentColumnSize
+    }
+
+    /**
+     * 获取自身全部行所占的比例大小
+     */
+    private fun getSelfRowsSize(): Float {
+        var parentRowSize = 0F
+        mRowChangedSize.forEach {
+            parentRowSize += it.value
+        }
+        parentRowSize += mNetAttrs.rowCount - mRowChangedSize.size
+        return parentRowSize
+    }
+
+    /**
+     * 获取当自身宽为 warp_content 时第一次测量的全部列所占的比例大小
+     */
+    private fun getInitialSelfColumnSize(): Float {
+        if (layoutParams.width != LayoutParams.WRAP_CONTENT) {
+            throw RuntimeException("该方法只允许在宽度为 wrap_content 时调用！")
+        }
+        if (mInitialSelfColumnSize == 0F) {
+            mColumnChangedSize.forEach {
+                mInitialSelfColumnSize += it.value
+            }
+            mInitialSelfColumnSize += mNetAttrs.columnCount - mColumnChangedSize.size
+        }
+        return mInitialSelfColumnSize
+    }
+
+    /**
+     * 获取当自身高为 warp_content 时第一次测量的全部行所占的比例大小
+     */
+    private fun getInitialSelfRowSize(): Float {
+        if (layoutParams.height != LayoutParams.WRAP_CONTENT) {
+            throw RuntimeException("该方法只允许在高度为 wrap_content 时调用！")
+        }
+        if (mInitialSelfRowSize == 0F) {
+            mRowChangedSize.forEach {
+                mInitialSelfRowSize += it.value
+            }
+            mInitialSelfRowSize += mNetAttrs.rowCount - mRowChangedSize.size
+        }
+        return mInitialSelfRowSize
+    }
+
+    /**
+     * 在计算宽度和高度时进行了部分修改，使其用一个比例来测量子 View
+     * @param childWidthRatio [child] 宽度占父布局的总宽度的比例
+     * @param childHeightRatio [child] 宽度占父布局的总高度的比例
+     */
+    private fun measureChildWithRatio(
         child: View,
         parentWidthMeasureSpec: Int,
         parentHeightMeasureSpec: Int,
+        childWidthRatio: Float,
+        childHeightRatio: Float
     ) {
         val lp = child.layoutParams.net()
         val parentWidth = MeasureSpec.getSize(parentWidthMeasureSpec) - paddingLeft - paddingRight
         val wMode = MeasureSpec.getMode(parentWidthMeasureSpec)
+        val childWidth = (childWidthRatio * parentWidth).toInt()
         val childWidthMeasureSpec = getChildMeasureSpec(
             MeasureSpec.makeMeasureSpec(
-                parentWidth / mNetAttrs.columnCount * lp.columnCount,
-                wMode
+                childWidth,
+                /*
+                * 如果直接给 UNSPECIFIED 值，会使子 View 的宽直接变成 0，直接为 0 了就没了意义。下同
+                * 原因可看：View#onMeasure() -> View#getDefaultSize()
+                * */
+                if (wMode == MeasureSpec.UNSPECIFIED) MeasureSpec.AT_MOST else wMode
             ),
             lp.leftMargin + lp.rightMargin, lp.width
         )
+
         val parentHeight = MeasureSpec.getSize(parentHeightMeasureSpec) - paddingTop - paddingBottom
         val hMode = MeasureSpec.getMode(parentHeightMeasureSpec)
+        val childHeight = (childHeightRatio * parentHeight).toInt()
         val childHeightMeasureSpec = getChildMeasureSpec(
             MeasureSpec.makeMeasureSpec(
-                parentHeight / mNetAttrs.rowCount * lp.rowCount, // 计算课程的高度
-                hMode
+                childHeight,
+                if (hMode == MeasureSpec.UNSPECIFIED) MeasureSpec.AT_MOST else hMode
             ),
             lp.topMargin + lp.bottomMargin, lp.height
         )
+
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
     }
 
@@ -312,13 +465,13 @@ open class NetLayout : ViewGroup {
                 if (!lp.isComplete()) continue
 
                 val parentLeft = paddingLeft +
-                        getColumnWidth(0, lp.startColumn - 1, totalColumnWidth)
+                        getColumnsWidth(0, lp.startColumn - 1, totalColumnWidth)
                 val parentRight = parentLeft +
-                        getColumnWidth(lp.startColumn, lp.endColumn, totalColumnWidth)
+                        getColumnsWidth(lp.startColumn, lp.endColumn, totalColumnWidth)
                 val parentTop = paddingTop +
-                        getRowHeight(0, lp.startRow - 1, totalRowHeight)
+                        getRowsHeight(0, lp.startRow - 1, totalRowHeight)
                 val parentBottom = parentTop +
-                        getRowHeight(lp.startRow, lp.endRow, totalRowHeight)
+                        getRowsHeight(lp.startRow, lp.endRow, totalRowHeight)
 
                 val width = child.measuredWidth
                 val height = child.measuredHeight
@@ -355,40 +508,30 @@ open class NetLayout : ViewGroup {
         }
     }
 
-    private fun getRowHeight(start: Int, end: Int, totalRowHeight: Int): Int {
+    private fun getColumnsWidth(start: Int, end: Int, totalColumnWidth: Int): Int {
         if (end < start) return 0
-        var startEndRowMultiple = 0F
-        for (i in start..end) {
-            startEndRowMultiple += mRowMultiple[i]
-        }
-        return (startEndRowMultiple / mTotalRowMultiple * totalRowHeight).toInt()
+        val childColumnSize = getColumnsSize(start, end)
+        val parentColumnSize = getSelfColumnsSize()
+        return (childColumnSize / parentColumnSize * totalColumnWidth).toInt()
     }
 
-    private fun getColumnWidth(start: Int, end: Int, totalColumnWidth: Int): Int {
+    private fun getRowsHeight(start: Int, end: Int, totalRowHeight: Int): Int {
         if (end < start) return 0
-        var startEndColumnMultiple = 0F
-        for (i in start..end) {
-            startEndColumnMultiple += mColumnMultiple[i]
-        }
-        return (startEndColumnMultiple / mTotalColumnMultiple * totalColumnWidth).toInt()
+        val childRowSize = getRowsSize(start, end)
+        val parentRowSize = getSelfRowsSize()
+        return (childRowSize / parentRowSize * totalRowHeight).toInt()
     }
 
-    private fun resetTotalRowMultiple() {
-        mTotalRowMultiple = 0F
-        for (value in mRowMultiple) {
-            mTotalRowMultiple += value
-        }
-    }
-
-    private fun resetTotalColumnMultiple() {
-        mTotalColumnMultiple = 0F
-        for (value in mColumnMultiple) {
-            mTotalColumnMultiple += value
-        }
-    }
-
+    /**
+     * 重写是为了保证 child 的添加有序
+     */
     override fun addView(child: View, index: Int, params: LayoutParams) {
-        super.addView(child, index, params)
+        val lp = if (params is NetLayoutParams) {
+            params
+        } else {
+            generateLayoutParams(params) as NetLayoutParams
+        }
+        super.addView(child, getChildAfterIndex(child, lp), params)
     }
 
     override fun generateLayoutParams(attrs: AttributeSet): LayoutParams {
@@ -416,6 +559,16 @@ open class NetLayout : ViewGroup {
 
     override fun checkLayoutParams(p: LayoutParams): Boolean {
         return p is NetLayoutParams
+    }
+
+    override fun setLayoutParams(params: LayoutParams) {
+        if (params.width == LayoutParams.WRAP_CONTENT) {
+            mInitialSelfColumnSize = 0F // 重置
+        }
+        if (params.height == LayoutParams.WRAP_CONTENT) {
+            mInitialSelfRowSize = 0F // 重置
+        }
+        super.setLayoutParams(params)
     }
 
     private fun LayoutParams.net(): NetLayoutParams = this as NetLayoutParams

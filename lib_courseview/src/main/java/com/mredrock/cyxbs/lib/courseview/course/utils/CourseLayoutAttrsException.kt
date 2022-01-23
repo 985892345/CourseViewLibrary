@@ -8,5 +8,4 @@ import com.mredrock.cyxbs.lib.courseview.net.utils.NetLayoutAttrsException
  * @email 2767465918@qq.com
  * @date 2022/1/20
  */
-class CourseLayoutAttrsException(s: String) : NetLayoutAttrsException(s) {
-}
+class CourseLayoutAttrsException(s: String) : NetLayoutAttrsException(s)

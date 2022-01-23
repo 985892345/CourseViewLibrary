@@ -2,6 +2,7 @@ package com.mredrock.cyxbs.lib.courseview.course.attrs
 
 import android.content.Context
 import android.util.AttributeSet
+import com.mredrock.cyxbs.lib.courseview.CourseBean
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.base.int
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
@@ -12,11 +13,11 @@ import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
  * @email 2767465918@qq.com
  * @date 2022/1/20
  */
-class CourseLayoutParams : NetLayoutParams {
+class CourseLayoutParams : NetLayoutParams, CourseBean {
 
-    var day: Int
-    var lessonStartPos: Int
-    var lessonLength: Int
+    override var day: Int
+    override var startPos: Int
+    override var length: Int
 
     constructor(
         context: Context,
@@ -24,35 +25,37 @@ class CourseLayoutParams : NetLayoutParams {
     ) : super(context, attrs) {
         val ty = context.obtainStyledAttributes(attrs, R.styleable.CourseLayout_Layout)
         day = R.styleable.CourseLayout_Layout_course_layout_day.int(ty, UNSET)
-        lessonStartPos = R.styleable.CourseLayout_Layout_course_layout_startPos.int(ty, UNSET)
-        lessonLength = R.styleable.CourseLayout_Layout_course_layout_length.int(ty, UNSET)
+        startPos = R.styleable.CourseLayout_Layout_course_layout_startPos.int(ty, UNSET)
+        length = R.styleable.CourseLayout_Layout_course_layout_length.int(ty, UNSET)
         ty.recycle()
-        startRow = lessonStartPos - 1
-        endRow = startRow + lessonLength - 1
+        startRow = startPos - 1
+        endRow = startRow + length - 1
         startColumn = day
         endColumn = day
     }
 
     constructor(
         day: Int,
-        lessonStartPos : Int,
-        lessonLength: Int
+        startPos : Int,
+        length: Int
     ) : super(
         MATCH_PARENT,
         MATCH_PARENT,
-        lessonStartPos,
-        lessonStartPos + lessonLength - 1,
+        startPos,
+        startPos + length - 1,
         day,
         day
     ) {
         this.day = day
-        this.lessonStartPos = lessonStartPos
-        this.lessonLength = lessonLength
+        this.startPos = startPos
+        this.length = length
     }
 
     constructor(lp: CourseLayoutParams) : super(lp) {
         day = lp.day
-        lessonStartPos = lp.lessonStartPos
-        lessonLength = lp.lessonLength
+        startPos = lp.startPos
+        length = lp.length
     }
+
+    constructor(bean: CourseBean) : this(bean.day, bean.startPos, bean.length)
 }

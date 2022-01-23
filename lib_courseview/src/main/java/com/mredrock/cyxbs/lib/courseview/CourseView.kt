@@ -17,10 +17,4 @@ class CourseView(
     context: Context,
     attrs: AttributeSet
 ) : FrameLayout(context, attrs) {
-
-    private val mChild = View.inflate(context, R.layout.course_combine, this) as NetLayout
-
-    init {
-    }
-
 }

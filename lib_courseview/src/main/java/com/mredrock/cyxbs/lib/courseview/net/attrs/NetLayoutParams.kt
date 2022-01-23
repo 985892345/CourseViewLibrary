@@ -102,4 +102,7 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
     companion object {
         const val UNSET = -1
     }
+
+    internal var oldChildWidthRatio = 0F
+    internal var oldChildHeightRatio = 0F
 }

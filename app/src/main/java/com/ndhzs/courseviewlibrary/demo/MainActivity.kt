@@ -6,19 +6,31 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import androidx.recyclerview.widget.RecyclerView
+import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var mRvCourse: RecyclerView
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.course_test)
-        initView()
-    }
+        setContentView(R.layout.layout_course)
 
-    private fun initView() {
-        mRvCourse = findViewById(R.id.rv_course)
+        val courseLayout: CourseLayout = findViewById(R.id.course)
 
+        courseLayout.setRowInitialWeight(4, 0F)
+        courseLayout.setRowInitialWeight(9, 0F)
+
+        val view: View = findViewById(R.id.view1)
+
+        var i = 0
+        view.setOnClickListener {
+            if (i % 2 == 0) {
+                courseLayout.setRowWeight(4, 1F)
+                courseLayout.setRowWeight(9, 1F)
+            } else {
+                courseLayout.setRowWeight(4, 0F)
+                courseLayout.setRowWeight(9, 0F)
+            }
+            i++
+        }
     }
 }
