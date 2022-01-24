@@ -15,13 +15,13 @@
     </declare-styleable>
 
     <declare-styleable name="NetLayout_Layout">
-        <!--开始行的索引值，以 0 开始，注意：如果不给属性赋值并且也没设置 Adapter，则默认不会显示 View-->
+        <!--开始行的索引值，以 0 开始，注意：如果不给属性赋值，则默认不会显示 View-->
         <attr name="net_layout_startRow" format="integer"/>
-        <!--结束行的索引值，以 0 开始，注意：如果不给属性赋值并且也没设置 Adapter，则默认不会显示 View-->
+        <!--结束行的索引值，以 0 开始，注意：如果不给属性赋值，则默认不会显示 View-->
         <attr name="net_layout_endRow" format="integer"/>
-        <!--开始列的索引值，以 0 开始，注意：如果不给属性赋值并且也没设置 Adapter，则默认不会显示 View-->
+        <!--开始列的索引值，以 0 开始，注意：如果不给属性赋值，则默认不会显示 View-->
         <attr name="net_layout_startColumn" format="integer"/>
-        <!--结束列的索引值，以 0 开始，注意：如果不给属性赋值并且也没设置 Adapter，则默认不会显示 View-->
+        <!--结束列的索引值，以 0 开始，注意：如果不给属性赋值，则默认不会显示 View-->
         <attr name="net_layout_endColumn" format="integer"/>
         <!--子 View 的 layout_gravity-->
         <attr name="net_layout_gravity">
@@ -44,6 +44,10 @@
             <!-- Push object to the end of its container, not changing its size. -->
             <flag name="end" value="0x00800005" />
         </attr>
+        <!--设置为 true 后，
+        如果子 View 也为 NetLayout，且父 NetLayout 与子 NetLayout 的行数与行数相等或列数与列数相等时
+        ，则行比重或列比重将同步被修改，其他 View 设置该属性无效-->
+        <attr name="net_layout_syncWithNetParent" format="boolean"/>
     </declare-styleable>
 
 </resources>

@@ -16,5 +16,8 @@ import com.mredrock.cyxbs.lib.courseview.net.NetLayout
 class CourseView(
     context: Context,
     attrs: AttributeSet
-) : FrameLayout(context, attrs) {
+) : NetLayout(context, attrs) {
+    init {
+        setRowColumnCount(8, 13)
+    }
 }

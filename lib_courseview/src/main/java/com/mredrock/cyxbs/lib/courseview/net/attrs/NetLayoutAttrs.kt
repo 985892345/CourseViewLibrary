@@ -13,9 +13,15 @@ import com.mredrock.cyxbs.lib.courseview.base.BaseViewAttrs.Companion.newAttrs
  * @date 2022/1/17
  */
 open class NetLayoutAttrs(
-    val rowCount: Int,
-    val columnCount: Int
+    rowCount: Int,
+    columnCount: Int
 ) : BaseViewAttrs {
+
+    var rowCount = rowCount
+        internal set
+    var columnCount = columnCount
+        internal set
+
     companion object {
         fun newInstance(
             context: Context,

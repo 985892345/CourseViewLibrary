@@ -6,6 +6,7 @@ import android.view.Gravity
 import android.view.ViewGroup
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.base.BaseViewAttrs
+import com.mredrock.cyxbs.lib.courseview.base.boolean
 import com.mredrock.cyxbs.lib.courseview.base.int
 
 /**
@@ -33,6 +34,8 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
     val columnCount: Int
         get() = endColumn - startColumn + 1
 
+    var syncWithNetParent: Boolean
+
     constructor(
         c: Context,
         attrs: AttributeSet
@@ -43,6 +46,7 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
         startColumn = R.styleable.NetLayout_Layout_net_layout_startColumn.int(ty, UNSET)
         endColumn = R.styleable.NetLayout_Layout_net_layout_endColumn.int(ty, UNSET)
         gravity = R.styleable.NetLayout_Layout_net_layout_gravity.int(ty, Gravity.CENTER)
+        syncWithNetParent = R.styleable.NetLayout_Layout_net_layout_syncWithNetParent.boolean(ty, false)
         ty.recycle()
     }
     constructor(
@@ -52,20 +56,23 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
         endRow: Int,
         startColumn: Int,
         endColumn: Int,
-        gravity: Int = Gravity.CENTER
+        gravity: Int = Gravity.CENTER,
+        syncWithNetParent: Boolean = false
     ) : super(width, height) {
         this.startRow = startRow
         this.endRow = endRow
         this.startColumn = startColumn
         this.endColumn = endColumn
         this.gravity = gravity
+        this.syncWithNetParent = syncWithNetParent
     }
-    constructor(source: NetLayoutParams, ) : super(source) {
+    constructor(source: NetLayoutParams) : super(source) {
         this.startRow = source.startRow
         this.endRow = source.endRow
         this.startColumn = source.startColumn
         this.endColumn = source.endColumn
         this.gravity = source.gravity
+        this.syncWithNetParent = source.syncWithNetParent
     }
     constructor(source: ViewGroup.MarginLayoutParams) : super(source) {
         this.startRow = UNSET
@@ -73,6 +80,7 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
         this.startColumn = UNSET
         this.endColumn = UNSET
         this.gravity = UNSET
+        this.syncWithNetParent = false
     }
     constructor(source: ViewGroup.LayoutParams) : super(source) {
         this.startRow = UNSET
@@ -80,6 +88,7 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
         this.startColumn = UNSET
         this.endColumn = UNSET
         this.gravity = UNSET
+        this.syncWithNetParent = false
     }
 
     override fun compareTo(other: NetLayoutParams): Int {
@@ -87,16 +96,16 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
         if (dArea == 0) {
             val dRow = startRow - other.startRow
             if (dRow == 0) {
-                val dColumn = startColumn - other.startColumn // 开始列小的在下面
+                val dColumn = startColumn - other.startColumn // 然后开始列小的在下面
                 if (dColumn == 0) {
-                    // 间距大的（面积就小）在上面
+                    // 最后间距大的（面积就小）在上面
                     return leftMargin + rightMargin + topMargin + bottomMargin -
                             (other.leftMargin + other.rightMargin + other.topMargin + other.bottomMargin)
                 }
             }
-            return dRow // 开始行小的在下面
+            return dRow // 再开始行小的在下面
         }
-        return dArea // 面积大的在下面
+        return dArea // 先面积大的在下面
     }
 
     companion object {

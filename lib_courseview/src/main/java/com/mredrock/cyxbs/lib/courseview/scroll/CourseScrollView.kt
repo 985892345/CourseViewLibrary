@@ -19,9 +19,13 @@ class CourseScrollView(
 ) : NestedScrollView(context, attrs) {
 
     /**
-     * NestedScrollView 与 ScrollView 在对于子 View 高度处理时在下面这个方法不一样, 导致
-     * NestedScrollView 中子 View 必须使用具体的高度, 设置成 wrap_content 或 match_parent
-     * 都将无效，具体的可以去看 ScrollView 和 NestedScrollView 中对于这同一方法的源码
+     * 重写该方法的几个原因：
+     * 1、为了在 UNSPECIFIED 模式下，课表也能得到 NestedScrollView 的高度
+     * 2、NestedScrollView 与 ScrollView 在对于子 View 高度处理时在下面这个方法不一样, 导致
+     *    NestedScrollView 中子 View 必须使用具体的高度, 设置成 wrap_content 或 match_parent
+     *    都将无效，具体的可以去看 ScrollView 和 NestedScrollView 中对于这同一方法的源码
+     * 3、题外话：在 NestedScrollView 中嵌套 RecyclerView 会使 RecyclerView 的复用失效，直接原因就与
+     *    这个方法有关，而使用 ScrollView 就不会造成复用失效的情况
      */
     override fun measureChildWithMargins(
         child: View,
