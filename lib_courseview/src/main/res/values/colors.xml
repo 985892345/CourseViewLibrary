@@ -13,5 +13,5 @@
     <!--    课表标识当天阴影-->
     <color name="common_course_identifies_the_current_shadow_color">#93E8F0FC</color>
 
-    <color name="course_add_affair_color">#FFbdc3c7</color>
+    <color name="course_add_affair_color">#bdc3c7</color>
 </resources>

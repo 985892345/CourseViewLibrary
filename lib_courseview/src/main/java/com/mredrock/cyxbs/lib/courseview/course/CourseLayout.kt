@@ -70,8 +70,8 @@ class CourseLayout : NetLayout {
 
     private val mCourseAttrs: CourseLayoutAttrs
 
-    private val mCourseDecoration = ArrayList<CourseDecoration>(1)
-    private val mCourseTouchListener = ArrayList<OnCourseTouchListener>(1)
+    private val mCourseDecoration = ArrayList<CourseDecoration>(5)
+    private val mCourseTouchListener = ArrayList<OnCourseTouchListener>(5)
 
     private var mInterceptingOnTouchListener: OnCourseTouchListener? = null
 
@@ -134,13 +134,24 @@ class CourseLayout : NetLayout {
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
     }
 
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        mCourseTouchListener.forEach {
+            it.onDispatchTouchEvent(ev, this)
+        }
+        return super.dispatchTouchEvent(ev)
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
             mInterceptingOnTouchListener = null
             mCourseTouchListener.forEach {
-                if (it.isIntercept(event, this)) {
-                    mInterceptingOnTouchListener = it
+                if (mInterceptingOnTouchListener == null) {
+                    if (it.isIntercept(event, this)) {
+                        mInterceptingOnTouchListener = it
+                    }
+                } else {
+                    it.onCancelDownEvent(this)
                 }
             }
         }

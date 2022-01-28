@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.RectF
 import android.graphics.drawable.GradientDrawable
 import android.os.*
+import android.util.Log
 import android.view.*
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
@@ -44,13 +45,15 @@ class CourseCreateAffairHelper private constructor(
      * 造成会被之前的 listener 提前拦截，所以需要在外面去判断什么时候取消显示这个 View
      */
     fun removeTouchAffairView() {
-        course.removeView(mTouchAffairView)
+
     }
 
     private var mInitialX = 0
     private var mInitialY = 0
     private var mLastMoveX = 0
     private var mLastMoveY = 0
+
+    private var mIsInIntercepting = false
 
     private var mTouchSlop = ViewConfiguration.get(course.context).scaledTouchSlop
     private var mLongPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
@@ -60,7 +63,7 @@ class CourseCreateAffairHelper private constructor(
         // 添加 mTouchAffairView
         course.addCourse(
             mTouchAffairView,
-            CourseLayoutParams(mDay, mTopRow, mBottomRow, CourseType.AFFAIR_TOUCH)
+            CourseLayoutParams(mDay, mTopRow, mBottomRow - mTopRow + 1, CourseType.AFFAIR_TOUCH)
         )
         vibrator(course.context) // 长按被触发来个震动
     }
@@ -91,12 +94,34 @@ class CourseCreateAffairHelper private constructor(
         course.addCourseTouchListener(this)
     }
 
-    override fun isIntercept(event: MotionEvent, course: CourseLayout): Boolean {
-        val x = event.x.toInt()
-        val y = event.y.toInt()
+    /**
+     * 你可能会比较疑惑为什么在事件分发中对事件拦截进行提前判断? 或者为什么我要重写这个方法?
+     * ```
+     * 原因如下：
+     * 1、onDispatchTouchEvent() 早于 isIntercept() 调用，所以提前判断是否拦截不会出现问题
+     * 2、主要原因在于何时取消 mTouchAffairView 的显示，需要知道当前点击的是否是这个 mTouchAffairView，如果不是就 remove 掉，
+     *    而却会出现事件被 CourseLayout 的子 View 拦截的情况，出现这种情况时，isIntercept() 是不会被调用的，
+     *    所以就没有办法去判断何时 remove 掉 mTouchAffairView
+     * 3、接 2，为了将 mTouchAffairView 的 remove 封装起来，就只能将拦截提前判断
+     * ```
+     */
+    override fun onDispatchTouchEvent(event: MotionEvent, course: CourseLayout) {
         if (event.action == MotionEvent.ACTION_DOWN) {
+            mIsInIntercepting = false
+            val x = event.x.toInt()
+            val y = event.y.toInt()
             val touchView = course.findItemUnder(x, y)
+            /*
+            * 这里 touchView = null 时一定会将事件给 CourseLayout#onTouchEvent() 处理，
+            * 之后事件就会分发到每个 OnCourseTouchListener 中，
+            * 如果事件能够传递到该 listener，则会直接交给自身的 onTouchEvent() 处理
+            *
+            * 但存在顺序在前面的 OnCourseTouchListener 提前拦截事件，
+            * 所以需要重写 onCancelDownEvent() 方法取消 mLongPressRunnable
+            * */
             if (touchView == null) {
+                mIsInIntercepting = true
+
                 mInitialX = x
                 mInitialY = y
                 mLastMoveX = x
@@ -105,13 +130,21 @@ class CourseCreateAffairHelper private constructor(
                 mInitialRow = course.getRow(y)
                 mTopRow = mInitialRow
                 mBottomRow = mInitialRow
+
                 course.postDelayed(mLongPressRunnable, mLongPressTimeout)
                 // 禁止 CourseScrollView 拦截事件
                 course.requestDisallowInterceptTouchEvent(true)
-                return true
+            }
+            if (touchView !== mTouchAffairView) {
+                if (mTouchAffairView.parent != null) {
+                    course.removeView(mTouchAffairView)
+                }
             }
         }
-        return false
+    }
+
+    override fun isIntercept(event: MotionEvent, course: CourseLayout): Boolean {
+        return mIsInIntercepting
     }
 
     override fun onTouchEvent(event: MotionEvent, course: CourseLayout) {
@@ -119,12 +152,14 @@ class CourseCreateAffairHelper private constructor(
         val y = event.y.toInt()
         when (event.action) {
             MotionEvent.ACTION_MOVE -> {
+                Log.d("ggg", "(CourseCreateAffairHelper.kt:155) --> 111")
                 if (mIsInLongPress) { // 处于长按状态
                     mLastMoveX = x
                     mLastMoveY = y
                     changeTouchAffairView(y)
                     scrollIsNecessary(y)
                 } else {
+                    Log.d("ggg", "(CourseCreateAffairHelper.kt:163) --> 222")
                     if (abs(x - mLastMoveX) <= mTouchSlop
                         && abs(y - mLastMoveY) <= mTouchSlop
                     ) {
@@ -139,6 +174,7 @@ class CourseCreateAffairHelper private constructor(
                         * 3、如果 mIsInLongPress 被赋值为 true（说明达到长按时间）
                         * */
                     } else {
+                        Log.d("ggg", "(CourseCreateAffairHelper.kt:177) --> 333")
                         // 走到该分支说明在判定为长按的时间内，移动的距离大于了 mTouchSlop
                         // 接下来的一系列事件就不该自身处理，应该被 CourseScrollView 当成滚动而拦截
                         course.requestDisallowInterceptTouchEvent(false)
@@ -153,11 +189,18 @@ class CourseCreateAffairHelper private constructor(
                 if (abs(x - mLastMoveX) <= mTouchSlop
                     && abs(y - mLastMoveY) <= mTouchSlop
                 ) {
-                    // 这里说明移动的距离小于 mTouchSlop，但还是得把点击的事务给绘制上
-                    course.addCourse(
-                        mTouchAffairView,
-                        CourseLayoutParams(mDay, mTopRow, mBottomRow, CourseType.AFFAIR_TOUCH)
-                    )
+                    if (mTouchAffairView.parent == null) { // 防止之前已经被添加
+                        // 这里说明移动的距离小于 mTouchSlop，但还是得把点击的事务给绘制上
+                        course.addCourse(
+                            mTouchAffairView,
+                            CourseLayoutParams(
+                                mDay,
+                                mTopRow,
+                                mBottomRow - mTopRow + 1,
+                                CourseType.AFFAIR_TOUCH
+                            )
+                        )
+                    }
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
@@ -167,12 +210,18 @@ class CourseCreateAffairHelper private constructor(
         }
     }
 
+    override fun onCancelDownEvent(course: CourseLayout) {
+        course.removeCallbacks(mLongPressRunnable)
+        mIsInLongPress = false
+    }
+
     /**
      * 根据 [y] 值来计算当前 mTouchAffairView 的位置并刷新布局
      */
     private fun changeTouchAffairView(y: Int) {
         val touchView = course.findItemUnder(mInitialX, y)
         if (touchView == null || touchView === mTouchAffairView) {
+            if (y < 0 || y > course.height) return
             val row = course.getRow(y)
             val topRow: Int
             val bottomRow: Int

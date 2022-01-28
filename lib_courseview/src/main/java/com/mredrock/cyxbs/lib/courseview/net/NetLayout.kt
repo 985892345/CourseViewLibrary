@@ -183,10 +183,12 @@ open class NetLayout : ViewGroup {
      */
     fun getColumnsWidth(start: Int, end: Int): Int {
         if (start >= mNetAttrs.columnCount || start < 0) {
-            throw IllegalArgumentException("start 不能大于或等于 ${mNetAttrs.columnCount} 且小于 -1！")
+            throw IllegalArgumentException(
+                "start = $start 不能大于或等于 ${mNetAttrs.columnCount} 且小于 -1！")
         }
         if (end >= mNetAttrs.columnCount || end < -1) {
-            throw IllegalArgumentException("end 不能大于或等于 ${mNetAttrs.columnCount} 且小于 -1！")
+            throw IllegalArgumentException(
+                "end = $end 不能大于或等于 ${mNetAttrs.columnCount} 且小于 -1！")
         }
         if (width == 0) return -1
         return getColumnsWidthInternal(start, end, width)
@@ -206,10 +208,12 @@ open class NetLayout : ViewGroup {
      */
     fun getRowsHeight(start: Int, end: Int): Int {
         if (start >= mNetAttrs.rowCount || start < 0) {
-            throw IllegalArgumentException("start 不能大于或等于 ${mNetAttrs.rowCount} 且小于 -1！")
+            throw IllegalArgumentException(
+                "start = $start 不能大于或等于 ${mNetAttrs.rowCount} 且小于 -1！")
         }
         if (end >= mNetAttrs.rowCount || end < -1) {
-            throw IllegalArgumentException("end 不能大于或等于 ${mNetAttrs.rowCount} 且小于 -1！")
+            throw IllegalArgumentException(
+                "end = $end 不能大于或等于 ${mNetAttrs.rowCount} 且小于 -1！")
         }
         if (height == 0) return -1
         return getRowsHeightInternal(start, end, height)
@@ -289,8 +293,10 @@ open class NetLayout : ViewGroup {
      * 得到第 [start] - [end] 列的比重
      */
     fun getColumnsWeight(start: Int, end: Int): Float {
+        if (start == 0 && end == -1) return 0F
         if (start !in 0..end || end >= mNetAttrs.columnCount) {
-            throw IllegalArgumentException("start 必须大于 0 且小于 end，end 不能大于或等于 ${mNetAttrs.columnCount}！")
+            throw IllegalArgumentException(
+                "start = $start 必须大于 0 且小于 end，end = $end 不能大于或等于 ${mNetAttrs.columnCount}！")
         }
         return getColumnsWeightInternal(start, end)
     }
@@ -299,8 +305,10 @@ open class NetLayout : ViewGroup {
      * 得到 [start] - [end] 行的比重
      */
     fun getRowsWeight(start: Int, end: Int): Float {
+        if (start == 0 && end == -1) return 0F
         if (start !in 0..end || end >= mNetAttrs.rowCount) {
-            throw IllegalArgumentException("start 必须大于 0 且小于 end，end 不能大于或等于 ${mNetAttrs.rowCount}！")
+            throw IllegalArgumentException(
+                "start = $start 必须大于 0 且小于 end，end = $end 不能大于或等于 ${mNetAttrs.rowCount}！")
         }
         return getRowsWeightInternal(start, end)
     }

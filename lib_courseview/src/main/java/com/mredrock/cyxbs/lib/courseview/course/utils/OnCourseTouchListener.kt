@@ -45,4 +45,14 @@ interface OnCourseTouchListener {
      * 处理事件
      */
     fun onTouchEvent(event: MotionEvent, course: CourseLayout)
+
+    /**
+     * Down 事件被顺序在前面的 OnCourseTouchListener 拦截时回调
+     */
+    fun onCancelDownEvent(course: CourseLayout) { }
+
+    /**
+     * 在 CourseLayout 分发事件前调用，每一个 OnCourseTouchListener 都可以收到
+     */
+    fun onDispatchTouchEvent(event: MotionEvent, course: CourseLayout) { }
 }
