@@ -1,13 +1,33 @@
 package com.mredrock.cyxbs.lib.courseview.scroll
 
 import android.content.Context
+import android.graphics.Canvas
 import android.util.AttributeSet
+import android.util.Log
 import android.view.View
 import androidx.core.widget.NestedScrollView
+import com.mredrock.cyxbs.lib.courseview.R
+import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import kotlin.math.max
 
 /**
  * 包裹整个课表的一个 NestedScrollView
+ * -----------------------------------------------
+ * |
+ * |
+ * |
+ * |
+ * |
+ * |
+ * |          控件布局可以看 [R.layout.layout_course]（使用 xml 来布局，是为了方便以后修改）
+ * |          里面包裹了一个 [CourseLayout]
+ * |
+ * |
+ * |
+ * |
+ * |
+ * |
+ * ----------------------------------------------
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2021/9/20

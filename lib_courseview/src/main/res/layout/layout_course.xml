@@ -4,16 +4,17 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent" >
 
     <com.mredrock.cyxbs.lib.courseview.course.CourseLayout
         android:id="@+id/course"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:minHeight="700dp"
         app:net_rowCount="14"
-        app:net_columnCount="8">
+        app:net_columnCount="8" >
 
-        <View
+        <TextView
             android:id="@+id/view1"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -25,6 +26,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="1"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -38,6 +40,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="2"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -51,6 +54,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="3"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -64,6 +68,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="4"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -77,6 +82,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="5"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -90,6 +96,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="6"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -103,6 +110,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="7"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -116,6 +124,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="8"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -129,6 +138,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="9"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -142,6 +152,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="10"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -155,6 +166,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="11"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -168,6 +180,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="12"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -181,6 +194,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="13"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
         <TextView
@@ -194,6 +208,7 @@
             app:course_layout_day="0"
             app:course_layout_startPos="14"
             app:course_layout_length="1"
+            app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
     </com.mredrock.cyxbs.lib.courseview.course.CourseLayout>

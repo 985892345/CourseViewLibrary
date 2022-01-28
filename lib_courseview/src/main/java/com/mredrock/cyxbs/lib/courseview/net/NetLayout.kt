@@ -1,12 +1,18 @@
 package com.mredrock.cyxbs.lib.courseview.net
 
 import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.math.MathUtils
+import com.mredrock.cyxbs.lib.courseview.net.callback.OnWeightChangeListener
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
+import com.mredrock.cyxbs.lib.courseview.net.utils.Side
 import kotlin.collections.ArrayList
 import kotlin.math.max
 
@@ -74,14 +80,13 @@ open class NetLayout : ViewGroup {
     }
 
     /**
-     * 倒叙查找子 View
+     * 倒序查找子 View
      *
      * 如果要修改子 View 的添加顺序可以重写 [getChildAfterIndex]
      * @see getChildAfterIndex
      */
-    fun findItemUnder(x: Float, y: Float): View? {
-        val count = childCount
-        for (i in count - 1 downTo 0) {
+    fun findItemUnder(x: Int, y: Int): View? {
+        for (i in childCount - 1 downTo 0) {
             val child = getChildAt(i)
             val translationX = child.translationX
             val translationY = child.translationY
@@ -97,13 +102,27 @@ open class NetLayout : ViewGroup {
     }
 
     /**
+     * 得到总列数
+     */
+    fun getColumnCount(): Int {
+        return mNetAttrs.columnCount
+    }
+
+    /**
+     * 得到总行数
+     */
+    fun getRowCount(): Int {
+        return mNetAttrs.rowCount
+    }
+
+    /**
      * 得到 [x] 对应的列数，超出控件范围或没有被测量时得到 -1
      * @return 得到 [x] 对应的列数，超出控件范围或没有被测量时得到 -1
      */
-    fun getColumn(x: Float): Int {
+    fun getColumn(x: Int): Int {
         if (width == 0) return -1
         if (x < 0 || x > width) return -1
-        val a = x / width
+        val a = x / width.toFloat()
         var column = (a * mNetAttrs.columnCount).toInt()
         val selfWeight = getSelfColumnsWeight()
         var c1 = getColumnsWeight(0, column - 1)
@@ -127,10 +146,10 @@ open class NetLayout : ViewGroup {
      * 得到 [y] 对应的行数，超出控件范围或没有被测量时得到 -1
      * @return 得到 [y] 对应的行数，超出控件范围或没有被测量时得到 -1
      */
-    fun getRow(y: Float): Int {
+    fun getRow(y: Int): Int {
         if (height == 0) return -1
         if (y < 0 || y > height) return -1
-        val a = y / width
+        val a = y / height.toFloat()
         var row = (a * mNetAttrs.rowCount).toInt()
         val selfWeight = getSelfRowsWeight()
         var r1 = getRowsWeight(0, row - 1)
@@ -185,7 +204,7 @@ open class NetLayout : ViewGroup {
      * ......
      * ```
      */
-    fun getRowsWidth(start: Int, end: Int): Int {
+    fun getRowsHeight(start: Int, end: Int): Int {
         if (start >= mNetAttrs.rowCount || start < 0) {
             throw IllegalArgumentException("start 不能大于或等于 ${mNetAttrs.rowCount} 且小于 -1！")
         }
@@ -201,8 +220,11 @@ open class NetLayout : ViewGroup {
      * @param weight 比重，默认情况下为 1F
      */
     fun setColumnWeight(column: Int, weight: Float) {
-        if (column >= mNetAttrs.columnCount || column < 0) {
-            throw IllegalArgumentException("column 不能大于或等于 ${mNetAttrs.columnCount} 且小于 0！")
+        checkColumn(column)
+        val old = mColumnChangedWeight[column] ?: 1F
+        if (old == weight) return
+        mOnWeightChangeListeners.forEach {
+            it.onChange(old, weight, column, Side.COLUMN)
         }
         if (weight == 1F) {
             mColumnChangedWeight.remove(column)
@@ -217,8 +239,11 @@ open class NetLayout : ViewGroup {
      * @param weight 比重，默认情况下为 1F
      */
     fun setRowWeight(row: Int, weight: Float) {
-        if (row >= mNetAttrs.rowCount || row < 0) {
-            throw IllegalArgumentException("row 不能大于或等于 ${mNetAttrs.rowCount} 且小于 0！")
+        checkRow(row)
+        val old = mRowChangedWeight[row] ?: 1F
+        if (old == weight) return
+        mOnWeightChangeListeners.forEach {
+            it.onChange(old, weight, row, Side.ROW)
         }
         if (weight == 1F) {
             mRowChangedWeight.remove(row)
@@ -284,86 +309,46 @@ open class NetLayout : ViewGroup {
      * 设置行数和列数
      */
     fun setRowColumnCount(row: Int, column: Int) {
-        if (column <= 0) {
-            throw IllegalArgumentException("column 不能小于或等于 0！")
-        }
-        if (row <= 0) {
-            throw IllegalArgumentException("row 不能小于或等于 0！")
-        }
+        checkColumn(column)
+        checkRow(row)
         mNetAttrs.columnCount = column
         mNetAttrs.rowCount = row
-        updateRowColumnSyncNetLayout()
         requestLayout()
     }
 
     /**
-     * 添加列同步，只有两个列数相等时才能添加成功
-     * @return 如果添加失败，则不符合要求
+     * 设置行或列比重被修改的监听
      */
-    fun addColumnSyncNetLayout(layout: NetLayout): Boolean {
-        val attrs = layout.mNetAttrs
-        if (mNetAttrs.columnCount == attrs.columnCount) {
-            if (!containsColumnSync(layout)) {
-                mColumnSyncNetLayout.add(layout)
-            }
-            if (!layout.containsColumnSync(this)) {
-                layout.mColumnSyncNetLayout.add(this)
-            }
+    fun setOnWeightChangeListener(l: OnWeightChangeListener) {
+        mOnWeightChangeListeners.add(l)
+    }
 
-
-            // 添加开始同步代码
-
-
-
+    /**
+     * 将自身的列比重与 [layout] 同步
+     * @return 不符合要求返回 false
+     */
+    fun syncColumnWeight(layout: NetLayout): Boolean {
+        if (getColumnCount() == layout.getColumnCount()) {
+            mColumnChangedWeight.clear()
+            mColumnChangedWeight.putAll(layout.mColumnChangedWeight)
+            requestLayout()
             return true
         }
         return false
     }
 
     /**
-     * 添加行同步，只有两个行数相等时才能添加成功
-     * @return 如果添加失败，则不符合要求
+     * 将自身的行比重与 [layout] 同步
+     * @return 不符合要求返回 false
      */
-    fun addRowSyncNetLayout(layout: NetLayout): Boolean {
-        val attrs = layout.mNetAttrs
-        if (mNetAttrs.rowCount == attrs.rowCount) {
-            if (!containsRowSync(layout)) {
-                mRowSyncNetLayout.add(layout)
-            }
-            if (!layout.containsRowSync(this)) {
-                layout.mRowSyncNetLayout.add(this)
-            }
+    fun syncRowWeight(layout: NetLayout): Boolean {
+        if (getRowCount() == layout.getRowCount()) {
+            mRowChangedWeight.clear()
+            mRowChangedWeight.putAll(layout.mRowChangedWeight)
+            requestLayout()
             return true
         }
         return false
-    }
-
-    /**
-     * 列同步中是否包含该 [NetLayout]
-     */
-    fun containsColumnSync(layout: NetLayout): Boolean {
-        return mColumnSyncNetLayout.contains(layout)
-    }
-
-    /**
-     * 行同步中是否包含该 [NetLayout]
-     */
-    fun containsRowSync(layout: NetLayout): Boolean {
-        return mRowSyncNetLayout.contains(layout)
-    }
-
-    /**
-     * 移除掉列同步
-     */
-    fun removeColumnSyncNetLayout(layout: NetLayout): Boolean {
-        return mColumnSyncNetLayout.remove(layout)
-    }
-
-    /**
-     * 移除掉行同步
-     */
-    fun removeRowSyncNetLayout(layout: NetLayout): Boolean {
-        return mRowSyncNetLayout.remove(layout)
     }
 
     // 属性值
@@ -382,10 +367,8 @@ open class NetLayout : ViewGroup {
     // 在 layout_width 为 wrap_content 时，记录第一次测量的自身总列比重，用于后面扩大列比重使父布局变宽
     private var mInitialSelfColumnWeight = 0F
 
-    // 记录行同步的 NetLayout
-    private var mRowSyncNetLayout = ArrayList<NetLayout>(2)
-    // 记录列同步的 NetLayout
-    private var mColumnSyncNetLayout = ArrayList<NetLayout>(2)
+    // 比重改变监听
+    private val mOnWeightChangeListeners = ArrayList<OnWeightChangeListener>(2)
 
     constructor(context: Context, attrs: AttributeSet) : super(context, attrs) {
         mNetAttrs = NetLayoutAttrs.newInstance(context, attrs)
@@ -463,8 +446,8 @@ open class NetLayout : ViewGroup {
                     if (heightIsWrap) childRowWeight / getInitialSelfRowSize()
                     else childWithParentRowMultiple
 
-                lp.oldChildWidthRatio = childWidthRatio
-                lp.oldChildHeightRatio = childHeightRatio
+                lp.oldChildWidthRatio = childWithParentColumnMultiple
+                lp.oldChildHeightRatio = childWithParentRowMultiple
 
                 measureChildWithRatio(
                     child,
@@ -635,7 +618,7 @@ open class NetLayout : ViewGroup {
         val lp = child.layoutParams.net()
         val parentWidth = MeasureSpec.getSize(parentWidthMeasureSpec) - paddingLeft - paddingRight
         val wMode = MeasureSpec.getMode(parentWidthMeasureSpec)
-        val childWidth = (childWidthRatio * parentWidth).toInt()
+        val childWidth = (childWidthRatio * (parentWidth)).toInt()
         val childWidthMeasureSpec = getChildMeasureSpec(
             MeasureSpec.makeMeasureSpec(childWidth, wMode),
             lp.leftMargin + lp.rightMargin, lp.width
@@ -643,7 +626,7 @@ open class NetLayout : ViewGroup {
 
         val parentHeight = MeasureSpec.getSize(parentHeightMeasureSpec) - paddingTop - paddingBottom
         val hMode = MeasureSpec.getMode(parentHeightMeasureSpec)
-        val childHeight = (childHeightRatio * parentHeight).toInt()
+        val childHeight = (childHeightRatio * (parentHeight)).toInt()
         val childHeightMeasureSpec = getChildMeasureSpec(
             MeasureSpec.makeMeasureSpec(childHeight, hMode),
             lp.topMargin + lp.bottomMargin, lp.height
@@ -672,7 +655,7 @@ open class NetLayout : ViewGroup {
                 val parentRight = parentLeft + (lp.oldChildWidthRatio * totalColumnWidth).toInt()
                 val parentTop = paddingTop +
                         getRowsHeightInternal(0, lp.startRow - 1, totalRowHeight)
-                val parentBottom = parentTop + (lp.oldChildHeightRatio * totalColumnWidth).toInt()
+                val parentBottom = parentTop + (lp.oldChildHeightRatio * totalRowHeight).toInt()
 
                 val width = child.measuredWidth
                 val height = child.measuredHeight
@@ -711,16 +694,44 @@ open class NetLayout : ViewGroup {
 
     private fun getColumnsWidthInternal(start: Int, end: Int, totalColumnWidth: Int): Int {
         if (end < start) return 0
-        val childColumnSize = getColumnsWeightInternal(start, end)
-        val parentColumnSize = getSelfColumnsWeight()
-        return (childColumnSize / parentColumnSize * totalColumnWidth).toInt()
+        val childColumnWeight = getColumnsWeightInternal(start, end)
+        val parentColumnWeight = getSelfColumnsWeight()
+        return (childColumnWeight / parentColumnWeight * totalColumnWidth).toInt()
     }
 
     private fun getRowsHeightInternal(start: Int, end: Int, totalRowHeight: Int): Int {
         if (end < start) return 0
-        val childRowSize = getRowsWeightInternal(start, end)
-        val parentRowSize = getSelfRowsWeight()
-        return (childRowSize / parentRowSize * totalRowHeight).toInt()
+        val childRowWeight = getRowsWeightInternal(start, end)
+        val parentRowWeight = getSelfRowsWeight()
+        return (childRowWeight / parentRowWeight * totalRowHeight).toInt()
+    }
+
+    var DEBUG = false
+    private val DEBUG_LINE_PAINT = Paint().apply {
+        color = Color.BLACK
+        style = Paint.Style.STROKE
+        strokeWidth = 2F
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        if (DEBUG) {
+            var childRowWeight = 0F
+            val parentRowWeight = getSelfRowsWeight()
+            for (row in 0 until getRowCount() - 1) {
+                childRowWeight += mRowChangedWeight[row] ?: 1F
+                val y = childRowWeight / parentRowWeight * height
+                canvas.drawLine(0F, y, width.toFloat(), y, DEBUG_LINE_PAINT)
+            }
+
+            var childColumnWeight = 0F
+            val parentColumnWeight = getSelfColumnsWeight()
+            for (column in 0 until getColumnCount() - 1) {
+                childColumnWeight += mColumnChangedWeight[column] ?: 1F
+                val x = childColumnWeight / parentColumnWeight * width
+                canvas.drawLine(x, 0F, x, height.toFloat(), DEBUG_LINE_PAINT)
+            }
+        }
     }
 
     /**
@@ -749,8 +760,6 @@ open class NetLayout : ViewGroup {
 
     override fun generateDefaultLayoutParams(): LayoutParams {
         return NetLayoutParams(
-            LayoutParams.MATCH_PARENT,
-            LayoutParams.MATCH_PARENT,
             NetLayoutParams.UNSET,
             NetLayoutParams.UNSET,
             NetLayoutParams.UNSET,
@@ -770,25 +779,17 @@ open class NetLayout : ViewGroup {
             mInitialSelfRowWeight = 0F // 重置
         }
         super.setLayoutParams(params)
-        updateRowColumnSyncNetLayout()
     }
 
-    /**
-     * 更新行和列的同步情况
-     */
-    private fun updateRowColumnSyncNetLayout() {
-        val lp = layoutParams
-        if (lp is NetLayoutParams) {
-            val parent = parent
-            if (parent is NetLayout) {
-                if (lp.syncWithNetParent) { // 如果需要同步则从子 NetLayout 添加到父 NetLayout
-                    addRowSyncNetLayout(parent)
-                    addColumnSyncNetLayout(parent)
-                } else {
-                    removeRowSyncNetLayout(parent) // 修改属性后取消同步
-                    removeColumnSyncNetLayout(parent) // 修改属性后取消同步
-                }
-            }
+    private fun checkColumn(column: Int) {
+        if (column >= mNetAttrs.columnCount || column < 0) {
+            throw IllegalArgumentException("column 不能大于或等于 ${mNetAttrs.columnCount} 且小于 0！")
+        }
+    }
+
+    private fun checkRow(row: Int) {
+        if (row >= mNetAttrs.rowCount || row < 0) {
+            throw IllegalArgumentException("row 不能大于或等于 ${mNetAttrs.rowCount} 且小于 0！")
         }
     }
 

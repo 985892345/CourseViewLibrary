@@ -5,6 +5,12 @@
         <attr name="course_layout_day" format="integer"/>
         <attr name="course_layout_startPos" format="integer"/>
         <attr name="course_layout_length" format="integer"/>
+        <attr name="course_layout_type" format="enum">
+            <enum name="my" value="0"/>
+            <enum name="other" value="1"/>
+            <enum name="affair" value="2"/>
+            <enum name="time" value="3"/>
+        </attr>
     </declare-styleable>
 
     <declare-styleable name="NetLayout">
@@ -44,10 +50,6 @@
             <!-- Push object to the end of its container, not changing its size. -->
             <flag name="end" value="0x00800005" />
         </attr>
-        <!--设置为 true 后，
-        如果子 View 也为 NetLayout，且父 NetLayout 与子 NetLayout 的行数与行数相等或列数与列数相等时
-        ，则行比重或列比重将同步被修改，其他 View 设置该属性无效-->
-        <attr name="net_layout_syncWithNetParent" format="boolean"/>
     </declare-styleable>
 
 </resources>

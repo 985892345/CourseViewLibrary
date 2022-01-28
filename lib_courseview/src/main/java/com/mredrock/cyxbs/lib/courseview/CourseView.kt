@@ -1,23 +1,86 @@
 package com.mredrock.cyxbs.lib.courseview
 
 import android.content.Context
+import android.graphics.Canvas
 import android.util.AttributeSet
-import android.view.LayoutInflater
-import android.view.View
+import android.util.Log
+import android.view.ViewGroup
 import android.widget.FrameLayout
-import com.mredrock.cyxbs.lib.courseview.net.NetLayout
+import android.widget.LinearLayout
+import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
+import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
+import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
+import com.mredrock.cyxbs.lib.courseview.utils.CourseCreateAffairHelper
+import com.mredrock.cyxbs.lib.courseview.utils.CourseFoldHelper
+import com.mredrock.cyxbs.lib.courseview.utils.CourseLayoutContainer
+import com.mredrock.cyxbs.lib.courseview.utils.WeekLayoutContainer
 
 /**
- * ...
+ * ```
+ * 该 View 作用：
+ * 1、添加子 View
+ * 2、与课表的操控行为强耦合
+ * ```
+ * [CourseView]:
+ * -----------------------------------------------------------------------
+ * |  [mWeek]:                                                           |
+ * |  -----------------------------------------------------------------  |
+ * |  |       |       |       |       |       |       |       |       |  |
+ * |  | month |  mon  |  tue  |  wed  |  thu  |  fri  |  sat  |  sun  |  |
+ * |  |       |       |       |       |       |       |       |       |  |
+ * |  -----------------------------------------------------------------  |
+ * |  [mCourse]:                                                         |
+ * |  -----------------------------------------------------------------  |
+ * |  | [CourseScrollView] ↗                                          |  |
+ * |  |                                                               |  |
+ * |  |  -----------------------------------------------------------  |  |
+ * |  |  | [CourseLayout] ↗                                        |  |  |
+ * |  |  |                                                         |  |  |
+ * |  |  |                                                         |  |  |
+ * |  |  |                                                         |  |  |
+ * |  |  |                                                         |  |  |
+ * |  |  |                                                         |  |  |
+ * |  |  |                                                         |  |  |
+ * |  |  |                                                         |  |  |
+ * |  |  |                                                         |  |  |
+ * |  |  |                                                         |  |  |
+ * |  |  |                                                         |  |  |
+ * |  |  |                                                         |  |  |
+ * |  |  -----------------------------------------------------------  |  |
+ * |  -----------------------------------------------------------------  |
+ * -----------------------------------------------------------------------
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/1/20
- */
+*/
 class CourseView(
     context: Context,
     attrs: AttributeSet
-) : NetLayout(context, attrs) {
+) : LinearLayout(context, attrs) {
+
+    private val mWeek = WeekLayoutContainer(this)
+    private val mCourse = CourseLayoutContainer(this)
+
     init {
-        setRowColumnCount(8, 13)
+        orientation = VERTICAL
+        initWeek()
+        initCourse()
+    }
+
+    private fun initWeek() {
+        addView(mWeek.layout)
+    }
+
+    private fun initCourse() {
+        for (row in CourseLayout.NOON_TOP..CourseLayout.NOON_BOTTOM) {
+            mCourse.layout.setRowInitialWeight(row, 0F)
+        }
+        for (row in CourseLayout.DUSK_TOP..CourseLayout.DUSK_BOTTOM) {
+            mCourse.layout.setRowInitialWeight(row, 0F)
+        }
+        addView(mCourse.scrollView)
+        CourseFoldHelper.attach(mCourse.layout)
+        CourseCreateAffairHelper.attach(mCourse.layout)
     }
 }

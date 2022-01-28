@@ -1,28 +1,79 @@
 package com.mredrock.cyxbs.lib.courseview.course
 
+import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Canvas
+import android.graphics.Color
 import android.util.AttributeSet
+import android.util.Log
+import android.view.MotionEvent
 import android.view.View
+import androidx.core.view.NestedScrollingChildHelper
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
+import com.mredrock.cyxbs.lib.courseview.course.utils.CourseDecoration
 import com.mredrock.cyxbs.lib.courseview.course.utils.CourseLayoutAttrsException
+import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
 import com.mredrock.cyxbs.lib.courseview.net.NetLayout
-import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
-import kotlin.io.path.Path
 
 /**
- * ...
+ * ```
+ * 该 View 作用：
+ * 1、继承于 NetLayout，自定义对课程的布局
+ *
+ * ● ======== app:net_columnCount = 8 ======== ●
+ * ↓                                           ↓
+ * --------------------------------------------- ←- ●
+ * |       |                                   |    ║
+ * |       |                                   |    ║
+ * |       |                                   |    ║
+ * |       |                                   |    ║
+ * |   L   |                  S                |    ║
+ * |   E   |                  H                |    ║
+ * |   F   |                  O                |    ║ ←-←-←-←-←- Noon 时间段，占 1 x 7
+ * |   T   |                  W                |    ║
+ * |       |                                   | app:net_rowCount = 14
+ * |   T   |                  L                |    ║
+ * |   I   |                  E                |    ║
+ * |   M   |                  S                |    ║ ←-←-←-←-←- Dusk 时间段，占 1 x 7
+ * |   E   |                  S                |    ║
+ * |       |                  O                |    ║
+ * |       |                  N                |    ║
+ * |       |                  S                |    ║
+ * |       |                                   |    ║
+ * --------------------------------------------- ←- ●
+ * ↑       ↑                                   ↑
+ * ↑       ↑                                   ↑
+ * ↑       ● =========== Column = 7 ========== ●
+ * ↑       ↑                  ↑
+ * ● ===== ●              这里显示课程
+ *     ↑
+ *  这一列显示左侧的时间
+ * ```
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/1/20
  */
-open class CourseLayout : NetLayout {
+class CourseLayout : NetLayout {
 
     fun addCourse(view: View, lp: CourseLayoutParams) {
         addItem(view, lp)
     }
 
+    fun addCourseDecoration(decor: CourseDecoration, index: Int = mCourseDecoration.size) {
+        mCourseDecoration.add(index, decor)
+    }
+
+    fun addCourseTouchListener(l: OnCourseTouchListener, index: Int = mCourseTouchListener.size) {
+        mCourseTouchListener.add(index, l)
+    }
+
     private val mCourseAttrs: CourseLayoutAttrs
+
+    private val mCourseDecoration = ArrayList<CourseDecoration>(1)
+    private val mCourseTouchListener = ArrayList<OnCourseTouchListener>(1)
+
+    private var mInterceptingOnTouchListener: OnCourseTouchListener? = null
 
     constructor(
         context: Context,
@@ -30,6 +81,7 @@ open class CourseLayout : NetLayout {
     ) : super(context, attrs) {
         mCourseAttrs = CourseLayoutAttrs(mNetAttrs)
     }
+
     constructor(
         context: Context,
         attrs: CourseLayoutAttrs
@@ -82,6 +134,34 @@ open class CourseLayout : NetLayout {
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
     }
 
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action == MotionEvent.ACTION_DOWN) {
+            mInterceptingOnTouchListener = null
+            mCourseTouchListener.forEach {
+                if (it.isIntercept(event, this)) {
+                    mInterceptingOnTouchListener = it
+                }
+            }
+        }
+        mInterceptingOnTouchListener?.onTouchEvent(event, this)
+        return mInterceptingOnTouchListener != null
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        mCourseDecoration.forEach {
+            it.onDrawOver(canvas, this)
+        }
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        mCourseDecoration.forEach {
+            it.onDraw(canvas, this)
+        }
+    }
+
     override fun generateLayoutParams(attrs: AttributeSet): LayoutParams {
         return CourseLayoutParams(context, attrs)
     }
@@ -99,5 +179,21 @@ open class CourseLayout : NetLayout {
 
     override fun checkLayoutParams(p: LayoutParams): Boolean {
         return p is CourseLayoutParams
+    }
+
+    companion object {
+        const val AM_TOP = 0
+        const val AM_BOTTOM = 3
+        const val NOON_TOP = 4
+        const val NOON_BOTTOM = 4
+        const val PM_TOP = 5
+        const val PM_BOTTOM = 8
+        const val DUSK_TOP = 9
+        const val DUSK_BOTTOM = 9
+        const val NIGHT_TOP = 10
+        const val NIGHT_BOTTOM = 13
+
+        const val TIME_LINE_LEFT = 0
+        const val TIME_LINE_RIGHT = 0
     }
 }

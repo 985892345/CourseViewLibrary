@@ -5,9 +5,13 @@
       <map>
         <entry key="..\:/Android Studio/Project/CourseViewLibrary/app/src/main/res/layout/activity_main.xml" value="0.335" />
         <entry key="..\:/Android Studio/Project/CourseViewLibrary/app/src/main/res/layout/activity_main2.xml" value="0.24954710144927536" />
+        <entry key="..\:/Android Studio/Project/CourseViewLibrary/app/src/main/res/layout/activity_video.xml" value="0.28396739130434784" />
         <entry key="..\:/Android Studio/Project/CourseViewLibrary/app/src/main/res/layout/course_test.xml" value="0.24818840579710144" />
+        <entry key="..\:/Android Studio/Project/CourseViewLibrary/app/src/main/res/layout/fragment_video_comment.xml" value="0.28396739130434784" />
+        <entry key="..\:/Android Studio/Project/CourseViewLibrary/app/src/main/res/layout/fragment_video_introduce.xml" value="0.28396739130434784" />
         <entry key="..\:/Android Studio/Project/CourseViewLibrary/app/src/main/res/layout/layout_main2.xml" value="0.2708333333333333" />
         <entry key="..\:/Android Studio/Project/CourseViewLibrary/app/src/main/res/layout/test.xml" value="0.2545289855072464" />
+        <entry key="..\:/Android Studio/Project/CourseViewLibrary/lib_courseview/src/main/res/drawable/course_ic_add_circle_white.xml" value="0.1605" />
         <entry key="..\:/Android Studio/Project/CourseViewLibrary/lib_courseview/src/main/res/layout/course.xml" value="0.26222826086956524" />
         <entry key="..\:/Android Studio/Project/CourseViewLibrary/lib_courseview/src/main/res/layout/course_am.xml" value="0.26222826086956524" />
         <entry key="..\:/Android Studio/Project/CourseViewLibrary/lib_courseview/src/main/res/layout/course_combine.xml" value="0.16818642350557245" />
@@ -16,7 +20,9 @@
         <entry key="..\:/Android Studio/Project/CourseViewLibrary/lib_courseview/src/main/res/layout/course_night.xml" value="0.26222826086956524" />
         <entry key="..\:/Android Studio/Project/CourseViewLibrary/lib_courseview/src/main/res/layout/course_noon.xml" value="0.26222826086956524" />
         <entry key="..\:/Android Studio/Project/CourseViewLibrary/lib_courseview/src/main/res/layout/course_pm.xml" value="0.26222826086956524" />
-        <entry key="..\:/Android Studio/Project/CourseViewLibrary/lib_courseview/src/main/res/layout/layout_course.xml" value="0.16818642350557245" />
+        <entry key="..\:/Android Studio/Project/CourseViewLibrary/lib_courseview/src/main/res/layout/layout_course.xml" value="0.25" />
+        <entry key="..\:/Android Studio/Project/CourseViewLibrary/lib_courseview/src/main/res/layout/layout_week.xml" value="0.26766304347826086" />
+        <entry key="..\:/Android Studio/Project/CourseViewLibrary/lib_courseview/src/main/res/layout/layout_week_item.xml" value="0.26766304347826086" />
       </map>
     </option>
   </component>
