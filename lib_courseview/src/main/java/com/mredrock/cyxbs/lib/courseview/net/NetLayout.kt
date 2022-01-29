@@ -254,7 +254,6 @@ open class NetLayout : ViewGroup {
      * @param weight 比重，默认情况下为 1F
      */
     fun setRowWeight(row: Int, weight: Float) {
-        Log.d("ggg", "(NetLayout.kt:256)-->> weight = $weight")
         checkRow(row)
         val old = mRowChangedWeight[row] ?: 1F
         if (old == weight) return

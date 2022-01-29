@@ -35,10 +35,16 @@ class CourseLayoutParams : NetLayoutParams, CourseBean {
         val length = R.styleable.CourseLayout_Layout_course_layout_length.int(ty, UNSET)
         type = R.styleable.CourseLayout_Layout_course_layout_type.courseType(ty)
         ty.recycle()
-        startRow = startPos - 1
-        endRow = startRow + length - 1
-        startColumn = day
-        endColumn = day
+        if (startPos != UNSET) {
+            startRow = startPos - 1
+        }
+        if (length != UNSET) {
+            endRow = startRow + length - 1
+        }
+        if (day != UNSET) {
+            startColumn = day
+            endColumn = day
+        }
     }
 
     constructor(

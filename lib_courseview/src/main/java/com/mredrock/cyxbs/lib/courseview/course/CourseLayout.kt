@@ -78,7 +78,7 @@ class CourseLayout : NetLayout {
      * 得到当前中午那一行的状态
      */
     fun getNoonRowState(): RowState {
-        Log.d("ggg", "(CourseLayout.kt:76)-->> ${getRowsWeight(NOON_TOP, NOON_BOTTOM) }")
+        if (mNoonAnimation != null) return RowState.ANIMATION
         return when (getRowsWeight(NOON_TOP, NOON_BOTTOM) / (NOON_BOTTOM - NOON_TOP + 1)) {
             1F -> RowState.UNFOLD
             0F -> RowState.FOLD
@@ -90,6 +90,7 @@ class CourseLayout : NetLayout {
      * 得到当前中午那一行的状态
      */
     fun getDuskRowState(): RowState {
+        if (mDuskAnimation != null) return RowState.ANIMATION
         return when (getRowsWeight(DUSK_TOP, DUSK_BOTTOM) / (DUSK_BOTTOM - DUSK_TOP + 1)) {
             1F -> RowState.UNFOLD
             0F -> RowState.FOLD
@@ -112,6 +113,138 @@ class CourseLayout : NetLayout {
     fun changeDuskWeight(weight: Float) {
         for (row in DUSK_TOP..DUSK_BOTTOM) {
             setRowWeight(row, weight)
+        }
+    }
+
+    /**
+     * 不带动画的立即折叠中午时间段。如果此时正处于展开动画，则立马取消；如果正处于折叠动画，则不做取消操作
+     */
+    fun foldNoonWithoutAnim() {
+        if (mNoonAnimation == null) {
+            changeNoonWeight(0F)
+        } else if (mNoonAnimation is UnfoldAnimation) {
+            mNoonAnimation?.cancel()
+            mNoonAnimation = null
+            changeNoonWeight(0F)
+        }
+    }
+
+    /**
+     * 不带动画的立即展开中午时间段。如果此时正处于折叠动画，则立马取消；如果正处于展开动画，则不做取消操作
+     */
+    fun unfoldNoonWithoutAnim() {
+        if (mNoonAnimation == null) {
+            changeNoonWeight(1F)
+        } else if (mNoonAnimation is FoldAnimation) {
+            mNoonAnimation?.cancel()
+            mNoonAnimation = null
+            changeNoonWeight(1F)
+        }
+    }
+
+    /**
+     * 带有动画的折叠中午时间段，折叠动画和展开动画不共存，如果整叠正在运行，则调用展开动画将会失败
+     */
+    fun foldNoon(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
+        if (mNoonAnimation == null) {
+            mNoonAnimation = FoldAnimation(
+                onEnd = {
+                    mNoonAnimation = null
+                    mNoonImageView.visibility = View.VISIBLE
+                    onEnd?.invoke()
+                },
+                onChanged = {
+                    val nowWeight = it.animatedValue as Float
+                    changeNoonWeight(nowWeight)
+                    onChanged?.invoke(nowWeight)
+                }
+            ).apply { start() }
+        }
+    }
+
+    /**
+     * 带有动画的展开中午时间段，折叠动画和展开动画不共存，如果展开正在运行，则调用折叠动画将会失败
+     */
+    fun unfoldNoon(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
+        if (mNoonAnimation == null) {
+            mNoonImageView.visibility = View.INVISIBLE
+            mNoonAnimation = UnfoldAnimation(
+                onEnd = {
+                    mNoonAnimation = null
+                    onEnd?.invoke()
+                },
+                onChanged = {
+                    val nowWeight = it.animatedValue as Float
+                    changeNoonWeight(nowWeight)
+                    onChanged?.invoke(nowWeight)
+                }
+            ).apply { start() }
+        }
+    }
+
+    /**
+     * 不带动画的立即折叠傍晚时间段。如果此时正处于展开动画，则立马取消；如果正处于折叠动画，则不做取消操作
+     */
+    fun foldDuskWithoutAnim() {
+        if (mDuskAnimation == null) {
+            changeDuskWeight(0F)
+        } else if (mDuskAnimation is UnfoldAnimation) {
+            mDuskAnimation?.cancel()
+            mDuskAnimation = null
+            changeDuskWeight(0F)
+        }
+    }
+
+    /**
+     * 不带动画的立即展开傍晚时间段。如果此时正处于折叠动画，则立马取消；如果正处于展开动画，则不做取消操作
+     */
+    fun unfoldDuskWithoutAnim() {
+        if (mDuskAnimation == null) {
+            changeDuskWeight(1F)
+        } else if (mDuskAnimation is UnfoldAnimation) {
+            mDuskAnimation?.cancel()
+            mDuskAnimation = null
+            changeDuskWeight(1F)
+        }
+    }
+
+    /**
+     * 带有动画的折叠傍晚时间段，折叠动画和展开动画不共存，如果整叠正在运行，则调用展开动画将会失败
+     */
+    fun foldDusk(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
+        if (mDuskAnimation == null) {
+            mDuskAnimation = FoldAnimation(
+                onEnd = {
+                    mDuskAnimation = null
+                    mDuskImageView.visibility = View.VISIBLE
+                    onEnd?.invoke()
+                },
+                onChanged = {
+                    val nowWeight = it.animatedValue as Float
+                    changeDuskWeight(nowWeight)
+                    onChanged?.invoke(nowWeight)
+                }
+            ).apply { start() }
+        }
+    }
+
+    /**
+     * 带有动画的展开傍晚时间段，折叠动画和展开动画不共存，如果展开正在运行，则调用折叠动画将会失败
+     */
+    fun unfoldDusk(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
+        if (mDuskAnimation == null) {
+            mDuskImageView.visibility = View.INVISIBLE
+            mDuskAnimation = UnfoldAnimation(
+                onEnd = {
+                    mDuskAnimation = null
+                    onEnd?.invoke()
+                },
+                onChanged = {
+                    val nowWeight = it.animatedValue as Float
+                    changeDuskWeight(nowWeight)
+                    onChanged?.invoke(nowWeight)
+                }
+            ).apply { start() }
         }
     }
 
@@ -147,102 +280,6 @@ class CourseLayout : NetLayout {
     // 显示展开傍晚时间段的箭头，一个 ImageView
     private val mDuskImageView: ImageView by lazy(LazyThreadSafetyMode.NONE) {
         findViewById(R.id.img_dusk_arrow)
-    }
-
-    fun foldNoonWithoutAnim() {
-        if (mNoonAnimation == null) {
-            changeNoonWeight(0F)
-        } else if (mNoonAnimation is UnfoldAnimation) {
-            mNoonAnimation?.addEndListener { changeNoonWeight(0F) }
-        }
-    }
-
-    fun unfoldNoonWithoutAnim() {
-        if (mNoonAnimation == null) {
-            changeNoonWeight(1F)
-        } else if (mNoonAnimation is FoldAnimation) {
-            mNoonAnimation?.addEndListener { changeNoonWeight(1F) }
-        }
-    }
-
-    fun foldNoon(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
-        if (mNoonAnimation == null) {
-            mNoonAnimation = FoldAnimation(
-                onEnd = {
-                    mNoonAnimation = null
-                    mNoonImageView.visibility = View.VISIBLE
-                    onEnd?.invoke()
-                },
-                onChanged = {
-                    val nowWeight = it.animatedValue as Float
-                    changeNoonWeight(nowWeight)
-                    onChanged?.invoke(nowWeight)
-                }
-            ).apply { start() }
-        }
-    }
-
-    fun unfoldNoon(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
-        if (mNoonAnimation == null) {
-            mNoonImageView.visibility = View.INVISIBLE
-            mNoonAnimation = UnfoldAnimation(
-                onEnd = {
-                    mNoonAnimation = null
-                    onEnd?.invoke()
-                },
-                onChanged = {
-                    val nowWeight = it.animatedValue as Float
-                    changeNoonWeight(nowWeight)
-                    onChanged?.invoke(nowWeight)
-                }
-            ).apply { start() }
-        }
-    }
-
-    fun foldDuskWithoutAnim() {
-        if (mDuskAnimation == null) {
-            changeDuskWeight(0F)
-        } else if (mDuskAnimation is )
-    }
-
-    fun unfoldDuskWithoutAnim() {
-        if (mDuskAnimation == null) {
-            changeDuskWeight(1F)
-        }
-    }
-
-    fun foldDusk(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
-        if (mDuskAnimation == null) {
-            mDuskAnimation = FoldAnimation(
-                onEnd = {
-                    mDuskAnimation = null
-                    mDuskImageView.visibility = View.VISIBLE
-                    onEnd?.invoke()
-                },
-                onChanged = {
-                    val nowWeight = it.animatedValue as Float
-                    changeDuskWeight(nowWeight)
-                    onChanged?.invoke(nowWeight)
-                }
-            ).apply { start() }
-        }
-    }
-
-    fun unfoldDusk(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
-        if (mDuskAnimation == null) {
-            mDuskImageView.visibility = View.INVISIBLE
-            mDuskAnimation = UnfoldAnimation(
-                onEnd = {
-                    mDuskAnimation = null
-                    onEnd?.invoke()
-                },
-                onChanged = {
-                    val nowWeight = it.animatedValue as Float
-                    changeDuskWeight(nowWeight)
-                    onChanged?.invoke(nowWeight)
-                }
-            ).apply { start() }
-        }
     }
 
     override fun measureChildWithRatio(
@@ -288,11 +325,6 @@ class CourseLayout : NetLayout {
         )
 
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
-    }
-
-    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-        super.onLayout(changed, l, t, r, b)
-        Log.d("ggg", "(CourseLayout.kt:180)-->> onLayout")
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -374,12 +406,12 @@ class CourseLayout : NetLayout {
     private class FoldAnimation(
         onEnd: (() -> Unit),
         onChanged: ValueAnimator.AnimatorUpdateListener
-    ) : ChangeWeightAnimation(1F, 0F, 200, onEnd, onChanged)
+    ) : ChangeWeightAnimation(0.99999F, 0F, 200, onEnd, onChanged)
 
     private class UnfoldAnimation(
         onEnd: (() -> Unit),
         onChanged: ValueAnimator.AnimatorUpdateListener
-    ) : ChangeWeightAnimation(0F, 1F, 200, onEnd, onChanged)
+    ) : ChangeWeightAnimation(0.00001F, 1F, 200, onEnd, onChanged)
 
     // 比重改变的动画封装类
     private abstract class ChangeWeightAnimation(
@@ -401,6 +433,10 @@ class CourseLayout : NetLayout {
 
         fun addEndListener(onEnd: () -> Unit) {
             animator.addListener(onEnd = { onEnd.invoke() })
+        }
+
+        fun cancel() {
+            animator.cancel()
         }
     }
 

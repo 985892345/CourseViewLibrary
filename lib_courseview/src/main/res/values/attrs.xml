@@ -3,13 +3,17 @@
 
     <declare-styleable name="CourseLayout_Layout">
         <attr name="course_layout_day" format="integer"/>
+        <!--从 1 开始-->
         <attr name="course_layout_startPos" format="integer"/>
         <attr name="course_layout_length" format="integer"/>
+        <!--添加进来的子 View 的类型，与 utils 包下 CourseType 一一对应-->
         <attr name="course_layout_type" format="enum">
             <enum name="my" value="0"/>
             <enum name="other" value="1"/>
             <enum name="affair" value="2"/>
             <enum name="time" value="3"/>
+            <enum name="arrow_noon" value="5"/>
+            <enum name="arrow_dusk" value="6"/>
         </attr>
     </declare-styleable>
 

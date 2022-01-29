@@ -4,6 +4,7 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.drawable.GradientDrawable
 import android.os.*
+import android.util.Log
 import android.view.*
 import android.widget.ImageView
 import androidx.core.animation.addListener
@@ -22,6 +23,7 @@ import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import kotlin.RuntimeException
 import kotlin.math.abs
+import kotlin.math.min
 
 /**
  * ```
@@ -298,6 +300,7 @@ class CourseCreateAffairHelper private constructor(
     private var mIsInScrolling = false // 是否处于滚动状态
 
     private var mScrollVelocity = 0 // 滚动的速度
+
     // 滑到显示区域顶部或者底部时，使 mCourseScrollView 滚动的 Runnable
     private val mScrollRunnable = object : Runnable {
         override fun run() {
@@ -312,11 +315,14 @@ class CourseCreateAffairHelper private constructor(
     private fun scrollIsNecessary(y: Int) {
         val nowHeight = y + getDiffHeightWithScrollView()
         val moveBoundary = 100 // 移动的边界值
-        val velocity = 7 // 移动的速度，不能过于太大，目前由于滚轴不是很长，所以速度固定
         val isNeedScrollUp = nowHeight > mCourseScrollView.height - moveBoundary
         val isNeedScrollDown = nowHeight < moveBoundary
         if (isNeedScrollUp || isNeedScrollDown) {
-            mScrollVelocity = if (isNeedScrollUp) velocity else -velocity
+            mScrollVelocity = if (isNeedScrollUp) {
+                min((nowHeight - (mCourseScrollView.height - moveBoundary)) / 10 + 6, 20)
+            } else {
+                -min(((moveBoundary - nowHeight) / 10 + 6), 20)
+            }
             if (!mIsInScrolling) { // 防止重复添加 Runnable
                 mIsInScrolling = true
                 mScrollRunnable.run()
@@ -376,35 +382,40 @@ class CourseCreateAffairHelper private constructor(
         }
     }
 
-    private class UnfoldAnimation(
-        private val onEnd: (() -> Unit)? = null,
-        private val onChanged: (nowWeight: Float) -> Unit
-    ) {
-        private val animator = ValueAnimator.ofFloat(0F, 1F)
-        fun start() {
-            animator.run {
-                addUpdateListener { onChanged.invoke(animatedValue as Float) }
-                addListener(onEnd = { onEnd?.invoke() })
-                duration = 150 // 时间不能过于太长，防止用户突然反向滑动，出现奇怪的操作
-                start()
-            }
-        }
-    }
+    private var mLastCourseLayoutHeight = 0 // 上一次 course 的总高度，用于修正 ScrollView 的 scrollY
 
     /**
      * 判断当前滑动中是否需要自动展开中午或者傍晚时间段
+     *
+     * 对于向下滑展开中午和傍晚时，整个外面的 ScrollView 会向下扩展，导致触摸点相对向上移动，
+     * 对此我做了对于 ScrollView 的 scrollY 的修正处理
+     *
+     * 目前采用两次 course 的高度差来修正 scrollY，但有些小瑕疵，不影响
      */
     private fun unfoldNoonOrDuskIfNecessary() {
-        if (mTopRow <= NOON_TOP && mBottomRow >= NOON_BOTTOM ) {
+        if (mTopRow <= NOON_TOP && mBottomRow >= NOON_BOTTOM) {
             if (course.getNoonRowState() == RowState.FOLD) {
-                course.foldDusk {
-                    amendScrollViewScrollYIfNecessary(0, mTouchRow > NOON_BOTTOM)
+                mLastCourseLayoutHeight = course.height
+                course.unfoldNoon {
+                    val height = course.height
+                    amendScrollViewScrollYIfNecessary(
+                        height - mLastCourseLayoutHeight,
+                        mLastMoveY > mInitialY
+                    )
+                    mLastCourseLayoutHeight = height
                 }
             }
-        } else if (mTopRow <= DUSK_TOP && mBottomRow >= DUSK_BOTTOM) {
+        }
+        if (mTopRow <= DUSK_TOP && mBottomRow >= DUSK_BOTTOM) {
             if (course.getDuskRowState() == RowState.FOLD) {
-                course.foldDusk {
-                    amendScrollViewScrollYIfNecessary(0, mTouchRow > DUSK_BOTTOM)
+                mLastCourseLayoutHeight = course.height
+                course.unfoldDusk {
+                    val height = course.height
+                    amendScrollViewScrollYIfNecessary(
+                        height - mLastCourseLayoutHeight,
+                        mLastMoveY > mInitialY
+                    )
+                    mLastCourseLayoutHeight = course.height
                 }
             }
         }
@@ -414,7 +425,7 @@ class CourseCreateAffairHelper private constructor(
      * 用于修正 [mCourseScrollView] 当前的 scrollY。因为在展开时，ScrollView 是向下展开的，
      * 所以需要控制它向上移动，使当前触摸的点不会产生偏移
      * @param add 重新布局后会增加的高度
-     * @param isAbove 如果为 true，则是当前触摸点上方的布局增高
+     * @param isAbove 如果为 true，则使 ScrollView 向上展开
      */
     private fun amendScrollViewScrollYIfNecessary(add: Int, isAbove: Boolean) {
         val oldScrollY = mCourseScrollView.scrollY
