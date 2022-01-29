@@ -211,6 +211,30 @@
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
 
+        <ImageView
+            android:id="@+id/img_noon_arrow"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_baseline_arrow_forward_ios_24"
+            app:net_layout_startRow="3"
+            app:net_layout_endRow="5"
+            app:net_layout_startColumn="0"
+            app:net_layout_endColumn="0"
+            tools:ignore="ContentDescription" />
+
+        <ImageView
+            android:id="@+id/img_dusk_arrow"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="centerInside"
+            android:src="@drawable/ic_baseline_arrow_forward_ios_24"
+            app:net_layout_startRow="8"
+            app:net_layout_endRow="10"
+            app:net_layout_startColumn="0"
+            app:net_layout_endColumn="0"
+            tools:ignore="ContentDescription" />
+
     </com.mredrock.cyxbs.lib.courseview.course.CourseLayout>
 
 </com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView>

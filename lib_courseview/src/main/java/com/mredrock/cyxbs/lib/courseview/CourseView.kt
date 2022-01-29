@@ -1,17 +1,12 @@
 package com.mredrock.cyxbs.lib.courseview
 
 import android.content.Context
-import android.graphics.Canvas
 import android.util.AttributeSet
-import android.util.Log
-import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
-import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
-import com.mredrock.cyxbs.lib.courseview.utils.CourseCreateAffairHelper
-import com.mredrock.cyxbs.lib.courseview.utils.CourseFoldHelper
+import com.mredrock.cyxbs.lib.courseview.helper.CourseCreateAffairHelper
+import com.mredrock.cyxbs.lib.courseview.helper.CourseFoldHelper
 import com.mredrock.cyxbs.lib.courseview.utils.CourseLayoutContainer
 import com.mredrock.cyxbs.lib.courseview.utils.WeekLayoutContainer
 
@@ -21,15 +16,15 @@ import com.mredrock.cyxbs.lib.courseview.utils.WeekLayoutContainer
  * 1、添加子 View
  * 2、与课表的操控行为强耦合
  * ```
- * [CourseView]:
+ * [CourseView] ↘
  * -----------------------------------------------------------------------
- * |  [mWeek]:                                                           |
+ * |  [mWeek] ↘                                                          |
  * |  -----------------------------------------------------------------  |
  * |  |       |       |       |       |       |       |       |       |  |
  * |  | month |  mon  |  tue  |  wed  |  thu  |  fri  |  sat  |  sun  |  |
  * |  |       |       |       |       |       |       |       |       |  |
  * |  -----------------------------------------------------------------  |
- * |  [mCourse]:                                                         |
+ * |  [mCourse] ↘                                                        |
  * |  -----------------------------------------------------------------  |
  * |  | [CourseScrollView] ↗                                          |  |
  * |  |                                                               |  |
@@ -73,12 +68,6 @@ class CourseView(
     }
 
     private fun initCourse() {
-        for (row in CourseLayout.NOON_TOP..CourseLayout.NOON_BOTTOM) {
-            mCourse.layout.setRowInitialWeight(row, 0F)
-        }
-        for (row in CourseLayout.DUSK_TOP..CourseLayout.DUSK_BOTTOM) {
-            mCourse.layout.setRowInitialWeight(row, 0F)
-        }
         addView(mCourse.scrollView)
         CourseFoldHelper.attach(mCourse.layout)
         CourseCreateAffairHelper.attach(mCourse.layout)

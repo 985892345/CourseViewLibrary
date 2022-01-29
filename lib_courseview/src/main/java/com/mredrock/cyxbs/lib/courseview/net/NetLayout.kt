@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.util.AttributeSet
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -116,15 +117,20 @@ open class NetLayout : ViewGroup {
     }
 
     /**
-     * 得到 [x] 对应的列数，超出控件范围或没有被测量时得到 -1
-     * @return 得到 [x] 对应的列数，超出控件范围或没有被测量时得到 -1
+     * 得到 [x] 对应的列数，超出控件范围会得到边界列，控件没有被测量时得到 -1
+     * @return 得到 [x] 对应的列数，超出控件范围会得到边界列，控件没有被测量时得到 -1
      */
     fun getColumn(x: Int): Int {
         if (width == 0) return -1
-        if (x < 0 || x > width) return -1
+        if (x <= 0) {
+            return 0
+        } else if (x >= width) {
+            return getColumnCount() - 1
+        }
         val a = x / width.toFloat()
         var column = (a * mNetAttrs.columnCount).toInt()
         val selfWeight = getSelfColumnsWeight()
+        if (column == 0) return 0
         var c1 = getColumnsWeight(0, column - 1)
         var c2 = c1 + getColumnsWeight(column, column)
         var a1 = c1 / selfWeight
@@ -143,15 +149,20 @@ open class NetLayout : ViewGroup {
     }
 
     /**
-     * 得到 [y] 对应的行数，超出控件范围或没有被测量时得到 -1
-     * @return 得到 [y] 对应的行数，超出控件范围或没有被测量时得到 -1
+     * 得到 [y] 对应的行数，超出控件范围会得到边界行，控件没有被测量时得到 -1
+     * @return 得到 [y] 对应的行数，超出控件范围会得到边界行，控件没有被测量时得到 -1
      */
     fun getRow(y: Int): Int {
         if (height == 0) return -1
-        if (y < 0 || y > height) return -1
+        if (y <= 0) {
+            return 0
+        } else if (y >= height) {
+            return getRowCount() - 1
+        }
         val a = y / height.toFloat()
         var row = (a * mNetAttrs.rowCount).toInt()
         val selfWeight = getSelfRowsWeight()
+        if (row == 0) return 0
         var r1 = getRowsWeight(0, row - 1)
         var r2 = r1 + getRowsWeight(row, row)
         var a1 = r1 / selfWeight
@@ -243,6 +254,7 @@ open class NetLayout : ViewGroup {
      * @param weight 比重，默认情况下为 1F
      */
     fun setRowWeight(row: Int, weight: Float) {
+        Log.d("ggg", "(NetLayout.kt:256)-->> weight = $weight")
         checkRow(row)
         val old = mRowChangedWeight[row] ?: 1F
         if (old == weight) return
@@ -271,6 +283,7 @@ open class NetLayout : ViewGroup {
     fun setColumnInitialWeight(column: Int, weight: Float) {
         setColumnWeight(column, weight)
         mInitialSelfColumnWeight = 0F // 重置
+        getInitialSelfColumnSize() // 立马重新设置，防止在下一次布局请求前调用了 setColumnWeight()
     }
 
     /**
@@ -287,13 +300,13 @@ open class NetLayout : ViewGroup {
     fun setRowInitialWeight(row: Int, weight: Float) {
         setRowWeight(row, weight)
         mInitialSelfRowWeight = 0F // 重置
+        getInitialSelfRowSize() // 立马重新设置，防止在下一次布局请求前调用了 setRowWeight()
     }
 
     /**
      * 得到第 [start] - [end] 列的比重
      */
     fun getColumnsWeight(start: Int, end: Int): Float {
-        if (start == 0 && end == -1) return 0F
         if (start !in 0..end || end >= mNetAttrs.columnCount) {
             throw IllegalArgumentException(
                 "start = $start 必须大于 0 且小于 end，end = $end 不能大于或等于 ${mNetAttrs.columnCount}！")
@@ -305,7 +318,6 @@ open class NetLayout : ViewGroup {
      * 得到 [start] - [end] 行的比重
      */
     fun getRowsWeight(start: Int, end: Int): Float {
-        if (start == 0 && end == -1) return 0F
         if (start !in 0..end || end >= mNetAttrs.rowCount) {
             throw IllegalArgumentException(
                 "start = $start 必须大于 0 且小于 end，end = $end 不能大于或等于 ${mNetAttrs.rowCount}！")

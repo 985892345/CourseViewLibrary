@@ -1,9 +1,7 @@
-package com.mredrock.cyxbs.lib.courseview.utils
+package com.mredrock.cyxbs.lib.courseview.helper
 
-import android.animation.ValueAnimator
 import android.view.MotionEvent
 import android.view.ViewConfiguration
-import androidx.core.animation.addListener
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.DUSK_BOTTOM
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.DUSK_TOP
@@ -12,11 +10,21 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_TOP
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.TIME_LINE_LEFT
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.TIME_LINE_RIGHT
 import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
+import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
 import kotlin.math.abs
 
 /**
- * 参考 RV 的 ItemTouchHelper 的设计，将点击中午和傍晚时间段折叠的功能与 [CourseLayout] 进行分离，
- * 增强代码可读性和维护性
+ * ```
+ * 该类作用：
+ * 1、封装点击中午和傍晚时间段功能
+ *
+ * 该类设计：
+ * 1、对 CourseLayout 增加事件监听来实现
+ * 2、事件监听参考了 RV 的 ItemTouchHelper 的设计
+ *
+ * 注意事项：
+ * 1、该类只管理点击中午和傍晚的事件，请不要添加一些不属于该类的功能，想添加功能应该再写一个 OnCourseTouchListener
+ * ```
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/1/27
@@ -25,19 +33,18 @@ class CourseFoldHelper private constructor(
     private val course: CourseLayout
 ) : OnCourseTouchListener {
 
-    private var mNoonAnimation: ChangeWeightAnimation? = null
-    private var mDuskAnimation: ChangeWeightAnimation? = null
+    private var mInitialX = 0 // Down 时的初始 X 值
+    private var mInitialY = 0 // Down 时的初始 Y 值
+    private var mLastMoveX = 0 // Move 时的移动 X 值
+    private var mLastMoveY = 0 // Move 时的移动 Y 值
 
-    private var mInitialX = 0
-    private var mInitialY = 0
-    private var mLastMoveX = 0
-    private var mLastMoveY = 0
+    private var mClickWhich = DownWhich.OTHER // Down 时记录当前点击的位置
 
-    private var mClickWhich = DownWhich.OTHER
-
+    // 认定是滚动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
     private val mTouchSlop = ViewConfiguration.get(course.context).scaledTouchSlop
 
     init {
+        // 给 CourseLayout 设置触摸监听
         course.addCourseTouchListener(this)
     }
 
@@ -45,20 +52,21 @@ class CourseFoldHelper private constructor(
         val x = event.x.toInt()
         val y = event.y.toInt()
         if (event.action == MotionEvent.ACTION_DOWN) {
-            val noonState = getNoonRowState()
-            val duskState = getDuskRowState()
+            val noonState = course.getNoonRowState()
+            val duskState = course.getDuskRowState()
             // 如果处于动画中
             if (noonState == RowState.ANIMATION || duskState == RowState.ANIMATION) {
                 mClickWhich = DownWhich.OTHER
                 return true // 防止下一个 CourseTouchListener 处理正在动画时的触摸事件
             }
-
+            // 左侧时间轴的显示范围
             val timeLineLeft = course.getColumnsWidth(0, TIME_LINE_LEFT - 1)
             val timeLineRight = timeLineLeft + course.getColumnsWidth(
                 TIME_LINE_LEFT,
                 TIME_LINE_RIGHT
             )
             if (x in timeLineLeft..timeLineRight) { // 如果 x 落在左侧时间轴上
+                // 中午那一行的显示范围
                 val noonTopHeight = course.getRowsHeight(0, NOON_TOP - 1)
                 val noonBottomHeight = noonTopHeight + course.getRowsHeight(
                     NOON_TOP,
@@ -69,6 +77,7 @@ class CourseFoldHelper private constructor(
                     mClickWhich = DownWhich.NOON
                     return true
                 } else {
+                    // 傍晚那一行的显示范围
                     val duskTopHeight = course.getRowsHeight(0, DUSK_TOP - 1)
                     val duskBottomHeight = duskTopHeight + course.getRowsHeight(
                         DUSK_TOP,
@@ -87,7 +96,7 @@ class CourseFoldHelper private constructor(
 
     override fun onTouchEvent(event: MotionEvent, course: CourseLayout) {
         if (mClickWhich == DownWhich.OTHER) {
-            return // 配合 isIntercept()，目前正处于动画中，不做任何处理
+            return // 配合 isIntercept() 中的处理，目前正处于动画中，不做任何处理
         }
         val x = event.x.toInt()
         val y = event.y.toInt()
@@ -103,6 +112,7 @@ class CourseFoldHelper private constructor(
                 mLastMoveY = y
             }
             MotionEvent.ACTION_UP -> {
+                // 如果抬手时移动的距离小于 mTouchSlop
                 if (abs(x - mInitialX) <= mTouchSlop
                     && abs(y - mInitialY) <= mTouchSlop
                 ) {
@@ -124,136 +134,26 @@ class CourseFoldHelper private constructor(
         }
     }
 
+    /**
+     * 点击中午
+     */
     private fun clickNoon() {
-        when (getNoonRowState()) {
-            RowState.FOLD -> unfoldNoon()
-            RowState.UNFOLD -> foldNoon()
+        when (course.getNoonRowState()) {
+            RowState.FOLD -> course.unfoldNoon()
+            RowState.UNFOLD -> course.foldNoon()
             RowState.ANIMATION -> return
         }
     }
 
+    /**
+     * 点击傍晚
+     */
     private fun clickDusk() {
-        when (getDuskRowState()) {
-            RowState.FOLD -> unfoldDusk()
-            RowState.UNFOLD -> foldDusk()
+        when (course.getDuskRowState()) {
+            RowState.FOLD -> course.unfoldDusk()
+            RowState.UNFOLD -> course.foldDusk()
             RowState.ANIMATION -> return
         }
-    }
-
-    private fun getNoonRowState(): RowState {
-        return when (course.getRowsWeight(NOON_TOP, NOON_BOTTOM) / (NOON_BOTTOM - NOON_TOP + 1)) {
-            1F -> RowState.UNFOLD
-            0F -> RowState.FOLD
-            else -> RowState.ANIMATION
-        }
-    }
-
-    private fun getDuskRowState(): RowState {
-        return when (course.getRowsWeight(DUSK_TOP, DUSK_BOTTOM) / (DUSK_BOTTOM - DUSK_TOP + 1)) {
-            1F -> RowState.UNFOLD
-            0F -> RowState.FOLD
-            else -> RowState.ANIMATION
-        }
-    }
-
-    private fun foldNoon() {
-        if (mNoonAnimation == null) {
-            mNoonAnimation = FoldAnimation(
-                onChanged = {
-                    for (row in NOON_TOP..NOON_BOTTOM) {
-                        course.setRowWeight(row, it)
-                    }
-                },
-                onEnd = { mNoonAnimation = null }
-            ).apply { start() }
-            course.requestLayout()
-            course.invalidate()
-        }
-    }
-
-    private fun unfoldNoon() {
-        if (mNoonAnimation == null) {
-            mNoonAnimation = UnfoldAnimation(
-                onChanged =  {
-                    for (row in NOON_TOP..NOON_BOTTOM) {
-                        course.setRowWeight(row, it)
-                    }
-                },
-                onEnd = { mNoonAnimation = null }
-            ).apply { start() }
-            course.requestLayout()
-        }
-    }
-
-    private fun foldDusk() {
-        if (mDuskAnimation == null) {
-            mDuskAnimation = FoldAnimation(
-                onChanged = {
-                    for (row in DUSK_TOP..DUSK_BOTTOM) {
-                        course.setRowWeight(row, it)
-                    }
-                },
-                onEnd = { mDuskAnimation = null }
-            ).apply { start() }
-            course.requestLayout()
-        }
-    }
-
-    private fun unfoldDusk() {
-        if (mDuskAnimation == null) {
-            mDuskAnimation = UnfoldAnimation(
-                onChanged = {
-                    for (row in DUSK_TOP..DUSK_BOTTOM) {
-                        course.setRowWeight(row, it)
-                    }
-                },
-                onEnd = { mDuskAnimation = null }
-            ).apply { start() }
-            course.requestLayout()
-        }
-    }
-
-    private class FoldAnimation(
-        onChanged: ((now: Float) -> Unit)? = null,
-        onEnd: (() -> Unit)? = null
-    ) : ChangeWeightAnimation(1F, 0F, 200, onChanged, onEnd)
-
-    private class UnfoldAnimation(
-        onChanged: ((now: Float) -> Unit)? = null,
-        onEnd: (() -> Unit)? = null
-    ) : ChangeWeightAnimation(0F, 1F, 200, onChanged, onEnd)
-
-    // 比重改变的动画封装类
-    private abstract class ChangeWeightAnimation(
-        val startWeight: Float,
-        val endWeight: Float,
-        val time: Long,
-        private val onChanged: ((now: Float) -> Unit)? = null,
-        private val onEnd: (() -> Unit)? = null,
-    ) {
-        val isRunning: Boolean
-            get() = animator.isRunning
-
-        private var animator: ValueAnimator = ValueAnimator.ofFloat(startWeight, endWeight)
-
-        fun start() {
-            animator.run {
-                addUpdateListener{
-                    onChanged?.invoke(animator.animatedValue as Float)
-                }
-                addListener(
-                    onEnd = { onEnd?.invoke() },
-                )
-                duration = time
-                this.start()
-            }
-        }
-    }
-
-    enum class RowState {
-        FOLD, // 完全展开
-        UNFOLD, // 完全折叠
-        ANIMATION // 处于动画中
     }
 
     enum class DownWhich {
@@ -265,7 +165,9 @@ class CourseFoldHelper private constructor(
     companion object {
         /**
          * 换成一个静态方法来 attach 到 CourseLayout，
-         * 感觉似乎没有必要，但这样写更能让以后维护的人能看懂这个类是用来干嘛的
+         * 感觉似乎没有必要，但这样写更能让以后维护的人能看懂这个类是用来干嘛的。
+         *
+         * attach 有连接、依附的意思，比直接给构造器传入形参相比，更能看出该类对于 [CourseLayout] 的侵入性
          */
         fun attach(course: CourseLayout): CourseFoldHelper {
             return CourseFoldHelper(course)

@@ -14,6 +14,8 @@ enum class CourseType(val i: Int) {
     AFFAIR(2),
     TIME(3),
     AFFAIR_TOUCH(4),
+    ARROW_NOON(5),
+    ARROW_DUSK(6),
     UNKNOWN(114514);
 
     companion object {
@@ -25,6 +27,9 @@ enum class CourseType(val i: Int) {
                 OTHER.i -> OTHER
                 AFFAIR.i -> AFFAIR
                 TIME.i -> TIME
+                AFFAIR_TOUCH.i -> AFFAIR_TOUCH
+                ARROW_NOON.i -> ARROW_NOON
+                ARROW_DUSK.i -> ARROW_DUSK
                 else -> UNKNOWN
             }
         }

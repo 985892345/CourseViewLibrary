@@ -1,5 +1,6 @@
 package com.mredrock.cyxbs.lib.courseview.course
 
+import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
@@ -8,13 +9,18 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import android.widget.ImageView
+import androidx.core.animation.addListener
 import androidx.core.view.NestedScrollingChildHelper
+import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.course.utils.CourseDecoration
 import com.mredrock.cyxbs.lib.courseview.course.utils.CourseLayoutAttrsException
 import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
+import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
 import com.mredrock.cyxbs.lib.courseview.net.NetLayout
+import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 
 /**
  * ```
@@ -68,6 +74,47 @@ class CourseLayout : NetLayout {
         mCourseTouchListener.add(index, l)
     }
 
+    /**
+     * 得到当前中午那一行的状态
+     */
+    fun getNoonRowState(): RowState {
+        Log.d("ggg", "(CourseLayout.kt:76)-->> ${getRowsWeight(NOON_TOP, NOON_BOTTOM) }")
+        return when (getRowsWeight(NOON_TOP, NOON_BOTTOM) / (NOON_BOTTOM - NOON_TOP + 1)) {
+            1F -> RowState.UNFOLD
+            0F -> RowState.FOLD
+            else -> RowState.ANIMATION
+        }
+    }
+
+    /**
+     * 得到当前中午那一行的状态
+     */
+    fun getDuskRowState(): RowState {
+        return when (getRowsWeight(DUSK_TOP, DUSK_BOTTOM) / (DUSK_BOTTOM - DUSK_TOP + 1)) {
+            1F -> RowState.UNFOLD
+            0F -> RowState.FOLD
+            else -> RowState.ANIMATION
+        }
+    }
+
+    /**
+     * 改变中午时间段所在行数的比重
+     */
+    fun changeNoonWeight(weight: Float) {
+        for (row in NOON_TOP..NOON_BOTTOM) {
+            setRowWeight(row, weight)
+        }
+    }
+
+    /**
+     * 改变傍晚时间段所在行数的比重
+     */
+    fun changeDuskWeight(weight: Float) {
+        for (row in DUSK_TOP..DUSK_BOTTOM) {
+            setRowWeight(row, weight)
+        }
+    }
+
     private val mCourseAttrs: CourseLayoutAttrs
 
     private val mCourseDecoration = ArrayList<CourseDecoration>(5)
@@ -87,6 +134,115 @@ class CourseLayout : NetLayout {
         attrs: CourseLayoutAttrs
     ) : super(context, attrs) {
         mCourseAttrs = attrs
+    }
+
+    private var mNoonAnimation: ChangeWeightAnimation? = null // 中午折叠或者展开的动画
+    private var mDuskAnimation: ChangeWeightAnimation? = null // 傍晚折叠或者展开的动画
+
+    // 显示展开中午时间段的箭头，一个 ImageView
+    private val mNoonImageView: ImageView by lazy(LazyThreadSafetyMode.NONE) {
+        findViewById(R.id.img_noon_arrow)
+    }
+
+    // 显示展开傍晚时间段的箭头，一个 ImageView
+    private val mDuskImageView: ImageView by lazy(LazyThreadSafetyMode.NONE) {
+        findViewById(R.id.img_dusk_arrow)
+    }
+
+    fun foldNoonWithoutAnim() {
+        if (mNoonAnimation == null) {
+            changeNoonWeight(0F)
+        } else if (mNoonAnimation is UnfoldAnimation) {
+            mNoonAnimation?.addEndListener { changeNoonWeight(0F) }
+        }
+    }
+
+    fun unfoldNoonWithoutAnim() {
+        if (mNoonAnimation == null) {
+            changeNoonWeight(1F)
+        } else if (mNoonAnimation is FoldAnimation) {
+            mNoonAnimation?.addEndListener { changeNoonWeight(1F) }
+        }
+    }
+
+    fun foldNoon(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
+        if (mNoonAnimation == null) {
+            mNoonAnimation = FoldAnimation(
+                onEnd = {
+                    mNoonAnimation = null
+                    mNoonImageView.visibility = View.VISIBLE
+                    onEnd?.invoke()
+                },
+                onChanged = {
+                    val nowWeight = it.animatedValue as Float
+                    changeNoonWeight(nowWeight)
+                    onChanged?.invoke(nowWeight)
+                }
+            ).apply { start() }
+        }
+    }
+
+    fun unfoldNoon(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
+        if (mNoonAnimation == null) {
+            mNoonImageView.visibility = View.INVISIBLE
+            mNoonAnimation = UnfoldAnimation(
+                onEnd = {
+                    mNoonAnimation = null
+                    onEnd?.invoke()
+                },
+                onChanged = {
+                    val nowWeight = it.animatedValue as Float
+                    changeNoonWeight(nowWeight)
+                    onChanged?.invoke(nowWeight)
+                }
+            ).apply { start() }
+        }
+    }
+
+    fun foldDuskWithoutAnim() {
+        if (mDuskAnimation == null) {
+            changeDuskWeight(0F)
+        } else if (mDuskAnimation is )
+    }
+
+    fun unfoldDuskWithoutAnim() {
+        if (mDuskAnimation == null) {
+            changeDuskWeight(1F)
+        }
+    }
+
+    fun foldDusk(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
+        if (mDuskAnimation == null) {
+            mDuskAnimation = FoldAnimation(
+                onEnd = {
+                    mDuskAnimation = null
+                    mDuskImageView.visibility = View.VISIBLE
+                    onEnd?.invoke()
+                },
+                onChanged = {
+                    val nowWeight = it.animatedValue as Float
+                    changeDuskWeight(nowWeight)
+                    onChanged?.invoke(nowWeight)
+                }
+            ).apply { start() }
+        }
+    }
+
+    fun unfoldDusk(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
+        if (mDuskAnimation == null) {
+            mDuskImageView.visibility = View.INVISIBLE
+            mDuskAnimation = UnfoldAnimation(
+                onEnd = {
+                    mDuskAnimation = null
+                    onEnd?.invoke()
+                },
+                onChanged = {
+                    val nowWeight = it.animatedValue as Float
+                    changeDuskWeight(nowWeight)
+                    onChanged?.invoke(nowWeight)
+                }
+            ).apply { start() }
+        }
     }
 
     override fun measureChildWithRatio(
@@ -132,6 +288,11 @@ class CourseLayout : NetLayout {
         )
 
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
+    }
+
+    override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+        super.onLayout(changed, l, t, r, b)
+        Log.d("ggg", "(CourseLayout.kt:180)-->> onLayout")
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -190,6 +351,57 @@ class CourseLayout : NetLayout {
 
     override fun checkLayoutParams(p: LayoutParams): Boolean {
         return p is CourseLayoutParams
+    }
+
+    override fun setLayoutParams(params: LayoutParams) {
+        super.setLayoutParams(params)
+        /*
+        * 放这里的原因：
+        * 1、setRowInitialWeight() 只能在设置了 LayoutParams 后调用
+        *
+        * 以下两个 for 循环有如下作用：
+        * 1、设置初始时中午和傍晚时间段的比重为 0，为了让板块刚好撑满整个能够显示的高度，
+        *    使在折叠中午和傍晚时外面的 ScrollView 不用滚动就能显示全部
+        * */
+        for (row in NOON_TOP..NOON_BOTTOM) {
+            setRowInitialWeight(row, 0F)
+        }
+        for (row in DUSK_TOP..DUSK_BOTTOM) {
+            setRowInitialWeight(row, 0F)
+        }
+    }
+
+    private class FoldAnimation(
+        onEnd: (() -> Unit),
+        onChanged: ValueAnimator.AnimatorUpdateListener
+    ) : ChangeWeightAnimation(1F, 0F, 200, onEnd, onChanged)
+
+    private class UnfoldAnimation(
+        onEnd: (() -> Unit),
+        onChanged: ValueAnimator.AnimatorUpdateListener
+    ) : ChangeWeightAnimation(0F, 1F, 200, onEnd, onChanged)
+
+    // 比重改变的动画封装类
+    private abstract class ChangeWeightAnimation(
+        startWeight: Float,
+        endWeight: Float,
+        val time: Long,
+        private val onEnd: (() -> Unit),
+        private val onChanged: ValueAnimator.AnimatorUpdateListener
+    ) {
+        private var animator: ValueAnimator = ValueAnimator.ofFloat(startWeight, endWeight)
+        fun start() {
+            animator.run {
+                addUpdateListener(onChanged)
+                addListener(onEnd = { onEnd.invoke() },)
+                duration = time
+                this.start()
+            }
+        }
+
+        fun addEndListener(onEnd: () -> Unit) {
+            animator.addListener(onEnd = { onEnd.invoke() })
+        }
     }
 
     companion object {
