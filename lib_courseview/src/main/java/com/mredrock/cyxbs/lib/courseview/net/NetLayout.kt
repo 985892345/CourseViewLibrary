@@ -5,7 +5,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.util.AttributeSet
-import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -14,6 +13,7 @@ import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
 import com.mredrock.cyxbs.lib.courseview.net.utils.Side
 import kotlin.collections.ArrayList
+import kotlin.collections.LinkedHashMap
 import kotlin.math.max
 
 /**
@@ -790,16 +790,6 @@ open class NetLayout : ViewGroup {
 
     override fun checkLayoutParams(p: LayoutParams): Boolean {
         return p is NetLayoutParams
-    }
-
-    override fun setLayoutParams(params: LayoutParams) {
-        if (params.width == LayoutParams.WRAP_CONTENT) {
-            mInitialSelfColumnWeight = 0F // 重置
-        }
-        if (params.height == LayoutParams.WRAP_CONTENT) {
-            mInitialSelfRowWeight = 0F // 重置
-        }
-        super.setLayoutParams(params)
     }
 
     private fun checkColumn(column: Int) {

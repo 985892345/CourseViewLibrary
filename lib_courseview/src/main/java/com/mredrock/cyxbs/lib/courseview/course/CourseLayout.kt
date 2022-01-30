@@ -12,7 +12,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.ImageView
 import androidx.core.animation.addListener
-import androidx.recyclerview.widget.RecyclerView
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
@@ -464,7 +463,6 @@ class CourseLayout : NetLayout {
     override fun onSaveInstanceState(): Parcelable {
         val superState = super.onSaveInstanceState()
         val ss = SavedState(superState)
-
         // 保存 mSaveBundleListeners 的状态
         ss.saveBundleListeners = Array(mSaveBundleListeners.size) {
             mSaveBundleListeners[it].onSaveInstanceState()
