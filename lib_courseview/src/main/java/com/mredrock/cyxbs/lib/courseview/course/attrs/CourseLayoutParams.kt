@@ -8,6 +8,7 @@ import com.mredrock.cyxbs.lib.courseview.base.int
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.courseType
+import java.io.Serializable
 
 /**
  * ...
@@ -15,7 +16,7 @@ import com.mredrock.cyxbs.lib.courseview.utils.courseType
  * @email 2767465918@qq.com
  * @date 2022/1/20
  */
-class CourseLayoutParams : NetLayoutParams, CourseBean {
+class CourseLayoutParams : NetLayoutParams, CourseBean, Serializable {
 
     override val day: Int
         get() = startColumn
@@ -52,12 +53,21 @@ class CourseLayoutParams : NetLayoutParams, CourseBean {
         startPos : Int,
         length: Int,
         type: CourseType
-    ) : super(
+    ) : this(
         startPos,
         startPos + length - 1,
         day,
-        day
-    ) {
+        day,
+        type
+    )
+
+    constructor(
+        startRow: Int,
+        endRow: Int,
+        startColumn: Int,
+        endColumn: Int,
+        type: CourseType
+    ) : super(startRow, endRow, startColumn, endColumn) {
         this.type = type
     }
 

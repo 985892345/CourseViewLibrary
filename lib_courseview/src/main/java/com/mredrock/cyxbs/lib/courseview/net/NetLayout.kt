@@ -9,7 +9,6 @@ import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import androidx.core.math.MathUtils
 import com.mredrock.cyxbs.lib.courseview.net.callback.OnWeightChangeListener
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
@@ -282,7 +281,7 @@ open class NetLayout : ViewGroup {
     fun setColumnInitialWeight(column: Int, weight: Float) {
         setColumnWeight(column, weight)
         mInitialSelfColumnWeight = 0F // 重置
-        getInitialSelfColumnSize() // 立马重新设置，防止在下一次布局请求前调用了 setColumnWeight()
+        getInitialSelfColumnWeight() // 立马重新设置，防止在下一次布局请求前调用了 setColumnWeight()
     }
 
     /**
@@ -299,7 +298,7 @@ open class NetLayout : ViewGroup {
     fun setRowInitialWeight(row: Int, weight: Float) {
         setRowWeight(row, weight)
         mInitialSelfRowWeight = 0F // 重置
-        getInitialSelfRowSize() // 立马重新设置，防止在下一次布局请求前调用了 setRowWeight()
+        getInitialSelfRowWeight() // 立马重新设置，防止在下一次布局请求前调用了 setRowWeight()
     }
 
     /**
@@ -458,11 +457,11 @@ open class NetLayout : ViewGroup {
                 val childWithParentRowMultiple = childRowWeight / parentRowWeight
 
                 val childWidthRatio =
-                    if (widthIsWrap) childColumnWeight / getInitialSelfColumnSize()
+                    if (widthIsWrap) childColumnWeight / getInitialSelfColumnWeight()
                     else childWithParentColumnMultiple
 
                 val childHeightRatio =
-                    if (heightIsWrap) childRowWeight / getInitialSelfRowSize()
+                    if (heightIsWrap) childRowWeight / getInitialSelfRowWeight()
                     else childWithParentRowMultiple
 
                 lp.oldChildWidthRatio = childWithParentColumnMultiple
@@ -499,8 +498,17 @@ open class NetLayout : ViewGroup {
         maxWidth += paddingLeft + paddingRight
         maxHeight += paddingTop + paddingBottom
         // Check against our minimum height and width
-        maxWidth = max(maxWidth, suggestedMinimumWidth)
-        maxHeight = max(maxHeight, suggestedMinimumHeight)
+        // 在与 ScrollView 嵌套中可能你会设置一个 minHeight，
+        // 如果此时你高度又设置了 wrap，然后调用 setRowWeight()，本意是扩大控件高度，
+        // 但会受到你设置的 minHeight 限制，所以需要在既设置 wrap 又设置了 minHeight 的情况下扩大你设置的 minHeight
+        val minWidth = if (widthIsWrap) {
+            (suggestedMinimumWidth * (parentColumnWeight / getInitialSelfColumnWeight())).toInt()
+        } else suggestedMinimumWidth
+        val minHeight = if (heightIsWrap) {
+            (suggestedMinimumHeight * (parentRowWeight / getInitialSelfRowWeight())).toInt()
+        } else suggestedMinimumHeight
+        maxWidth = max(maxWidth, minWidth)
+        maxHeight = max(maxHeight, minHeight)
 
         setMeasuredDimension(
             resolveSizeAndState(maxWidth, widthMeasureSpec, childState),
@@ -593,10 +601,7 @@ open class NetLayout : ViewGroup {
     /**
      * 获取当自身宽为 warp_content 时第一次测量的全部列所占的比例大小
      */
-    private fun getInitialSelfColumnSize(): Float {
-        if (layoutParams.width != LayoutParams.WRAP_CONTENT) {
-            throw RuntimeException("该方法只允许在宽度为 wrap_content 时调用！")
-        }
+    private fun getInitialSelfColumnWeight(): Float {
         if (mInitialSelfColumnWeight == 0F) {
             mColumnChangedWeight.forEach {
                 mInitialSelfColumnWeight += it.value
@@ -609,10 +614,7 @@ open class NetLayout : ViewGroup {
     /**
      * 获取当自身高为 warp_content 时第一次测量的全部行所占的比例大小
      */
-    private fun getInitialSelfRowSize(): Float {
-        if (layoutParams.height != LayoutParams.WRAP_CONTENT) {
-            throw RuntimeException("该方法只允许在高度为 wrap_content 时调用！")
-        }
+    private fun getInitialSelfRowWeight(): Float {
         if (mInitialSelfRowWeight == 0F) {
             mRowChangedWeight.forEach {
                 mInitialSelfRowWeight += it.value

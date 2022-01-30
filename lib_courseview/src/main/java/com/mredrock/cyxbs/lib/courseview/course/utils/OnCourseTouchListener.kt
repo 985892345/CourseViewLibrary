@@ -14,9 +14,19 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  *
  * 例如：共设置了 3 个 listener，分别为 l1、l2、l3，且按顺序添加
  *
+ *   View.dispatchTouchEvent
+ *   DOWN、MOVE
+ *       ↓
+ *       ↓
+ *       ↓
+ *   l1.onDispatchTouchEvent
+ *   l2.onDispatchTouchEvent
+ *   l3.onDispatchTouchEvent
+ *
+ *
  *   View.onTouchEvent
- *   DOWN: 谁拦截后，将把 listener 给 mInterceptingOnTouchListener 变量
- *     ↓
+ * 1、DOWN: 在某一个 listener 的 isIntercept() 返回 true 后，将把该 listener 赋值给 mInterceptingOnTouchListener
+ *       ↓
  *   l1.isIntercept() → → → → → → l2.isIntercept() → → → → → → l3.isIntercept() → → → → View.onTouchEvent
  *       ↓               false         ↓              false         ↓                     return false
  *       ↓ true                        ↓ true                       ↓ true
@@ -24,9 +34,18 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  *       ↓                             ↓                            ↓
  *       ↓                             ↓                            ↓
  *   l1.onTouchEvent              l2.onTouchEvent              l3.onTouchEvent
+ *   l2.onCancelDownEvent         l3.onCancelDownEvent              ↓
+ *   l3.onCancelDownEvent              ↓                            ↓
+ *       ↓                             ↓              mInterceptingOnTouchListener = l3
+ *       ↓                             ↓
+ *       ↓               mInterceptingOnTouchListener = l2
+ *       ↓
+ *   mInterceptingOnTouchListener = l1
  *
- *   MOVE: 这里直接把事件分配给 DOWN 时拦截的 listener
- *   mInterceptingOnTouchListener.onTouchEvent
+ * 2、MOVE: 这里直接把事件分配给 DOWN 时拦截的 listener，即 mInterceptingOnTouchListener
+ *       ↓
+ *       ↓
+ *   mInterceptingOnTouchListener.onTouchEvent()
  * ```
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
@@ -47,12 +66,13 @@ interface OnCourseTouchListener {
     fun onTouchEvent(event: MotionEvent, course: CourseLayout)
 
     /**
-     * Down 事件被顺序在前面的 OnCourseTouchListener 拦截时回调
+     * Down 事件中，被顺序在前面的 OnCourseTouchListener 拦截时回调
      */
     fun onCancelDownEvent(course: CourseLayout) { }
 
     /**
-     * 在 CourseLayout 分发事件前调用，每一个 OnCourseTouchListener 都可以收到
+     * 在 CourseLayout 的 dispatchTouchEvent() 中调用，即事件分发下来时就回调，
+     * 每一个 OnCourseTouchListener 都可以收到
      */
     fun onDispatchTouchEvent(event: MotionEvent, course: CourseLayout) { }
 }

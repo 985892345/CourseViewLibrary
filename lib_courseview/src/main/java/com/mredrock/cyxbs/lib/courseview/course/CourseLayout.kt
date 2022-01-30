@@ -4,23 +4,20 @@ import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
+import android.os.Bundle
+import android.os.Parcel
+import android.os.Parcelable
 import android.util.AttributeSet
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.widget.ImageView
 import androidx.core.animation.addListener
-import androidx.core.view.NestedScrollingChildHelper
+import androidx.recyclerview.widget.RecyclerView
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
-import com.mredrock.cyxbs.lib.courseview.course.utils.CourseDecoration
-import com.mredrock.cyxbs.lib.courseview.course.utils.CourseLayoutAttrsException
-import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
-import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
+import com.mredrock.cyxbs.lib.courseview.course.utils.*
 import com.mredrock.cyxbs.lib.courseview.net.NetLayout
-import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 
 /**
  * ```
@@ -62,16 +59,33 @@ import com.mredrock.cyxbs.lib.courseview.utils.CourseType
  */
 class CourseLayout : NetLayout {
 
+    /**
+     * 添加课程
+     */
     fun addCourse(view: View, lp: CourseLayoutParams) {
         addItem(view, lp)
     }
 
+    /**
+     * 仿照 RV 的 ItemDecoration 设计。用于自定义绘制一些东西
+     */
     fun addCourseDecoration(decor: CourseDecoration, index: Int = mCourseDecoration.size) {
         mCourseDecoration.add(index, decor)
     }
 
+    /**
+     * 仿照 RV 的 OnItemTouchListener 设计。用于处理滑动事件，
+     * 这样以后要扩展不是直接在这个 [CourseLayout] 里面添加代码，而是添加一个 [OnCourseTouchListener] 来增加新的功能
+     */
     fun addCourseTouchListener(l: OnCourseTouchListener, index: Int = mCourseTouchListener.size) {
         mCourseTouchListener.add(index, l)
+    }
+
+    /**
+     * 用于在 CourseDecoration 和 OnCourseTouchListener 中，[CourseLayout] 即将被摧毁时保存一些必要的信息
+     */
+    fun addSaveBundleListener(l: OnSaveBundleListener) {
+        mSaveBundleListeners.add(l)
     }
 
     /**
@@ -122,10 +136,12 @@ class CourseLayout : NetLayout {
     fun foldNoonWithoutAnim() {
         if (mNoonAnimation == null) {
             changeNoonWeight(0F)
+            mNoonImageView.visibility = VISIBLE
         } else if (mNoonAnimation is UnfoldAnimation) {
             mNoonAnimation?.cancel()
             mNoonAnimation = null
             changeNoonWeight(0F)
+            mNoonImageView.visibility = VISIBLE
         }
     }
 
@@ -135,10 +151,12 @@ class CourseLayout : NetLayout {
     fun unfoldNoonWithoutAnim() {
         if (mNoonAnimation == null) {
             changeNoonWeight(1F)
+            mNoonImageView.visibility = INVISIBLE
         } else if (mNoonAnimation is FoldAnimation) {
             mNoonAnimation?.cancel()
             mNoonAnimation = null
             changeNoonWeight(1F)
+            mNoonImageView.visibility = INVISIBLE
         }
     }
 
@@ -147,18 +165,14 @@ class CourseLayout : NetLayout {
      */
     fun foldNoon(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
         if (mNoonAnimation == null) {
-            mNoonAnimation = FoldAnimation(
-                onEnd = {
-                    mNoonAnimation = null
-                    mNoonImageView.visibility = View.VISIBLE
-                    onEnd?.invoke()
-                },
-                onChanged = {
-                    val nowWeight = it.animatedValue as Float
-                    changeNoonWeight(nowWeight)
-                    onChanged?.invoke(nowWeight)
-                }
-            ).apply { start() }
+            mNoonAnimation = FoldAnimation {
+                changeNoonWeight(it)
+                onChanged?.invoke(it)
+            }.addEndListener {
+                mNoonAnimation = null
+                mNoonImageView.visibility = VISIBLE
+                onEnd?.invoke()
+            }.start()
         }
     }
 
@@ -167,18 +181,14 @@ class CourseLayout : NetLayout {
      */
     fun unfoldNoon(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
         if (mNoonAnimation == null) {
-            mNoonImageView.visibility = View.INVISIBLE
-            mNoonAnimation = UnfoldAnimation(
-                onEnd = {
-                    mNoonAnimation = null
-                    onEnd?.invoke()
-                },
-                onChanged = {
-                    val nowWeight = it.animatedValue as Float
-                    changeNoonWeight(nowWeight)
-                    onChanged?.invoke(nowWeight)
-                }
-            ).apply { start() }
+            mNoonImageView.visibility = INVISIBLE
+            mNoonAnimation = UnfoldAnimation {
+                changeNoonWeight(it)
+                onChanged?.invoke(it)
+            }.addEndListener {
+                mNoonAnimation = null
+                onEnd?.invoke()
+            }.start()
         }
     }
 
@@ -188,10 +198,12 @@ class CourseLayout : NetLayout {
     fun foldDuskWithoutAnim() {
         if (mDuskAnimation == null) {
             changeDuskWeight(0F)
+            mDuskImageView.visibility = VISIBLE
         } else if (mDuskAnimation is UnfoldAnimation) {
             mDuskAnimation?.cancel()
             mDuskAnimation = null
             changeDuskWeight(0F)
+            mDuskImageView.visibility = VISIBLE
         }
     }
 
@@ -201,10 +213,12 @@ class CourseLayout : NetLayout {
     fun unfoldDuskWithoutAnim() {
         if (mDuskAnimation == null) {
             changeDuskWeight(1F)
-        } else if (mDuskAnimation is UnfoldAnimation) {
+            mDuskImageView.visibility = INVISIBLE
+        } else if (mDuskAnimation is FoldAnimation) {
             mDuskAnimation?.cancel()
             mDuskAnimation = null
             changeDuskWeight(1F)
+            mDuskImageView.visibility = INVISIBLE
         }
     }
 
@@ -213,18 +227,14 @@ class CourseLayout : NetLayout {
      */
     fun foldDusk(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
         if (mDuskAnimation == null) {
-            mDuskAnimation = FoldAnimation(
-                onEnd = {
-                    mDuskAnimation = null
-                    mDuskImageView.visibility = View.VISIBLE
-                    onEnd?.invoke()
-                },
-                onChanged = {
-                    val nowWeight = it.animatedValue as Float
-                    changeDuskWeight(nowWeight)
-                    onChanged?.invoke(nowWeight)
-                }
-            ).apply { start() }
+            mDuskAnimation = FoldAnimation {
+                changeDuskWeight(it)
+                onChanged?.invoke(it)
+            }.addEndListener {
+                mDuskAnimation = null
+                mDuskImageView.visibility = VISIBLE
+                onEnd?.invoke()
+            }.start()
         }
     }
 
@@ -233,27 +243,27 @@ class CourseLayout : NetLayout {
      */
     fun unfoldDusk(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
         if (mDuskAnimation == null) {
-            mDuskImageView.visibility = View.INVISIBLE
-            mDuskAnimation = UnfoldAnimation(
-                onEnd = {
-                    mDuskAnimation = null
-                    onEnd?.invoke()
-                },
-                onChanged = {
-                    val nowWeight = it.animatedValue as Float
-                    changeDuskWeight(nowWeight)
-                    onChanged?.invoke(nowWeight)
-                }
-            ).apply { start() }
+            mDuskImageView.visibility = INVISIBLE
+            mDuskAnimation = UnfoldAnimation {
+                changeDuskWeight(it)
+                onChanged?.invoke(it)
+            }.addEndListener {
+                mDuskAnimation = null
+                onEnd?.invoke()
+            }.start()
         }
     }
 
     private val mCourseAttrs: CourseLayoutAttrs
 
+    // 自定义绘图的监听
     private val mCourseDecoration = ArrayList<CourseDecoration>(5)
+    // 自定义事件处理的监听
     private val mCourseTouchListener = ArrayList<OnCourseTouchListener>(5)
-
+    // 自定义事件处理中拦截的监听者
     private var mInterceptingOnTouchListener: OnCourseTouchListener? = null
+    // 在 View 被摧毁时需要保存必要信息的监听
+    private val mSaveBundleListeners = ArrayList<OnSaveBundleListener>(3)
 
     constructor(
         context: Context,
@@ -267,6 +277,20 @@ class CourseLayout : NetLayout {
         attrs: CourseLayoutAttrs
     ) : super(context, attrs) {
         mCourseAttrs = attrs
+    }
+
+    init {
+        /*
+        * 以下两个 for 循环有如下作用：
+        * 1、设置初始时中午和傍晚时间段的比重为 0，为了让板块初始时刚好撑满整个能够显示的高度，
+        *    使中午和傍晚在折叠的状态下，外面的 ScrollView 不用滚动就刚好能显示其余板块
+        * */
+        for (row in NOON_TOP..NOON_BOTTOM) {
+            setRowInitialWeight(row, 0F)
+        }
+        for (row in DUSK_TOP..DUSK_BOTTOM) {
+            setRowInitialWeight(row, 0F)
+        }
     }
 
     private var mNoonAnimation: ChangeWeightAnimation? = null // 中午折叠或者展开的动画
@@ -315,9 +339,9 @@ class CourseLayout : NetLayout {
                 /*
                 * 这里原因与上面相同，但还需要添加一些
                 * 4、目前需求（22年）课表在开始时不显示中午和傍晚时间段，我设计的 NetLayout 可以把高度设置成
-                *    wrap_content，再调用 setRowInitialWeight（若不存在，请查看 git）来隐藏中午和傍晚时间段
+                *    wrap_content，再调用 setRowInitialWeight() 来隐藏中午和傍晚时间段
                 * 5、课表如果要显示中午和傍晚时间段，则外布局需要包裹一个 NestedScrollView，这时，父布局得到的
-                *    测量模式为 UNSPECIFIED，该模式会使课表初始状态不再填充父布局
+                *    测量模式为 UNSPECIFIED，该模式会使课表初始状态不再填充父布局，所以需要改为 EXACTLY 模式
                 * */
                 MeasureSpec.EXACTLY
             ),
@@ -338,6 +362,7 @@ class CourseLayout : NetLayout {
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
             mInterceptingOnTouchListener = null
+            // 分配自定义事件处理的监听
             mCourseTouchListener.forEach {
                 if (mInterceptingOnTouchListener == null) {
                     if (it.isIntercept(event, this)) {
@@ -385,54 +410,35 @@ class CourseLayout : NetLayout {
         return p is CourseLayoutParams
     }
 
-    override fun setLayoutParams(params: LayoutParams) {
-        super.setLayoutParams(params)
-        /*
-        * 放这里的原因：
-        * 1、setRowInitialWeight() 只能在设置了 LayoutParams 后调用
-        *
-        * 以下两个 for 循环有如下作用：
-        * 1、设置初始时中午和傍晚时间段的比重为 0，为了让板块刚好撑满整个能够显示的高度，
-        *    使在折叠中午和傍晚时外面的 ScrollView 不用滚动就能显示全部
-        * */
-        for (row in NOON_TOP..NOON_BOTTOM) {
-            setRowInitialWeight(row, 0F)
-        }
-        for (row in DUSK_TOP..DUSK_BOTTOM) {
-            setRowInitialWeight(row, 0F)
-        }
-    }
-
+    // 折叠动画
     private class FoldAnimation(
-        onEnd: (() -> Unit),
-        onChanged: ValueAnimator.AnimatorUpdateListener
-    ) : ChangeWeightAnimation(0.99999F, 0F, 200, onEnd, onChanged)
+        onChanged: (Float) -> Unit
+    ) : ChangeWeightAnimation(0.99999F, 0F, 200, onChanged)
 
+    // 展开动画
     private class UnfoldAnimation(
-        onEnd: (() -> Unit),
-        onChanged: ValueAnimator.AnimatorUpdateListener
-    ) : ChangeWeightAnimation(0.00001F, 1F, 200, onEnd, onChanged)
+        onChanged: (Float) -> Unit
+    ) : ChangeWeightAnimation(0.00001F, 1F, 200, onChanged)
 
     // 比重改变的动画封装类
     private abstract class ChangeWeightAnimation(
         startWeight: Float,
         endWeight: Float,
         val time: Long,
-        private val onEnd: (() -> Unit),
-        private val onChanged: ValueAnimator.AnimatorUpdateListener
+        private val onChanged: (Float) -> Unit
     ) {
         private var animator: ValueAnimator = ValueAnimator.ofFloat(startWeight, endWeight)
-        fun start() {
+        fun start(): ChangeWeightAnimation {
             animator.run {
-                addUpdateListener(onChanged)
-                addListener(onEnd = { onEnd.invoke() },)
+                addUpdateListener { onChanged.invoke(animatedValue as Float) }
                 duration = time
                 this.start()
             }
+            return this
         }
-
-        fun addEndListener(onEnd: () -> Unit) {
+        fun addEndListener(onEnd: () -> Unit): ChangeWeightAnimation {
             animator.addListener(onEnd = { onEnd.invoke() })
+            return this
         }
 
         fun cancel() {
@@ -440,19 +446,104 @@ class CourseLayout : NetLayout {
         }
     }
 
-    companion object {
-        const val AM_TOP = 0
-        const val AM_BOTTOM = 3
-        const val NOON_TOP = 4
-        const val NOON_BOTTOM = 4
-        const val PM_TOP = 5
-        const val PM_BOTTOM = 8
-        const val DUSK_TOP = 9
-        const val DUSK_BOTTOM = 9
-        const val NIGHT_TOP = 10
-        const val NIGHT_BOTTOM = 13
+    override fun onRestoreInstanceState(state: Parcelable) {
+        if (state !is SavedState) {
+            super.onRestoreInstanceState(state)
+            return
+        }
+        super.onRestoreInstanceState(state.superState)
+        // 先恢复 mSaveBundleListeners 的状态
+        for (i in state.saveBundleListeners.indices) {
+            mSaveBundleListeners[i].onRestoreInstanceState(state.saveBundleListeners[i])
+        }
+        // 再恢复被摧毁时的折叠状态
+        if (state.isFoldNoon) foldNoonWithoutAnim() else unfoldNoonWithoutAnim()
+        if (state.isFoldDusk) foldDuskWithoutAnim() else unfoldDuskWithoutAnim()
+    }
 
-        const val TIME_LINE_LEFT = 0
-        const val TIME_LINE_RIGHT = 0
+    override fun onSaveInstanceState(): Parcelable {
+        val superState = super.onSaveInstanceState()
+        val ss = SavedState(superState)
+
+        // 保存 mSaveBundleListeners 的状态
+        ss.saveBundleListeners = Array(mSaveBundleListeners.size) {
+            mSaveBundleListeners[it].onSaveInstanceState()
+        }
+
+        // 即将被摧毁，保存折叠状态
+        when (getNoonRowState()) {
+            RowState.FOLD -> ss.isFoldNoon = true
+            RowState.UNFOLD -> ss.isFoldNoon = false
+            RowState.ANIMATION -> ss.isFoldNoon == mNoonAnimation is FoldAnimation
+        }
+        when (getDuskRowState()) {
+            RowState.FOLD -> ss.isFoldDusk = true
+            RowState.UNFOLD -> ss.isFoldDusk = false
+            RowState.ANIMATION -> ss.isFoldDusk == mDuskAnimation is FoldAnimation
+        }
+        return ss
+    }
+
+    /**
+     * 用于在 [CourseLayout] 被摧毁时保存必要的信息
+     */
+    private class SavedState : BaseSavedState {
+        lateinit var saveBundleListeners: Array<Bundle?> // 保存的 mSaveBundleListeners 的信息
+        var isFoldNoon = true // 是否折叠了中午时间段
+        var isFoldDusk = true // 是否折叠了傍晚时间段
+
+        constructor(superState: Parcelable?) : super(superState)
+
+        @SuppressLint("ParcelClassLoader")
+        constructor(source: Parcel) : super(source) {
+            val size = source.readInt() // 先读取之前设置的 mSaveBundleListeners 的数量
+            saveBundleListeners = Array(size) {
+                source.readBundle()
+            }
+            isFoldNoon = source.readInt() == 1
+            isFoldDusk = source.readInt() == 1
+        }
+
+        override fun writeToParcel(out: Parcel, flags: Int) {
+            super.writeToParcel(out, flags)
+            out.writeInt(saveBundleListeners.size) // 先写入设置的 mSaveBundleListeners 的数量
+            saveBundleListeners.forEach {
+                out.writeBundle(it)
+            }
+            out.writeInt(if (isFoldNoon) 1 else 0)
+            out.writeInt(if (isFoldDusk) 1 else 0)
+        }
+
+        companion object CREATOR : Parcelable.Creator<SavedState> {
+            override fun createFromParcel(source: Parcel): SavedState {
+                return SavedState(source)
+            }
+
+            override fun newArray(size: Int): Array<SavedState?> {
+                return arrayOfNulls(size)
+            }
+        }
+    }
+
+    companion object {
+        /*
+        * 为什么要这样区分开始行和结束行？
+        * 原因如下：
+        * 1、方便以后好维护
+        * 2、虽然目前中午和傍晚只有一行，但也不能保证以后不改为两行，所以中午和傍晚也得分为开始行和结束行
+        * */
+        const val AM_TOP = 0 // 上午板块开始行
+        const val AM_BOTTOM = 3 // 上午板块结束行
+        const val NOON_TOP = 4 // 中午板块开始行
+        const val NOON_BOTTOM = 4 // 中午板块结束行
+        const val PM_TOP = 5 // 下午板块开始行
+        const val PM_BOTTOM = 8 // 下午板块结束行
+        const val DUSK_TOP = 9 // 傍晚板块开始行
+        const val DUSK_BOTTOM = 9 // 傍晚板块结束行
+        const val NIGHT_TOP = 10 // 晚上板块开始行
+        const val NIGHT_BOTTOM = 13 // 晚上板块结束行
+
+        const val TIME_LINE_LEFT = 0 // 时间轴开始列
+        const val TIME_LINE_RIGHT = 0 // 时间轴结束列
     }
 }

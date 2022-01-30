@@ -72,8 +72,9 @@ class CourseFoldHelper private constructor(
                     NOON_TOP,
                     NOON_BOTTOM
                 )
+                val clickRange = 16 // 点击的范围
                 // 如果 y 落在 Noon 的行数
-                if (y in (noonTopHeight - 10)..(noonBottomHeight + 10)) {
+                if (y in (noonTopHeight - clickRange)..(noonBottomHeight + clickRange)) {
                     mClickWhich = DownWhich.NOON
                     return true
                 } else {
@@ -84,7 +85,7 @@ class CourseFoldHelper private constructor(
                         DUSK_BOTTOM
                     )
                     // 如果 y 落在 Dusk 的行数
-                    if (y in (duskTopHeight - 10)..(duskBottomHeight + 10)) {
+                    if (y in (duskTopHeight - clickRange)..(duskBottomHeight + clickRange)) {
                         mClickWhich = DownWhich.DUSK
                         return true
                     }
