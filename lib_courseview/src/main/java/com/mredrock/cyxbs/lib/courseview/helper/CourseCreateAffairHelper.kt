@@ -3,7 +3,6 @@ package com.mredrock.cyxbs.lib.courseview.helper
 import android.content.Context
 import android.graphics.drawable.GradientDrawable
 import android.os.*
-import android.util.Log
 import android.view.*
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
@@ -22,6 +21,7 @@ import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import kotlin.RuntimeException
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
 
 /**
@@ -32,6 +32,7 @@ import kotlin.math.min
  * 该类设计：
  * 1、对 CourseLayout 增加事件监听来实现
  * 2、事件监听参考了 RV 的 ItemTouchHelper 的设计
+ * 3、手机转屏后仍能恢复之前长按显示的事务（虽然目前掌邮不会用到这个功能）
  *
  * 注意事项：
  * 1、该类只管理创建事务，请不要添加一些不属于该类的功能，想添加功能应该再写一个 OnCourseTouchListener
@@ -45,10 +46,38 @@ class CourseCreateAffairHelper private constructor(
 ) : OnCourseTouchListener, OnSaveBundleListener {
 
     /**
-     * 设置触摸空白区域生成的灰色的 View 的点击监听
+     * 设置触摸空白区域生成的用于添加事务的 View 的点击监听
      */
     fun setTouchAffairViewClickListener(l: View.OnClickListener) {
         mTouchAffairView.setOnClickListener(l)
+    }
+
+    /**
+     * 替代当前触摸生成的用于添加事务的 View，位置大小都会不变
+     */
+    fun replaceTouchAffairView(view: View) {
+        if (mTouchAffairView.parent != null) {
+            val lp = (mTouchAffairView.layoutParams as CourseLayoutParams).clone()
+            course.addCourse(view, lp)
+            course.removeView(mTouchAffairView)
+        }
+    }
+
+    /**
+     * 设置触摸生成的用于添加事务的 View 的边距
+     */
+    fun setTouchAffairViewMargin(
+        leftMargin: Int,
+        rightMargin: Int,
+        topMargin: Int,
+        bottomMargin: Int
+    ) {
+        val lp = mTouchAffairView.layoutParams as CourseLayoutParams
+        lp.leftMargin = leftMargin
+        lp.rightMargin = rightMargin
+        lp.topMargin = topMargin
+        lp.bottomMargin = bottomMargin
+        mTouchAffairView.layoutParams = lp
     }
 
     private var mInitialX = 0 // Down 时的初始 X 值
@@ -58,20 +87,17 @@ class CourseCreateAffairHelper private constructor(
 
     // 认定是滚动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
     private var mTouchSlop = ViewConfiguration.get(course.context).scaledTouchSlop
+
     // 识别为长按所需的时间
     private var mLongPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
+
     // 是否处于长按状态
     private var mIsInLongPress = false
+
     // 长按时执行的 Runnable
     private val mLongPressRunnable = Runnable {
         mIsInLongPress = true
-        // 防止重复添加 layoutParams
-        var lp = mTouchAffairView.layoutParams as CourseLayoutParams?
-        if (lp == null) {
-            lp = CourseLayoutParams(
-                mTopRow, mBottomRow, mInitialColumn, mInitialColumn, CourseType.AFFAIR_TOUCH
-            )
-        }
+        val lp = mTouchAffairView.layoutParams as CourseLayoutParams
         // 添加 mTouchAffairView
         course.addCourse(
             mTouchAffairView,
@@ -91,6 +117,8 @@ class CourseCreateAffairHelper private constructor(
     private var mInitialColumn = 0 // Down 事件中触摸的初始列数
 
     private var mTouchRow = 0 // 当前触摸的行数
+    private var mUpperRow = 0 // 选择区域的上限
+    private var mLowerRow = Int.MAX_VALUE // 选择区域的下限
 
     init {
         // 给 CourseLayout 设置触摸监听
@@ -100,10 +128,10 @@ class CourseCreateAffairHelper private constructor(
     }
 
     /**
-     * 触摸时显示的事务 View
+     * 用于添加事务的 View，注意：并不是最终显示事务的那个 View，该 View 只是在长按后生成的那个灰色的 View
      * ```
      * 这里直接使用 ImageView 的原因：
-     * 1、显示更方便，主要设置图片、背景这些
+     * 1、显示更方便，主要设置图片、背景这些，比直接在 canvas 上画图更简便
      * 2、计算更方便，直接修改该 View 的 layoutParams 即可
      * 3、可以更好的设置点击监听
      * 缺点：
@@ -123,6 +151,7 @@ class CourseCreateAffairHelper private constructor(
             }
             // 设置 ImageView 的前景图片
             setImageResource(R.drawable.course_ic_add_circle_white)
+            layoutParams = CourseLayoutParams(0,0, 0, CourseType.AFFAIR_TOUCH)
         }
     }
 
@@ -134,7 +163,7 @@ class CourseCreateAffairHelper private constructor(
      * 2、主要原因在于何时取消 mTouchAffairView 的显示，需要知道当前点击的是否是这个 mTouchAffairView，
      *       如果不是就 remove 掉
      *    而却会出现事件被 CourseLayout 的子 View 拦截的情况，出现这种情况时，isIntercept() 是不会被调用的，
-     *    所以就没有办法去判断何时 remove 掉 mTouchAffairView
+     *    所以就没有办法去 remove 掉 mTouchAffairView
      * 3、接 2，为了将 mTouchAffairView 的 remove 封装起来，就只能将拦截提前判断
      * 缺点：
      * 1、在一些不必要的情况下（比如子 View 会拦截时）也进行了判断的处理，但为了更好的封装性，这点消耗还是能接受的
@@ -145,7 +174,7 @@ class CourseCreateAffairHelper private constructor(
             mIsInIntercepting = false
             val x = event.x.toInt()
             val y = event.y.toInt()
-            val touchView = course.findItemUnder(x, y)
+            val touchView = course.findItemUnderByXY(x, y)
             /*
             * 这里 touchView = null 时一定会将事件给 CourseLayout#onTouchEvent() 处理，
             * 之后事件就会分发到每个 OnCourseTouchListener 中，
@@ -161,21 +190,42 @@ class CourseCreateAffairHelper private constructor(
                 mInitialY = y
                 mLastMoveX = x
                 mLastMoveY = y
-                mInitialColumn = course.getColumn(x)
                 mInitialRow = course.getRow(y)
+                mInitialColumn = course.getColumn(x)
                 mTopRow = mInitialRow
                 mBottomRow = mInitialRow
 
                 mIsInScrolling = false // 重置
 
+                calculateUpperLowerRow() // 计算上下限
+
                 course.postDelayed(mLongPressRunnable, mLongPressTimeout)
-                // 禁止 CourseScrollView 拦截事件
+                // 禁止外面的 ScrollView 拦截事件
                 course.parent.requestDisallowInterceptTouchEvent(true)
             }
             if (touchView !== mTouchAffairView) {
                 // 此时说明点击的是其他地方，不是 mTouchAffairView，则 remove 掉 mTouchAffairView
                 if (mTouchAffairView.parent != null) {
                     course.removeView(mTouchAffairView)
+                }
+            }
+        }
+    }
+
+    /**
+     * 计算 [mUpperRow] 和 [mLowerRow]
+     * @author 985892345
+     * @date 2022/1/31 17:38
+     */
+    private fun calculateUpperLowerRow() {
+        for (i in 0 until course.childCount) {
+            val child = course.getChildAt(i)
+            val lp = child.layoutParams as CourseLayoutParams
+            if (mInitialColumn in lp.startColumn..lp.endColumn) {
+                if (lp.endRow < mInitialRow) {
+                    mUpperRow = max(mUpperRow, lp.endRow)
+                } else if (lp.startRow > mInitialRow) {
+                    mLowerRow = min(mLowerRow, lp.startRow)
                 }
             }
         }
@@ -275,11 +325,11 @@ class CourseCreateAffairHelper private constructor(
      * 1、根据 [y] 值来计算当前 mTouchAffairView 的位置并刷新布局
      */
     private fun changeTouchAffairView(y: Int) {
-        val touchView = course.findItemUnder(mInitialX, y)
+        val touchView = course.findItemUnderByXY(mInitialX, y)
         if (touchView == null || touchView === mTouchAffairView) {
             mTouchRow = course.getRow(y) // 当前触摸的行数
-            val topRow: Int
-            val bottomRow: Int
+            var topRow: Int
+            var bottomRow: Int
             // 根据当前触摸的行数与初始行数比较，得到 topRow、bottomRow
             if (mTouchRow > mInitialRow) {
                 topRow = mInitialRow
@@ -288,6 +338,8 @@ class CourseCreateAffairHelper private constructor(
                 topRow = mTouchRow
                 bottomRow = mInitialRow
             }
+            if (topRow < mUpperRow) topRow = mUpperRow // 根据上限再次修正 topRow
+            if (bottomRow > mLowerRow) bottomRow = mLowerRow // 根据下限再次修正 bottomRow
             if (topRow != mTopRow || bottomRow != mBottomRow) { // 避免不必要的刷新
                 mTopRow = topRow
                 mBottomRow = bottomRow
@@ -332,7 +384,7 @@ class CourseCreateAffairHelper private constructor(
         override fun run() {
             mCourseScrollView.scrollBy(0, mScrollVelocity)
             mLastMoveY += mScrollVelocity
-            changeTouchAffairView(mLastMoveY) // 防止手指不移动而选择区域不变的情况
+            changeTouchAffairView(mLastMoveY) // 防止手指不移动而出现选择区域不变的情况
             ViewCompat.postOnAnimation(course, this)
         }
     }
@@ -348,10 +400,14 @@ class CourseCreateAffairHelper private constructor(
     private fun scrollIsNecessary(y: Int) {
         val nowHeight = y + getDiffHeightWithScrollView()
         val moveBoundary = 100 // 移动的边界值
-        val isNeedScrollUp = nowHeight > mCourseScrollView.height - moveBoundary
-        val isNeedScrollDown = nowHeight < moveBoundary
-        if (isNeedScrollUp || isNeedScrollDown) {
-            mScrollVelocity = if (isNeedScrollUp) {
+        // 向上滚动，即需要显示下面的内容
+        val isNeedScrollUp =
+            nowHeight < moveBoundary && mTouchRow < mLowerRow
+        // 向下滚动，即需要显示上面的内容
+        val isNeedScrollDown =
+            nowHeight > mCourseScrollView.height - moveBoundary && mTouchRow > mUpperRow
+        if (isNeedScrollDown || isNeedScrollUp) {
+            mScrollVelocity = if (isNeedScrollDown) {
                 // 速度最小为 6，最大为 20，与边界的差值成线性关系
                 min((nowHeight - (mCourseScrollView.height - moveBoundary)) / 10 + 6, 20)
             } else {
@@ -359,7 +415,6 @@ class CourseCreateAffairHelper private constructor(
                 -min(((moveBoundary - nowHeight) / 10 + 6), 20)
             }
             if (!mIsInScrolling) { // 防止重复添加 Runnable
-                Log.d("ggg", "(CourseCreateAffairHelper.kt:348)-->> ???")
                 mIsInScrolling = true
                 mScrollRunnable.run()
             }
@@ -418,61 +473,21 @@ class CourseCreateAffairHelper private constructor(
         }
     }
 
-    private var mLastCourseLayoutHeight = 0 // 上一次 course 的总高度，用于修正 ScrollView 的 scrollY
-
     /**
      * 判断当前滑动中是否需要自动展开中午或者傍晚时间段
-     *
-     * 对于向下滑展开中午和傍晚时，整个外面的 ScrollView 会向下扩展，导致触摸点相对向上移动，
-     * 对此我做了对于 ScrollView 的 scrollY 的修正处理
-     * ```
-     * 目前采用两次 course 的高度差来修正 scrollY，但存在会向下抖一下的情况，原因如下：
-     * 当前帧计算的高度差需要在下一帧才能修正，而下一帧又产生了新的高度差，需要下下一帧才能修正
-     * 所以每次产生的高度差都是在下一帧修正，因此视觉上就会看到课表会抖一下
-     * 解决方案：
-     * 在调用 setRowWeight() 时就计算出下一帧会增加的高度差，但这样会很麻烦，耦合度过高，
-     * 因此课表抖一下的问题不好解决
-     * ```
      */
     private fun unfoldNoonOrDuskIfNecessary() {
         if (mTopRow <= NOON_TOP && mBottomRow >= NOON_BOTTOM) {
             if (course.getNoonRowState() == RowState.FOLD) {
-                mLastCourseLayoutHeight = course.height
-                course.unfoldNoon {
-                    val height = course.height
-                    amendScrollViewScrollYIfNecessary(
-                        height - mLastCourseLayoutHeight, // 两次高度差值
-                        mLastMoveY > mInitialY
-                    )
-                    mLastCourseLayoutHeight = height
-                }
+                course.unfoldNoon()
             }
         }
         if (mTopRow <= DUSK_TOP && mBottomRow >= DUSK_BOTTOM) {
             if (course.getDuskRowState() == RowState.FOLD) {
-                mLastCourseLayoutHeight = course.height
-                course.unfoldDusk {
-                    val height = course.height
-                    amendScrollViewScrollYIfNecessary(
-                        height - mLastCourseLayoutHeight, // 两次高度差值
-                        mLastMoveY > mInitialY
-                    )
-                    mLastCourseLayoutHeight = course.height
-                }
+
+                course.unfoldDusk()
             }
         }
-    }
-
-    /**
-     * 用于修正 [mCourseScrollView] 当前的 scrollY。因为在展开时，ScrollView 是向下展开的，
-     * 所以需要控制它向上移动，使当前触摸的点不会产生偏移
-     * @param add 重新布局后会增加的高度
-     * @param isAbove 如果为 true，则使 ScrollView 向上展开
-     */
-    private fun amendScrollViewScrollYIfNecessary(add: Int, isAbove: Boolean) {
-        val oldScrollY = mCourseScrollView.scrollY
-        val nowScrollY = if (isAbove) oldScrollY + add else oldScrollY
-        mCourseScrollView.scrollY = nowScrollY
     }
 
     override fun onSaveInstanceState(): Bundle? {
@@ -492,6 +507,12 @@ class CourseCreateAffairHelper private constructor(
         // 恢复之前保存的 layoutParams
         val lp = bundle.getSerializable(this::mTouchAffairView.name) as CourseLayoutParams
         course.addCourse(mTouchAffairView, lp)
+        // 从竖屏到横屏时，显示的 mTouchAffairView 可能会在屏幕显示区域外，所以需要调整 ScrollView 的 scrollY，
+        // 让 mTouchAffairView 刚好显示在屏幕内
+        // 但回调 onRestoreInstanceState() 时还没有开始布局，所以需要用 post 在布局后设置
+        course.post {
+            mCourseScrollView.scrollBy(0, mTouchAffairView.top + getDiffHeightWithScrollView() - 60)
+        }
     }
 
     companion object {

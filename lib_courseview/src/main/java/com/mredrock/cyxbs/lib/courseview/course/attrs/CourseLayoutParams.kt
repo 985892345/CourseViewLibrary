@@ -18,6 +18,21 @@ import java.io.Serializable
  */
 class CourseLayoutParams : NetLayoutParams, CourseBean, Serializable {
 
+    /**
+     * 克隆一个一样的，但只复制了重要的东西，并没有完全一样
+     */
+    fun clone(): CourseLayoutParams {
+        return CourseLayoutParams(startRow, endRow, startColumn, endColumn, type).also {
+            it.width = width
+            it.height = height
+            it.leftMargin = leftMargin
+            it.rightMargin = rightMargin
+            it.topMargin = topMargin
+            it.bottomMargin = bottomMargin
+            it.gravity = gravity
+        }
+    }
+
     override val day: Int
         get() = startColumn
     override val startPos: Int

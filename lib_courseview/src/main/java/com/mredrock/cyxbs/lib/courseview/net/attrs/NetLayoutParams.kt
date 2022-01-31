@@ -16,9 +16,16 @@ import com.mredrock.cyxbs.lib.courseview.base.int
  */
 open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Comparable<NetLayoutParams> {
 
+    /**
+     * 是否可以测量和布局，返回 false 时将不会给 View 布局和测量
+     */
     open fun isComplete(): Boolean {
         return startRow in 0..endRow
                 && startColumn in 0..endColumn
+    }
+
+    fun contains(row: Int, column: Int): Boolean {
+        return row in startRow..endRow && column in startColumn..endColumn
     }
 
     var gravity: Int
@@ -87,16 +94,17 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
         if (dArea == 0) {
             val dRow = startRow - other.startRow
             if (dRow == 0) {
-                val dColumn = startColumn - other.startColumn // 然后开始列小的在下面
+                val dColumn = startColumn - other.startColumn
                 if (dColumn == 0) {
-                    // 最后间距大的（面积就小）在上面
+                    // （此时说明两个位置完全相同）最后间距大的（面积就小）在上面
                     return leftMargin + rightMargin + topMargin + bottomMargin -
                             (other.leftMargin + other.rightMargin + other.topMargin + other.bottomMargin)
                 }
+                return dColumn // 然后开始列小的在下面
             }
             return dRow // 再开始行小的在下面
         }
-        return dArea // 先面积大的在下面
+        return dArea // 先行×列面积大的在下面
     }
 
     companion object {

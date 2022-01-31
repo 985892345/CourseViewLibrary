@@ -61,22 +61,9 @@ open class NetLayout : ViewGroup {
      * ```
      * 1、该方法保证 View 的排序有序
      * ```
-     * @return 是否添加成功
      */
-    fun addItem(item: View, lp: NetLayoutParams): Boolean {
-        if (!lp.isComplete()) return false
+    fun addItem(item: View, lp: NetLayoutParams) {
         addView(item, lp) // 注意：addView 方法被重写
-        return true
-    }
-
-    /**
-     * 改变 View 的测量范围
-     */
-    fun setItemAttrs(item: View, lp: NetLayoutParams): Boolean {
-        return if (lp.isComplete()) {
-            removeViewInLayout(item)
-            addItem(item, lp)
-        } else false
     }
 
     /**
@@ -84,8 +71,9 @@ open class NetLayout : ViewGroup {
      *
      * 如果要修改子 View 的添加顺序可以重写 [getChildAfterIndex]
      * @see getChildAfterIndex
+     * @see findItemUnderByRowColumn
      */
-    fun findItemUnder(x: Int, y: Int): View? {
+    fun findItemUnderByXY(x: Int, y: Int): View? {
         for (i in childCount - 1 downTo 0) {
             val child = getChildAt(i)
             val translationX = child.translationX
@@ -95,6 +83,24 @@ open class NetLayout : ViewGroup {
                 && y >= child.top + translationY
                 && y <= child.bottom + translationY
             ) {
+                return child
+            }
+        }
+        return null
+    }
+
+    /**
+     * 根据行和列倒序查找子 View
+     *
+     * 如果要修改子 View 的添加顺序可以重写 [getChildAfterIndex]
+     * @see getChildAfterIndex
+     * @see findItemUnderByXY
+     */
+    fun findItemUnderByRowColumn(row: Int, column: Int): View? {
+        for (i in childCount - 1 downTo 0) {
+            val child = getChildAt(i)
+            val lp = child.layoutParams.net()
+            if (lp.contains(row, column)) {
                 return child
             }
         }
@@ -405,7 +411,7 @@ open class NetLayout : ViewGroup {
      *                         ↑
      * ```
      * **NOTE：** 排序基于 [NetLayoutParams.compareTo] 方法，
-     * 可在继承该 ViewGroup 的前提下重写该 compareTo 方法
+     * 可在继承 [NetLayout] 的前提下重写 [NetLayoutParams.compareTo] 方法
      */
     protected open fun getChildAfterIndex(child: View, params: NetLayoutParams): Int {
         var start = 0
