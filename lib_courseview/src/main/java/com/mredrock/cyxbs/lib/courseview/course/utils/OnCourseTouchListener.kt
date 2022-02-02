@@ -7,14 +7,14 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  * 该类主要用于实现一些简单的触摸事件处理，将一个 View 的复杂的触摸功能分为几个 listener 的来实现，
  * 增强代码可读性和维护性
  *
- * 设计参考了 RV 的 ItemTouchListener，但它有些不同。RV 的 ItemTouchListener 是想实现像 View 一般的事件
+ * 设计参考了 RV 的 ItemTouchListener，但与它又有些不同。RV 的 ItemTouchListener 是想实现像 View 一般的事件
  * 监听，而针对于课表的需求，我更改为了一种更好的思路来分配事件，主要原因在于课表不需要去提前拦截子 View 的事件，
  * 所以只需要在 View#onTouchEvent() 中分配事件即可
  * ```
  *
  * 例如：共设置了 3 个 listener，分别为 l1、l2、l3，且按顺序添加
  *
- *   View.dispatchTouchEvent
+ *   View.dispatchTouchEvent：
  *   DOWN、MOVE
  *       ↓
  *       ↓
@@ -24,7 +24,7 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  *   l3.onDispatchTouchEvent
  *
  *
- *   View.onTouchEvent
+ *   View.onTouchEvent：
  * 1、DOWN: 在某一个 listener 的 isIntercept() 返回 true 后，将把该 listener 赋值给 mInterceptingOnTouchListener
  *       ↓
  *   l1.isIntercept() → → → → → → l2.isIntercept() → → → → → → l3.isIntercept() → → → → View.onTouchEvent
@@ -46,6 +46,8 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  *       ↓
  *       ↓
  *   mInterceptingOnTouchListener.onTouchEvent()
+ *
+ *   整体与 View 的事件分发有些类似，在 Down 事件中找到拦截的 View，在 Move 事件中直接把事件传递给它
  * ```
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com

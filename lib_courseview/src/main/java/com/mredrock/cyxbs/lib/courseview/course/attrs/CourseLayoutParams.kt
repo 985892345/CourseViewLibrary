@@ -69,8 +69,8 @@ class CourseLayoutParams : NetLayoutParams, CourseBean, Serializable {
         length: Int,
         type: CourseType
     ) : this(
-        startPos,
-        startPos + length - 1,
+        startPos - 1,
+        startPos + length - 2,
         day,
         day,
         type
@@ -91,4 +91,18 @@ class CourseLayoutParams : NetLayoutParams, CourseBean, Serializable {
     }
 
     constructor(bean: CourseBean) : this(bean.day, bean.startPos, bean.length, bean.type)
+
+    override fun toString(): String {
+        return "${this::class.simpleName}(" +
+                "day = $day, " +
+                "startPos = $startPos, " +
+                "length = $length, " +
+                "type = ${type.name}, " +
+                "startRow = $startRow, " +
+                "endRow = $endRow, " +
+                "startColumn = $startColumn, " +
+                "endColumn = $endColumn, " +
+                "rowCount = $rowCount, " +
+                "columnCount = $columnCount)"
+    }
 }

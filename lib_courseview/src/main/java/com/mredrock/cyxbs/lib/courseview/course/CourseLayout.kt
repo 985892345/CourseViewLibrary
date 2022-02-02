@@ -10,6 +10,7 @@ import android.os.Parcelable
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.core.animation.addListener
 import com.mredrock.cyxbs.lib.courseview.R
@@ -17,6 +18,7 @@ import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.course.utils.*
 import com.mredrock.cyxbs.lib.courseview.net.NetLayout
+import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 
 /**
  * ```
@@ -253,6 +255,55 @@ class CourseLayout : NetLayout {
         }
     }
 
+    /**
+     * 得到 [CourseLayout] 外层包裹的 [CourseScrollView]
+     *
+     * 因为在长按选择事务时，滑到屏幕显示边缘区域时需要调用 [CourseScrollView] 进行滚动，
+     * 所以只能采用这种强耦合的方式
+     */
+    val mCourseScrollView: CourseScrollView by lazy(LazyThreadSafetyMode.NONE) {
+        var scrollView: CourseScrollView? = null
+        var parent = parent
+        while (parent is ViewGroup) {
+            if (parent is CourseScrollView) {
+                scrollView = parent
+                break
+            }
+            parent = parent.parent
+        }
+        if (scrollView == null) throw RuntimeException(
+            "CourseLayout 必须拥有 CourseScrollView 父布局，因为在一些情况下要调用它滚动"
+        )
+        scrollView
+    }
+
+    /**
+     * 得到自身与 [mCourseScrollView] 之间相差的高度，是眼睛能看见的高度差
+     * ```
+     * 如：
+     *                 |---------- CourseScrollView ----------|
+     *                               |------------- CourseLayout -------------|
+     *                 |-- 得到的值 --| (值为正)
+     * or
+     *                 |---------- CourseScrollView ----------|
+     *   |------------- CourseLayout -------------|
+     *   |-- 得到的值 --| (注意：此时值为负)
+     * ```
+     */
+    fun getDiffHeightWithScrollView(): Int {
+        var dHeight = top // 与 mCourseScrollView 去掉 scrollY 后的高度差，即屏幕上显示的高度差
+        var parent = parent
+        while (parent is ViewGroup) { // 这个循环用于计算 dHeight
+            dHeight -= parent.scrollY
+            if (parent === mCourseScrollView) { // 找到 mCourseScrollView 就结束
+                break
+            }
+            dHeight += parent.top
+            parent = parent.parent
+        }
+        return dHeight
+    }
+
     private val mCourseAttrs: CourseLayoutAttrs
 
     // 自定义绘图的监听
@@ -289,6 +340,10 @@ class CourseLayout : NetLayout {
         }
         for (row in DUSK_TOP..DUSK_BOTTOM) {
             setRowInitialWeight(row, 0F)
+        }
+        // 下面这个 for 用于设置时间轴的初始化宽度
+        for (column in TIME_LINE_LEFT..TIME_LINE_RIGHT) {
+            setColumnInitialWeight(column, 0.8F)
         }
     }
 

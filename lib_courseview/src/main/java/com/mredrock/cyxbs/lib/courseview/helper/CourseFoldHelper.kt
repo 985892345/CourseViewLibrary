@@ -65,6 +65,9 @@ class CourseFoldHelper private constructor(
                 TIME_LINE_LEFT,
                 TIME_LINE_RIGHT
             )
+            // 这里并没有直接采用得到当前触摸 View 的 layoutParams 的 type 来判断
+            // 因为在折叠后，那个 View 的高度直接为 0 了，手指是不可能触摸得到那个 View 的
+            // 所以只能计算它的绝对区域
             if (x in timeLineLeft..timeLineRight) { // 如果 x 落在左侧时间轴上
                 // 中午那一行的显示范围
                 val noonTopHeight = course.getRowsHeight(0, NOON_TOP - 1)
