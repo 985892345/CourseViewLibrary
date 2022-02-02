@@ -8,7 +8,6 @@ import android.view.ViewConfiguration
 import android.view.animation.OvershootInterpolator
 import androidx.core.animation.addListener
 import androidx.core.view.ViewCompat
-import androidx.core.widget.NestedScrollView
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
@@ -17,6 +16,7 @@ import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.Vibrator
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
 
 /**
@@ -48,6 +48,7 @@ class CourseLongPressAffairHelper private constructor(
     // 长按时执行的 Runnable
     private val mLongPressRunnable = Runnable {
         mIsInLongPress = true
+        unfoldNoonOrDuskIfNecessary(mAffairView!!) // 如果需要就自动展开中午和傍晚时间段
         Vibrator.start(course.context, 36) // 长按被触发来个震动提醒
     }
 
@@ -64,7 +65,7 @@ class CourseLongPressAffairHelper private constructor(
             val lp = child?.layoutParams as CourseLayoutParams?
             if (lp?.type == CourseType.AFFAIR) {
                 if (child !== mAffairView) {
-                    child?.translationZ = 20F // 让 AffairView 显示在所有 View 之上
+                    child?.translationZ = 10F // 让 AffairView 显示在所有 View 之上
                     mAffairView = child
                     return true
                 }
@@ -132,6 +133,7 @@ class CourseLongPressAffairHelper private constructor(
             MotionEvent.ACTION_UP -> {
                 changePositionIfNecessary()
                 mScrollRunnable.cancel()
+                course.removeCallbacks(mLongPressRunnable)
                 mAffairView = null // 重置
             }
             MotionEvent.ACTION_CANCEL -> {
@@ -147,30 +149,32 @@ class CourseLongPressAffairHelper private constructor(
      * 平移 AffairView
      */
     private fun translateAffairView(y: Int) {
-        mAffairView?.translationX = (mLastMoveX - mInitialX).toFloat()
-        mAffairView?.translationY = (y - mInitialY).toFloat()
-        // 判断是否展开中午或者傍晚时间段（在滑过中午或者傍晚时需要将他们自动展开）
-        unfoldNoonOrDuskIfNecessary()
+        mAffairView?.let {
+            it.translationX = (mLastMoveX - mInitialX).toFloat()
+            it.translationY = (y - mInitialY).toFloat()
+            // 判断是否展开中午或者傍晚时间段（在滑过中午或者傍晚时需要将他们自动展开）
+            unfoldNoonOrDuskIfNecessary(it)
+        }
     }
 
     /**
      * 判断当前平移 AffairView 中是否需要自动展开中午或者傍晚时间段
      */
-    private fun unfoldNoonOrDuskIfNecessary() {
-        mAffairView?.let {
-            val top = it.y.toInt()
-            val bottom = top + it.height
-            val topRow = course.getRow(top)
-            val bottomRow = course.getRow(bottom)
-            if (topRow <= CourseLayout.NOON_TOP && bottomRow >= CourseLayout.NOON_BOTTOM) {
-                if (course.getNoonRowState() == RowState.FOLD) {
-                    course.unfoldNoon()
-                }
+    private fun unfoldNoonOrDuskIfNecessary(view: View) {
+        val top = view.y.toInt()
+        val bottom = top + view.height
+        val topRow = course.getRow(top)
+        val bottomRow = course.getRow(bottom)
+        if (topRow <= CourseLayout.NOON_TOP && bottomRow >= CourseLayout.NOON_BOTTOM) {
+            if (course.getNoonRowState() == RowState.FOLD) {
+                course.unfoldNoon()
             }
-            if (topRow <= CourseLayout.DUSK_TOP && bottomRow >= CourseLayout.DUSK_BOTTOM) {
-                if (course.getDuskRowState() == RowState.FOLD) {
-                    course.unfoldDusk()
-                }
+        }
+        if (topRow <= CourseLayout.DUSK_TOP && bottomRow >= CourseLayout.DUSK_BOTTOM) {
+            if (course.getDuskRowState() == RowState.FOLD) {
+                Log.d("sss", "(CourseLongPressAffairHelper.kt:174) --> ========= " +
+                        "scrollY = ${course.mCourseScrollView.scrollY}")
+                course.unfoldDusk()
             }
         }
     }
@@ -179,8 +183,21 @@ class CourseLongPressAffairHelper private constructor(
      * 如果可以改变位置，则带有动画的移动到新位置
      */
     private fun changePositionIfNecessary() {
+        val noonState = course.getNoonRowState()
+        val duskState = course.getDuskRowState()
+        if (noonState == RowState.ANIM_UNFOLD
+            || noonState == RowState.ANIM_FOLD
+            || duskState == RowState.ANIM_UNFOLD
+            || duskState == RowState.ANIM_FOLD
+        ) {
+            // 动画的时间很短了，在这么短暂的时间内调用到该方法说明
+            // 用户是很快就松手的，一般不会出现这种情况，所以直接回到原位置
+            restoreAffairViewToOldPosition()
+            return
+        }
         val view = mAffairView
         if (view != null) {
+
             val left = view.x.toInt()
             val right = left + view.width
             val top = view.y.toInt()
@@ -211,6 +228,11 @@ class CourseLongPressAffairHelper private constructor(
                 leftColumn = rightColumn - columnCount + 1
             }
 
+            var maxTopRow = 0
+            var minBottomRow = course.getRowCount() - 1
+            var maxLeftColumn = 0
+            var minRightColumn = course.getColumnCount() - 1
+
             fun isIntersect(aMin: Int, aMax: Int, bMin: Int, bMax: Int) = !(aMax < bMin || aMin > bMax)
 
             for (i in 0 until course.childCount - 1) {
@@ -221,17 +243,115 @@ class CourseLongPressAffairHelper private constructor(
                     && isIntersect(lp.startColumn, lp.endColumn, leftColumn, rightColumn)
                     && child !== view
                 ) {
-                    restoreAffairViewToOldPosition()
-                    return
+                    /*
+                    * 这里分别代表以下四种情况：（这四种情况直接回到原来的位置）
+                    * 1、
+                    *                               ___ topRow
+                    *        lp.startRow  ___        |
+                    *                      |         |
+                    *                      |         |
+                    *          lp.endRow  ---        |
+                    *                               --- bottom
+                    *
+                    * 2、
+                    *          lp.startColumn      lp.endColumn
+                    *                 |------------------|
+                    *           |------------------------------|
+                    *      leftColumn                     rightColumn
+                    *
+                    * 3、
+                    *        lp.startRow  ___
+                    *                      |        ___ topRow
+                    *                      |         |
+                    *                      |         |
+                    *                      |        --- bottomRow
+                    *          lp.endRow  ---
+                    *
+                    * 4、
+                    *    lp.startColumn                   lp.endColumn
+                    *           |------------------------------|
+                    *                 |------------------|
+                    *              topRow             bottomRow
+                    * */
+                    if (lp.startRow > topRow && lp.endRow < bottomRow
+                        || lp.startColumn > leftColumn && lp.endColumn < rightColumn
+                        || lp.startRow < topRow && lp.endRow > bottomRow
+                        || lp.startColumn < leftColumn && lp.endColumn > rightColumn
+                        || lp.startRow == topRow && lp.endRow == bottomRow
+                        && lp.startColumn <= leftColumn && lp.endColumn >= rightColumn
+                        || lp.startColumn == leftColumn && lp.endColumn == rightColumn
+                        && lp.startRow <= topRow && lp.endRow >= bottomRow
+                    ) {
+                        Log.d("ggg", "(CourseLongPressAffairHelper.kt:265) --> " +
+                                "${lp.startColumn > leftColumn && lp.endColumn < rightColumn}")
+                        Log.d("ggg", "(CourseLongPressAffairHelper.kt:265) --> 111")
+                        restoreAffairViewToOldPosition()
+                        return
+                    }
+
+                    val otherTop = course.getRowsHeight(0, lp.startRow - 1)
+                    val otherBottom = otherTop + course.getRowsHeight(lp.startRow, lp.endRow)
+
+                    if (otherTop in top..bottom) {
+                        minBottomRow = min(minBottomRow, lp.startRow - 1)
+                    } else if (otherBottom in top..bottom) {
+                        maxTopRow = max(maxTopRow, lp.endRow + 1)
+                        Log.d("ggg", "(CourseLongPressAffairHelper.kt:296) --> maxTop = $maxTopRow")
+                    }
+
+                    val otherLeft = course.getColumnsWidth(0, lp.startColumn - 1)
+                    val otherRight = otherLeft + course.getColumnsWidth(lp.startColumn, lp.endColumn)
+
+                    if (otherLeft in left..right) {
+                        minRightColumn = min(minRightColumn, lp.startColumn - 1)
+                    } else if (otherRight in left..right) {
+                        maxLeftColumn = max(maxLeftColumn, lp.endColumn + 1)
+                    }
+
+                    if (minBottomRow - maxTopRow + 1 < rowCount
+                        || minRightColumn - maxLeftColumn + 1 < columnCount
+                    ) {
+                        Log.d("ggg", "(CourseLongPressAffairHelper.kt:287) --> " +
+                                "${minBottomRow - maxTopRow + 1 < rowCount}   " +
+                                "minBottom = $minBottomRow   " +
+                                "maxTop = $maxTopRow")
+                        Log.d("ggg", "(CourseLongPressAffairHelper.kt:285) --> 222")
+                        restoreAffairViewToOldPosition()
+                        return
+                    }
                 }
+            }
+            if (maxTopRow in topRow..bottomRow && maxTopRow - topRow > bottomRow - maxTopRow + 1
+                || minBottomRow in topRow..bottomRow && bottomRow - minBottomRow > minBottomRow - topRow + 1
+                || maxLeftColumn in leftColumn..rightColumn && maxLeftColumn - leftColumn > rightColumn - maxLeftColumn + 1
+                || minRightColumn in leftColumn..rightColumn && rightColumn - minRightColumn > minRightColumn - leftColumn + 1
+            ) {
+                Log.d("ggg", "(CourseLongPressAffairHelper.kt:296) --> 333")
+                restoreAffairViewToOldPosition()
+                return
+            }
+
+            if (maxTopRow in topRow..bottomRow) {
+                topRow = maxTopRow
+                bottomRow = maxTopRow + rowCount - 1
+            } else if (minBottomRow in topRow..bottomRow) {
+                topRow = minBottomRow - rowCount + 1
+                bottomRow = minBottomRow
+            }
+            if (maxLeftColumn in leftColumn..rightColumn) {
+                leftColumn = maxLeftColumn
+                rightColumn = maxLeftColumn + columnCount - 1
+            } else if (minRightColumn in leftColumn..rightColumn) {
+                leftColumn = minRightColumn - columnCount + 1
+                rightColumn = minRightColumn
             }
 
             val finalX = course.getColumnsWidth(0, leftColumn - 1).toFloat()
             val finalY = course.getRowsHeight(0, topRow - 1).toFloat()
-
             MoveAnimation(view.x, view.y, finalX, finalY, 200) { x, y ->
                 view.x = x
                 view.y = y
+                unfoldNoonOrDuskIfNecessary(view)
             }.addEndListener {
                 view.translationX = 0F
                 view.translationY = 0F
@@ -263,8 +383,8 @@ class CourseLongPressAffairHelper private constructor(
             MoveAnimation(translationX, translationY, 0F, 0F, 200) { x, y ->
                 view.translationX = x
                 view.translationY = y
-                view.translationZ = 0F // 重置
             }.addEndListener {
+                view.translationZ = 0F // 重置
                 // 防止动画未结束而又开启了下一次移动导致 mAffairView 改变
                 if (view === mAffairView) mAffairView = null
             }.start()

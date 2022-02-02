@@ -9,5 +9,6 @@ package com.mredrock.cyxbs.lib.courseview.course.utils
 enum class RowState {
     FOLD, // 完全展开
     UNFOLD, // 完全折叠
-    ANIMATION // 处于动画中
+    ANIM_FOLD, // 处于折叠动画中
+    ANIM_UNFOLD // 处于展开动画中
 }

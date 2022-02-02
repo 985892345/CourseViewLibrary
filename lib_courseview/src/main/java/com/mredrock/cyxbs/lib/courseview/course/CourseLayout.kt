@@ -93,11 +93,12 @@ class CourseLayout : NetLayout {
      * 得到当前中午那一行的状态
      */
     fun getNoonRowState(): RowState {
-        if (mNoonAnimation != null) return RowState.ANIMATION
+        if (mNoonAnimation is FoldAnimation) return RowState.ANIM_FOLD
+        if (mNoonAnimation is UnfoldAnimation) return RowState.ANIM_UNFOLD
         return when (getRowsWeight(NOON_TOP, NOON_BOTTOM) / (NOON_BOTTOM - NOON_TOP + 1)) {
             1F -> RowState.UNFOLD
             0F -> RowState.FOLD
-            else -> RowState.ANIMATION
+            else -> throw RuntimeException("出现这个 error 你把中午时间段的比重私自修改了")
         }
     }
 
@@ -105,11 +106,12 @@ class CourseLayout : NetLayout {
      * 得到当前中午那一行的状态
      */
     fun getDuskRowState(): RowState {
-        if (mDuskAnimation != null) return RowState.ANIMATION
+        if (mDuskAnimation is FoldAnimation) return RowState.ANIM_FOLD
+        if (mDuskAnimation is UnfoldAnimation) return RowState.ANIM_UNFOLD
         return when (getRowsWeight(DUSK_TOP, DUSK_BOTTOM) / (DUSK_BOTTOM - DUSK_TOP + 1)) {
             1F -> RowState.UNFOLD
             0F -> RowState.FOLD
-            else -> RowState.ANIMATION
+            else -> throw RuntimeException("出现这个 error 你把傍晚时间段的比重私自修改了")
         }
     }
 
@@ -253,6 +255,16 @@ class CourseLayout : NetLayout {
                 onEnd?.invoke()
             }.start()
         }
+    }
+
+    fun addNoonAnimationEndListener(onEnd: () -> Unit): Boolean {
+        mNoonAnimation?.addEndListener(onEnd)
+        return mNoonAnimation != null
+    }
+
+    fun addDuskAnimationEndListener(onEnd: () -> Unit): Boolean {
+        mDuskAnimation?.addEndListener(onEnd)
+        return mDuskAnimation != null
     }
 
     /**
@@ -525,14 +537,12 @@ class CourseLayout : NetLayout {
 
         // 即将被摧毁，保存折叠状态
         when (getNoonRowState()) {
-            RowState.FOLD -> ss.isFoldNoon = true
-            RowState.UNFOLD -> ss.isFoldNoon = false
-            RowState.ANIMATION -> ss.isFoldNoon == mNoonAnimation is FoldAnimation
+            RowState.FOLD, RowState.ANIM_FOLD -> ss.isFoldNoon = true
+            RowState.UNFOLD, RowState.ANIM_UNFOLD -> ss.isFoldNoon = false
         }
         when (getDuskRowState()) {
-            RowState.FOLD -> ss.isFoldDusk = true
-            RowState.UNFOLD -> ss.isFoldDusk = false
-            RowState.ANIMATION -> ss.isFoldDusk == mDuskAnimation is FoldAnimation
+            RowState.FOLD, RowState.ANIM_FOLD -> ss.isFoldDusk = true
+            RowState.UNFOLD, RowState.ANIM_UNFOLD -> ss.isFoldDusk = false
         }
         return ss
     }

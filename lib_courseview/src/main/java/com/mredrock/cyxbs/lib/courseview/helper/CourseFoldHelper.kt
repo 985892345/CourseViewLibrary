@@ -55,7 +55,11 @@ class CourseFoldHelper private constructor(
             val noonState = course.getNoonRowState()
             val duskState = course.getDuskRowState()
             // 如果处于动画中
-            if (noonState == RowState.ANIMATION || duskState == RowState.ANIMATION) {
+            if (noonState == RowState.ANIM_FOLD
+                || noonState == RowState.ANIM_UNFOLD
+                || duskState == RowState.ANIM_FOLD
+                || duskState == RowState.ANIM_UNFOLD
+            ) {
                 mClickWhich = DownWhich.OTHER
                 return true // 防止下一个 CourseTouchListener 处理正在动画时的触摸事件
             }
@@ -145,7 +149,7 @@ class CourseFoldHelper private constructor(
         when (course.getNoonRowState()) {
             RowState.FOLD -> course.unfoldNoon()
             RowState.UNFOLD -> course.foldNoon()
-            RowState.ANIMATION -> return
+            else -> return
         }
     }
 
@@ -156,7 +160,7 @@ class CourseFoldHelper private constructor(
         when (course.getDuskRowState()) {
             RowState.FOLD -> course.unfoldDusk()
             RowState.UNFOLD -> course.foldDusk()
-            RowState.ANIMATION -> return
+            else -> return
         }
     }
 
