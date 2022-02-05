@@ -63,8 +63,8 @@ class CourseLongPressAffairHelper private constructor(
         if (event.action == MotionEvent.ACTION_DOWN) {
             val child = course.findItemUnderByXY(x, y)
             val lp = child?.layoutParams as CourseLayoutParams?
-            if (lp?.type == CourseType.AFFAIR) {
-                if (child !== mAffairView) {
+            if (lp?.type == CourseType.AFFAIR) { // 目前只有事务可以移动
+                if (child !== mAffairView) { // 防止在上一次抬手后 View 移动的动画中再次长按同一个 View
                     child?.translationZ = 10F // 让 AffairView 显示在所有 View 之上
                     mAffairView = child
                     return true
@@ -94,7 +94,6 @@ class CourseLongPressAffairHelper private constructor(
                     mLastMoveX = x
                     mLastMoveY = y
 
-                    scrollIsNecessary(y)
                     if (!mScrollRunnable.isInScrolling) {
                         /*
                         * 如果 isInScrolling = true，则 translateAffairView()
@@ -107,6 +106,7 @@ class CourseLongPressAffairHelper private constructor(
                         * */
                         translateAffairView(y) // 平移显示事务的 View
                     }
+                    scrollIsNecessary(y)
                 } else {
                     if (abs(x - mLastMoveX) <= mTouchSlop
                         && abs(y - mLastMoveY) <= mTouchSlop
@@ -172,8 +172,6 @@ class CourseLongPressAffairHelper private constructor(
         }
         if (topRow <= CourseLayout.DUSK_TOP && bottomRow >= CourseLayout.DUSK_BOTTOM) {
             if (course.getDuskRowState() == RowState.FOLD) {
-                Log.d("sss", "(CourseLongPressAffairHelper.kt:174) --> ========= " +
-                        "scrollY = ${course.mCourseScrollView.scrollY}")
                 course.unfoldDusk()
             }
         }
@@ -181,6 +179,9 @@ class CourseLongPressAffairHelper private constructor(
 
     /**
      * 如果可以改变位置，则带有动画的移动到新位置
+     *
+     * 判断有点多，但不算很复杂，为了以后更好的兼容，我写成了任意行宽和列宽的判断，
+     * 意思就是：目前虽然列宽都是为 1 的，但我并没有使用这特殊条件，而是写出了任意列宽的比较
      */
     private fun changePositionIfNecessary() {
         val noonState = course.getNoonRowState()
@@ -190,160 +191,173 @@ class CourseLongPressAffairHelper private constructor(
             || duskState == RowState.ANIM_UNFOLD
             || duskState == RowState.ANIM_FOLD
         ) {
-            // 动画的时间很短了，在这么短暂的时间内调用到该方法说明
-            // 用户是很快就松手的，一般不会出现这种情况，所以直接回到原位置
+            /*
+            * 展开或者折叠的动画时间很短了，在这么短暂的时间内走到这里说明用户是很快就松手的，
+            * 一般不会出现这种情况，如果出现了，为防止出现判断问题，所以直接回到原位置
+            * */
             restoreAffairViewToOldPosition()
             return
         }
         val view = mAffairView
         if (view != null) {
-
-            val left = view.x.toInt()
-            val right = left + view.width
-            val top = view.y.toInt()
-            val bottom = top + view.height
-
-            var topRow = course.getRow(top)
-            var bottomRow = course.getRow(bottom)
-            var leftColumn = course.getColumn(left)
-            var rightColumn = course.getColumn(right)
-
             val layoutParams = view.layoutParams as CourseLayoutParams
+            val l = layoutParams.constraintLeft + view.translationX.toInt()
+            val r = layoutParams.constraintRight + view.translationX.toInt()
+            val t = layoutParams.constraintTop + view.translationY.toInt()
+            val b = layoutParams.constraintBottom + view.translationY.toInt()
+
             val rowCount = layoutParams.rowCount
             val columnCount = layoutParams.columnCount
 
-            val topDistance = course.getRowsHeight(0, topRow) - top
-            val bottomDistance = bottom - course.getRowsHeight(0, bottomRow - 1)
-            val leftDistance = course.getColumnsWidth(0, leftColumn) - left
-            val rightDistance = right - course.getColumnsWidth(0, rightColumn - 1)
+            var topRow = course.getRow(t)
+            var bottomRow = course.getRow(b)
+            var leftColumn = course.getColumn(l)
+            var rightColumn = course.getColumn(r)
 
-            if (topDistance > bottomDistance) {
-                bottomRow = topRow + rowCount - 1
-            } else {
-                topRow = bottomRow - rowCount + 1
-            }
+            val topDistance = course.getRowsHeight(0, topRow) - t
+            val bottomDistance = b - course.getRowsHeight(0, bottomRow - 1)
+            val leftDistance = course.getColumnsWidth(0, leftColumn) - l
+            val rightDistance = r - course.getColumnsWidth(0, rightColumn - 1)
+
+            // 根据与 View 内部最相邻的界限的距离，修正此时的位置
+            // 如果不修正，那由边界高度值取得的行数和列数将比总行数和总列数大上一行和一列
             if (leftDistance > rightDistance) {
                 rightColumn = leftColumn + columnCount - 1
             } else {
                 leftColumn = rightColumn - columnCount + 1
             }
+            if (topDistance > bottomDistance) {
+                bottomRow = topRow + rowCount - 1
+            } else {
+                topRow = bottomRow - rowCount + 1
+            }
 
+            // 记录与其他子 View 部分相交时该取得的最大最小值
             var maxTopRow = 0
             var minBottomRow = course.getRowCount() - 1
             var maxLeftColumn = 0
             var minRightColumn = course.getColumnCount() - 1
 
-            fun isIntersect(aMin: Int, aMax: Int, bMin: Int, bMax: Int) = !(aMax < bMin || aMin > bMax)
+            // 判断行或列是否完全包含或被包含
+            fun judgeIsContain(
+                l1: Int, r1: Int, t1: Int, b1: Int,
+                l2: Int, r2: Int, t2: Int, b2: Int
+            ): Boolean {
+                val c1 = l1 < l2 && r1 > r2
+                val c2 = l1 > l2 && r1 < r2
+                val d1 = t1 < t2 && b1 > b2
+                val d2 = t1 > t2 && b1 < b2
+                return (c1 || c2) && (d1 || d2)
+            }
 
+            /*
+            * 第一次遍历：
+            * 1、判断行或列是否完全包含或被包含，如果完全包含或被包含则回到原位置
+            * 2、计算与其他 View 相交时该取得的边界最大最小值
+            * */
             for (i in 0 until course.childCount - 1) {
                 val child = course.getChildAt(i)
+                if (child == view) continue
                 val lp = child.layoutParams as CourseLayoutParams
+                val l1 = lp.constraintLeft
+                val r1 = lp.constraintRight
+                val t1 = lp.constraintTop
+                val b1 = lp.constraintBottom
 
-                if (isIntersect(lp.startRow, lp.endRow, topRow, bottomRow)
-                    && isIntersect(lp.startColumn, lp.endColumn, leftColumn, rightColumn)
-                    && child !== view
-                ) {
-                    /*
-                    * 这里分别代表以下四种情况：（这四种情况直接回到原来的位置）
-                    * 1、
-                    *                               ___ topRow
-                    *        lp.startRow  ___        |
-                    *                      |         |
-                    *                      |         |
-                    *          lp.endRow  ---        |
-                    *                               --- bottom
-                    *
-                    * 2、
-                    *          lp.startColumn      lp.endColumn
-                    *                 |------------------|
-                    *           |------------------------------|
-                    *      leftColumn                     rightColumn
-                    *
-                    * 3、
-                    *        lp.startRow  ___
-                    *                      |        ___ topRow
-                    *                      |         |
-                    *                      |         |
-                    *                      |        --- bottomRow
-                    *          lp.endRow  ---
-                    *
-                    * 4、
-                    *    lp.startColumn                   lp.endColumn
-                    *           |------------------------------|
-                    *                 |------------------|
-                    *              topRow             bottomRow
-                    * */
-                    if (lp.startRow > topRow && lp.endRow < bottomRow
-                        || lp.startColumn > leftColumn && lp.endColumn < rightColumn
-                        || lp.startRow < topRow && lp.endRow > bottomRow
-                        || lp.startColumn < leftColumn && lp.endColumn > rightColumn
-                        || lp.startRow == topRow && lp.endRow == bottomRow
-                        && lp.startColumn <= leftColumn && lp.endColumn >= rightColumn
-                        || lp.startColumn == leftColumn && lp.endColumn == rightColumn
-                        && lp.startRow <= topRow && lp.endRow >= bottomRow
-                    ) {
-                        Log.d("ggg", "(CourseLongPressAffairHelper.kt:265) --> " +
-                                "${lp.startColumn > leftColumn && lp.endColumn < rightColumn}")
-                        Log.d("ggg", "(CourseLongPressAffairHelper.kt:265) --> 111")
-                        restoreAffairViewToOldPosition()
-                        return
+                // 如果完全包含或被包含则回到原位置
+                if (judgeIsContain(l, r, t, b, l1, r1, t1, b1)) {
+                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:259)-->> 111")
+                    restoreAffairViewToOldPosition()
+                    return
+                }
+                val centerX = (l + r) / 2
+                val centerY = (t + b) / 2
+                // 以下是完全包含或被包含取等时的特殊情况
+                if (l <= l1 && r >= r1 || l >= l1 && r <= r1) {
+                    when {
+                        centerY < t1 -> minBottomRow = min(minBottomRow, lp.startRow - 1)
+                        centerY > b1 -> maxTopRow = max(maxTopRow, lp.endRow + 1)
+                        else -> {
+                            Log.d("ggg", "(CourseLongPressAffairHelper.kt:270)-->> 222")
+                            restoreAffairViewToOldPosition()
+                            return
+                        }
                     }
-
-                    val otherTop = course.getRowsHeight(0, lp.startRow - 1)
-                    val otherBottom = otherTop + course.getRowsHeight(lp.startRow, lp.endRow)
-
-                    if (otherTop in top..bottom) {
-                        minBottomRow = min(minBottomRow, lp.startRow - 1)
-                    } else if (otherBottom in top..bottom) {
-                        maxTopRow = max(maxTopRow, lp.endRow + 1)
-                        Log.d("ggg", "(CourseLongPressAffairHelper.kt:296) --> maxTop = $maxTopRow")
+                }
+                // 以下是完全包含或被包含取等时的特殊情况
+                if (t <= t1 && b >= b1 || t >= t1 && b <= b1) {
+                    when {
+                        centerX < l1 -> minRightColumn = min(minRightColumn, lp.startColumn - 1)
+                        centerX > r1 -> maxLeftColumn = max(maxLeftColumn, lp.endColumn + 1)
+                        else -> {
+                            Log.d("ggg", "(CourseLongPressAffairHelper.kt:281)-->> 333")
+                            restoreAffairViewToOldPosition()
+                            return
+                        }
                     }
-
-                    val otherLeft = course.getColumnsWidth(0, lp.startColumn - 1)
-                    val otherRight = otherLeft + course.getColumnsWidth(lp.startColumn, lp.endColumn)
-
-                    if (otherLeft in left..right) {
-                        minRightColumn = min(minRightColumn, lp.startColumn - 1)
-                    } else if (otherRight in left..right) {
-                        maxLeftColumn = max(maxLeftColumn, lp.endColumn + 1)
-                    }
-
-                    if (minBottomRow - maxTopRow + 1 < rowCount
-                        || minRightColumn - maxLeftColumn + 1 < columnCount
-                    ) {
-                        Log.d("ggg", "(CourseLongPressAffairHelper.kt:287) --> " +
-                                "${minBottomRow - maxTopRow + 1 < rowCount}   " +
-                                "minBottom = $minBottomRow   " +
-                                "maxTop = $maxTopRow")
-                        Log.d("ggg", "(CourseLongPressAffairHelper.kt:285) --> 222")
+                }
+                // 以下是只有一个角互相相交时，此时计算边界最大最小值
+                when {
+                    centerX < l1 && (centerY > t1 || centerY < b1)
+                    -> minRightColumn = min(minRightColumn, lp.startColumn - 1)
+                    centerX > r1 && (centerY > t1 || centerY < b1)
+                    -> maxLeftColumn = max(maxLeftColumn, lp.endColumn + 1)
+                    centerY < t1 && (centerX > l1 || centerX < r1)
+                    -> minBottomRow = min(minBottomRow, lp.startRow - 1)
+                    centerY > b1 && (centerX > l1 || centerX < r1)
+                    -> maxTopRow = max(maxTopRow, lp.endRow + 1)
+                    else -> {
+                        Log.d("ggg", "(CourseLongPressAffairHelper.kt:297)-->> 444")
                         restoreAffairViewToOldPosition()
                         return
                     }
                 }
             }
-            if (maxTopRow in topRow..bottomRow && maxTopRow - topRow > bottomRow - maxTopRow + 1
-                || minBottomRow in topRow..bottomRow && bottomRow - minBottomRow > minBottomRow - topRow + 1
-                || maxLeftColumn in leftColumn..rightColumn && maxLeftColumn - leftColumn > rightColumn - maxLeftColumn + 1
-                || minRightColumn in leftColumn..rightColumn && rightColumn - minRightColumn > minRightColumn - leftColumn + 1
+
+            // 判断最大最小值是否能装下自己，如果不能，则回到原位置
+            if (minRightColumn - maxLeftColumn + 1 < columnCount
+                || minBottomRow - maxTopRow + 1 < rowCount
             ) {
-                Log.d("ggg", "(CourseLongPressAffairHelper.kt:296) --> 333")
+                Log.d("ggg", "(CourseLongPressAffairHelper.kt:307)-->> 555")
                 restoreAffairViewToOldPosition()
                 return
             }
 
-            if (maxTopRow in topRow..bottomRow) {
+            // 根据最大最小值修正最终的位置
+            if (maxLeftColumn > leftColumn) {
+                leftColumn = maxLeftColumn
+                rightColumn = maxLeftColumn + columnCount - 1
+            } else if (minRightColumn < rightColumn) {
+                leftColumn = minRightColumn - columnCount + 1
+                rightColumn = minRightColumn
+            }
+            if (maxTopRow > topRow) {
                 topRow = maxTopRow
                 bottomRow = maxTopRow + rowCount - 1
-            } else if (minBottomRow in topRow..bottomRow) {
+            } else if (minBottomRow < bottomRow) {
                 topRow = minBottomRow - rowCount + 1
                 bottomRow = minBottomRow
             }
-            if (maxLeftColumn in leftColumn..rightColumn) {
-                leftColumn = maxLeftColumn
-                rightColumn = maxLeftColumn + columnCount - 1
-            } else if (minRightColumn in leftColumn..rightColumn) {
-                leftColumn = minRightColumn - columnCount + 1
-                rightColumn = minRightColumn
+
+            /*
+            * 第二次遍历：
+            * 1、对于修正后最终位置再次遍历子 View，寻找是否与其他子 View 有交集，若有，则回到原位置
+            * */
+            for (i in 0 until course.childCount - 1) {
+                val child = course.getChildAt(i)
+                if (child == view) continue
+                val lp = child.layoutParams as CourseLayoutParams
+                val a1 = lp.startRow in topRow..bottomRow
+                val a2 = lp.endRow in topRow..bottomRow
+                val b1 = lp.startColumn in leftColumn..rightColumn
+                val b2 = lp.endColumn in leftColumn..rightColumn
+                if ((a1 || a2) && (b1 || b2)) {
+                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:334)-->> 666")
+                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:327)-->> ??? " +
+                            "lp = $lp")
+                    restoreAffairViewToOldPosition()
+                    return
+                }
             }
 
             val finalX = course.getColumnsWidth(0, leftColumn - 1).toFloat()
@@ -351,13 +365,13 @@ class CourseLongPressAffairHelper private constructor(
             MoveAnimation(view.x, view.y, finalX, finalY, 200) { x, y ->
                 view.x = x
                 view.y = y
-                unfoldNoonOrDuskIfNecessary(view)
+                unfoldNoonOrDuskIfNecessary(view) // 动画中也可能会展开中午和傍晚时间段
             }.addEndListener {
                 view.translationX = 0F
                 view.translationY = 0F
                 view.translationZ = 0F // 重置
                 // 防止动画未结束而又开启了下一次移动导致 mAffairView 改变
-                if (view === mAffairView) mAffairView = null
+                if (view === mAffairView) mAffairView = null // 重置
                 if (view.parent is CourseLayout) { // 防止动画结束时 View 已经被删除了
                     val lp = view.layoutParams as CourseLayoutParams
                     lp.startRow = topRow
@@ -379,14 +393,17 @@ class CourseLongPressAffairHelper private constructor(
             val translationX = view.translationX
             val translationY = view.translationY
             // 没有平移量时直接结束
-            if (translationX == 0F && translationY == 0F) return
+            if (translationX == 0F && translationY == 0F) {
+                view.translationZ = 0F // 重置
+                return
+            }
             MoveAnimation(translationX, translationY, 0F, 0F, 200) { x, y ->
                 view.translationX = x
                 view.translationY = y
             }.addEndListener {
                 view.translationZ = 0F // 重置
                 // 防止动画未结束而又开启了下一次移动导致 mAffairView 改变
-                if (view === mAffairView) mAffairView = null
+                if (view === mAffairView) mAffairView = null // 重置
             }.start()
         }
     }
@@ -410,8 +427,6 @@ class CourseLongPressAffairHelper private constructor(
             private set
 
         private var view: View? = null
-
-        private var isScrolled = false // 是否已经滚动过
 
         private var velocity = 0 // 滚动的速度
 
@@ -443,7 +458,6 @@ class CourseLongPressAffairHelper private constructor(
             if (!isInScrolling) { // 防止重复添加 Runnable
                 isInScrolling = true
                 run()
-                isScrolled = true // 必须放在 run() 后，该变量表示在一次滑动分发中是否之前调用过 run()
             }
         }
 
@@ -451,9 +465,9 @@ class CourseLongPressAffairHelper private constructor(
          * 取消滚动
          */
         fun cancel() {
-            isScrolled = false
+            isSlidEnoughDistance = false // 重置
             if (isInScrolling) {
-                isInScrolling = false
+                isInScrolling = false // 重置
                 course.removeCallbacks(this)
                 view = null
             }
@@ -463,6 +477,7 @@ class CourseLongPressAffairHelper private constructor(
          * 是否允许滚动，如果允许，则计算滚动速度给 [velocity] 变量
          */
         private fun isAllowScrollAndCalculateVelocity(view: View): Boolean {
+            if (!isSlidEnoughDistance) return false
             val scroll = course.mCourseScrollView
             val diffHeight = course.getDiffHeightWithScrollView()
             val topHeight = (view.y + diffHeight).toInt()
@@ -471,13 +486,11 @@ class CourseLongPressAffairHelper private constructor(
             // 向上滚动，即手指移到底部，需要显示下面的内容
             val isNeedScrollUp =
                 bottomHeight > scroll.height - moveBoundary
-                        && if (isScrolled) true else touchY > mInitialY + mTouchSlop // 只限制刚触摸时
                         && scroll.height + scroll.scrollY != scroll.getChildAt(0).height // 是否滑到底
 
             // 向下滚动，即手指移到顶部，需要显示上面的内容
             val isNeedScrollDown =
                 topHeight < moveBoundary
-                        && if (isScrolled) true else touchY < mInitialX - mTouchSlop // 只限制刚触摸时
                         && scroll.scrollY != 0 // 是否滑到顶
             val isAllowScroll = isNeedScrollUp || isNeedScrollDown
             if (isAllowScroll) {
@@ -491,6 +504,19 @@ class CourseLongPressAffairHelper private constructor(
             }
             return isAllowScroll
         }
+
+        /**
+         * 判断刚触摸时手指是否滑动了足够的距离
+         */
+        private var isSlidEnoughDistance = false // 判断刚触摸时手指是否滑动了足够的距离
+            get() {
+                if (!field) {
+                    val upper = mInitialY - mTouchSlop * 2
+                    val lower = mInitialY + mTouchSlop * 2
+                    isSlidEnoughDistance = touchY !in upper..lower
+                }
+                return field
+            }
     }
 
     private class MoveAnimation(

@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Rect
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -134,21 +135,15 @@ open class NetLayout : ViewGroup {
         }
         val a = x / width.toFloat()
         var column = (a * mNetAttrs.columnCount).toInt()
-        val selfWeight = getSelfColumnsWeight()
-        if (column == 0) return 0
-        var c1 = getColumnsWeight(0, column - 1)
-        var c2 = c1 + getColumnsWeight(column, column)
-        var a1 = c1 / selfWeight
-        var a2 = c2 / selfWeight
-        while (a < a1) {
+        var x1 = getColumnsWidth(0, column - 1)
+        var x2 = x1 + getColumnsWidth(column, column)
+        while (x < x1) {
             column--
-            c1 -= getColumnsWeight(column, column)
-            a1 = c1 / selfWeight
+            x1 -= getColumnsWidth(column, column)
         }
-        while (a > a2) {
+        while (x > x2) {
             column++
-            c2 += getColumnsWeight(column, column)
-            a2 = c2 / selfWeight
+            x2 += getColumnsWidth(column, column)
         }
         return column
     }
@@ -166,21 +161,15 @@ open class NetLayout : ViewGroup {
         }
         val a = y / height.toFloat()
         var row = (a * mNetAttrs.rowCount).toInt()
-        val selfWeight = getSelfRowsWeight()
-        if (row == 0) return 0
-        var r1 = getRowsWeight(0, row - 1)
-        var r2 = r1 + getRowsWeight(row, row)
-        var a1 = r1 / selfWeight
-        var a2 = r2 / selfWeight
-        while (a < a1) {
+        var y1 = getRowsHeight(0, row - 1)
+        var y2 = y1 + getRowsHeight(row, row)
+        while (y < y1) {
             row--
-            r1 -= getRowsWeight(row, row)
-            a1 = r1 / selfWeight
+            y1 -= getRowsHeight(row, row)
         }
-        while (a > a2) {
+        while (y > y2) {
             row++
-            r2 += getRowsWeight(row, row)
-            a2 = r2 / selfWeight
+            y2 += getRowsHeight(row, row)
         }
         return row
     }
@@ -683,6 +672,11 @@ open class NetLayout : ViewGroup {
                 val parentTop = paddingTop +
                         getRowsHeightInternal(0, lp.startRow - 1, totalRowHeight)
                 val parentBottom = parentTop + (lp.oldChildHeightRatio * totalRowHeight).toInt()
+
+                lp.constraintLeft = parentLeft
+                lp.constraintRight = parentRight
+                lp.constraintTop = parentTop
+                lp.constraintBottom = parentBottom
 
                 val width = child.measuredWidth
                 val height = child.measuredHeight

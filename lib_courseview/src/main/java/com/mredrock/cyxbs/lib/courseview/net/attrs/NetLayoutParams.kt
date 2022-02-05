@@ -120,4 +120,39 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
      * 上次测量的与父布局总高度比
      */
     internal var oldChildHeightRatio = 0F
+
+    /**
+     * 子 View 受到约束的 left，即 [startColumn] 对应的开始距离
+     */
+    var constraintLeft = 0
+        internal set
+    /**
+     * 子 View 受到约束的 right，即 [endColumn] 对应的结束距离
+     */
+    var constraintRight = 0
+        internal set
+    /**
+     * 子 View 受到约束的 top，即 [startRow] 对应的开始距离
+     */
+    var constraintTop = 0
+        internal set
+    /**
+     * 子 View 受到约束的 bottom，即 [endRow] 对应的结束距离
+     */
+    var constraintBottom = 0
+        internal set
+
+    override fun toString(): String {
+        return "${this::class.simpleName}(" +
+                "startRow = $startRow, " +
+                "endRow = $endRow, " +
+                "startColumn = $startColumn, " +
+                "endColumn = $endColumn, " +
+                "rowCount = $rowCount, " +
+                "columnCount = $columnCount, " +
+                "constraintLeft = $constraintLeft, " +
+                "constraintRight = $constraintRight, " +
+                "constraintTop = $constraintTop, " +
+                "constraintBottom = $constraintBottom)"
+    }
 }

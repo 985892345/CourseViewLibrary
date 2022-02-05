@@ -96,8 +96,8 @@ class CourseCreateAffairHelper private constructor(
     private var mInitialColumn = 0 // Down 事件中触摸的初始列数
 
     private var mTouchRow = 0 // 当前触摸的行数
-    private var mUpperRow = Int.MIN_VALUE // 选择区域的上限
-    private var mLowerRow = Int.MAX_VALUE // 选择区域的下限
+    private var mUpperRow = 0 // 选择区域的上限
+    private var mLowerRow = course.getRowCount() - 1 // 选择区域的下限
 
     private var mOnTouchAffairListener: OnTouchAffairListener?= null
 
@@ -197,8 +197,8 @@ class CourseCreateAffairHelper private constructor(
                 mTopRow = mInitialRow
                 mBottomRow = mInitialRow
 
-                mUpperRow = Int.MIN_VALUE // 重置
-                mLowerRow = Int.MAX_VALUE // 重置
+                mUpperRow = 0 // 重置
+                mLowerRow = course.getRowCount() - 1 // 重置
 
                 calculateUpperLowerRow() // 计算上下限
 
@@ -225,9 +225,9 @@ class CourseCreateAffairHelper private constructor(
             val lp = child.layoutParams as CourseLayoutParams
             if (mInitialColumn in lp.startColumn..lp.endColumn) {
                 if (lp.endRow < mInitialRow) {
-                    mUpperRow = max(mUpperRow, lp.endRow)
+                    mUpperRow = max(mUpperRow, lp.endRow + 1)
                 } else if (lp.startRow > mInitialRow) {
-                    mLowerRow = min(mLowerRow, lp.startRow)
+                    mLowerRow = min(mLowerRow, lp.startRow - 1)
                 }
             }
         }
@@ -248,7 +248,6 @@ class CourseCreateAffairHelper private constructor(
                     mLastMoveX = x
                     mLastMoveY = y
 
-                    scrollIsNecessary(y)
                     if (!mScrollRunnable.isInScrolling) {
                         /*
                         * 如果 isInScrolling = true，则 changeTouchAffairView()
@@ -262,6 +261,7 @@ class CourseCreateAffairHelper private constructor(
                         * */
                         changeTouchAffairView(y)
                     }
+                    scrollIsNecessary(y)
                 } else {
                     if (abs(x - mLastMoveX) <= mTouchSlop
                         && abs(y - mLastMoveY) <= mTouchSlop
