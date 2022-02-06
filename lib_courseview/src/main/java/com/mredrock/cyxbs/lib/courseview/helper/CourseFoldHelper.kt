@@ -46,51 +46,49 @@ class CourseFoldHelper private constructor(
     override fun isIntercept(event: MotionEvent, course: CourseLayout): Boolean {
         val x = event.x.toInt()
         val y = event.y.toInt()
-        if (event.action == MotionEvent.ACTION_DOWN) {
-            val noonState = course.getNoonRowState()
-            val duskState = course.getDuskRowState()
-            // 如果处于动画中
-            if (noonState == RowState.ANIM_FOLD
-                || noonState == RowState.ANIM_UNFOLD
-                || duskState == RowState.ANIM_FOLD
-                || duskState == RowState.ANIM_UNFOLD
-            ) {
-                mClickWhich = DownWhich.OTHER
-                return true // 防止下一个 CourseTouchListener 处理正在动画时的触摸事件
-            }
-            // 左侧时间轴的显示范围
-            val timeLineLeft = course.getColumnsWidth(0, TIME_LINE_LEFT - 1)
-            val timeLineRight = timeLineLeft + course.getColumnsWidth(
-                TIME_LINE_LEFT,
-                TIME_LINE_RIGHT
+        val noonState = course.getNoonRowState()
+        val duskState = course.getDuskRowState()
+        // 如果处于动画中
+        if (noonState == RowState.ANIM_FOLD
+            || noonState == RowState.ANIM_UNFOLD
+            || duskState == RowState.ANIM_FOLD
+            || duskState == RowState.ANIM_UNFOLD
+        ) {
+            mClickWhich = DownWhich.OTHER
+            return true // 防止下一个 CourseTouchListener 处理正在动画时的触摸事件
+        }
+        // 左侧时间轴的显示范围
+        val timeLineLeft = course.getColumnsWidth(0, TIME_LINE_LEFT - 1)
+        val timeLineRight = timeLineLeft + course.getColumnsWidth(
+            TIME_LINE_LEFT,
+            TIME_LINE_RIGHT
+        )
+        // 这里并没有直接采用得到当前触摸 View 的 layoutParams 的 type 来判断
+        // 因为在折叠后，那个 View 的高度直接为 0 了，手指是不可能触摸得到那个 View 的
+        // 所以只能计算它的绝对区域
+        if (x in timeLineLeft..timeLineRight) { // 如果 x 落在左侧时间轴上
+            // 中午那一行的显示范围
+            val noonTopHeight = course.getRowsHeight(0, NOON_TOP - 1)
+            val noonBottomHeight = noonTopHeight + course.getRowsHeight(
+                NOON_TOP,
+                NOON_BOTTOM
             )
-            // 这里并没有直接采用得到当前触摸 View 的 layoutParams 的 type 来判断
-            // 因为在折叠后，那个 View 的高度直接为 0 了，手指是不可能触摸得到那个 View 的
-            // 所以只能计算它的绝对区域
-            if (x in timeLineLeft..timeLineRight) { // 如果 x 落在左侧时间轴上
-                // 中午那一行的显示范围
-                val noonTopHeight = course.getRowsHeight(0, NOON_TOP - 1)
-                val noonBottomHeight = noonTopHeight + course.getRowsHeight(
-                    NOON_TOP,
-                    NOON_BOTTOM
+            val clickRange = 16 // 点击的范围
+            // 如果 y 落在 Noon 的行数
+            if (y in (noonTopHeight - clickRange)..(noonBottomHeight + clickRange)) {
+                mClickWhich = DownWhich.NOON
+                return true
+            } else {
+                // 傍晚那一行的显示范围
+                val duskTopHeight = course.getRowsHeight(0, DUSK_TOP - 1)
+                val duskBottomHeight = duskTopHeight + course.getRowsHeight(
+                    DUSK_TOP,
+                    DUSK_BOTTOM
                 )
-                val clickRange = 16 // 点击的范围
-                // 如果 y 落在 Noon 的行数
-                if (y in (noonTopHeight - clickRange)..(noonBottomHeight + clickRange)) {
-                    mClickWhich = DownWhich.NOON
+                // 如果 y 落在 Dusk 的行数
+                if (y in (duskTopHeight - clickRange)..(duskBottomHeight + clickRange)) {
+                    mClickWhich = DownWhich.DUSK
                     return true
-                } else {
-                    // 傍晚那一行的显示范围
-                    val duskTopHeight = course.getRowsHeight(0, DUSK_TOP - 1)
-                    val duskBottomHeight = duskTopHeight + course.getRowsHeight(
-                        DUSK_TOP,
-                        DUSK_BOTTOM
-                    )
-                    // 如果 y 落在 Dusk 的行数
-                    if (y in (duskTopHeight - clickRange)..(duskBottomHeight + clickRange)) {
-                        mClickWhich = DownWhich.DUSK
-                        return true
-                    }
                 }
             }
         }

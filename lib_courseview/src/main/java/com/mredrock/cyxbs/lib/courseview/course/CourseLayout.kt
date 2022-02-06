@@ -424,23 +424,61 @@ class CourseLayout : NetLayout {
         return super.dispatchTouchEvent(ev)
     }
 
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        var isIntercept = false
+        when (ev.action) {
+            MotionEvent.ACTION_DOWN -> {
+                mInterceptingOnTouchListener = null // 重置
+                mCourseTouchListener.forEach {
+                    if (mInterceptingOnTouchListener == null) {
+                        if (it.isAdvanceIntercept(ev, this)) {
+                            mInterceptingOnTouchListener = it
+                            isIntercept = true
+                        }
+                    } else {
+                        it.onCancelDownEvent(ev, this)
+                    }
+                }
+            }
+            MotionEvent.ACTION_MOVE -> {
+                mCourseTouchListener.forEach {
+                    if (it.isAdvanceIntercept(ev, this)) {
+                        if (mInterceptingOnTouchListener != it) {
+                            // 通知之前拦截的 listener，事件已经被其他 listener 拦截
+                            mInterceptingOnTouchListener?.onTouchEvent(
+                                MotionEvent.obtain(ev).apply {
+                                    action = MotionEvent.ACTION_CANCEL
+                                }, this)
+                            mInterceptingOnTouchListener = it
+                        }
+                        return true
+                    }
+                }
+            }
+        }
+        return isIntercept
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (mInterceptingOnTouchListener != null) {
+            mInterceptingOnTouchListener?.onTouchEvent(event, this)
+            return true
+        }
         if (event.action == MotionEvent.ACTION_DOWN) {
-            mInterceptingOnTouchListener = null
             // 分配自定义事件处理的监听
             mCourseTouchListener.forEach {
                 if (mInterceptingOnTouchListener == null) {
                     if (it.isIntercept(event, this)) {
                         mInterceptingOnTouchListener = it
+                        it.onTouchEvent(event, this)
                     }
                 } else {
-                    it.onCancelDownEvent(this)
+                    it.onCancelDownEvent(event, this)
                 }
             }
         }
-        mInterceptingOnTouchListener?.onTouchEvent(event, this)
-        return mInterceptingOnTouchListener != null
+        return true
     }
 
     override fun dispatchDraw(canvas: Canvas) {

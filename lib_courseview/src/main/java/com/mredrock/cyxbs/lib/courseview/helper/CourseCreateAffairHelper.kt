@@ -175,13 +175,30 @@ class CourseCreateAffairHelper private constructor(
             * 这里 touchView = null 时一定会将事件给 CourseLayout#onTouchEvent() 处理，
             * 之后事件就会分发到每个 OnCourseTouchListener 中，
             * 如果事件能够传递到该 listener，则会直接交给自身的 onTouchEvent() 处理
-            *
-            * 但存在顺序在前面的 OnCourseTouchListener 提前拦截事件，
-            * 所以需要重写 onCancelDownEvent() 方法取消 mLongPressRunnable
             * */
             if (touchView == null) {
                 mIsInIntercepting = true
+            }
+            if (touchView !== mTouchAffairView) {
+                // 此时说明点击的是其他地方，不是 mTouchAffairView，则 remove 掉 mTouchAffairView
+                if (mTouchAffairView.parent != null) { // 减少遍历
+                    course.removeView(mTouchAffairView)
+                }
+            }
+        }
+    }
 
+    private var mIsInIntercepting = false // 是否处于拦截中
+
+    override fun isIntercept(event: MotionEvent, course: CourseLayout): Boolean {
+        return mIsInIntercepting
+    }
+
+    override fun onTouchEvent(event: MotionEvent, course: CourseLayout) {
+        val x = event.x.toInt()
+        val y = event.y.toInt()
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
                 mInitialX = x
                 mInitialY = y
                 mLastMoveX = x
@@ -201,42 +218,6 @@ class CourseCreateAffairHelper private constructor(
                 // 禁止外面的 ScrollView 拦截事件
                 course.parent.requestDisallowInterceptTouchEvent(true)
             }
-            if (touchView !== mTouchAffairView) {
-                // 此时说明点击的是其他地方，不是 mTouchAffairView，则 remove 掉 mTouchAffairView
-                if (mTouchAffairView.parent != null) { // 减少遍历
-                    course.removeView(mTouchAffairView)
-                }
-            }
-        }
-    }
-
-    /**
-     * 计算 [mUpperRow] 和 [mLowerRow]
-     */
-    private fun calculateUpperLowerRow() {
-        for (i in 0 until course.childCount) {
-            val child = course.getChildAt(i)
-            val lp = child.layoutParams as CourseLayoutParams
-            if (mInitialColumn in lp.startColumn..lp.endColumn) {
-                if (lp.endRow < mInitialRow) {
-                    mUpperRow = max(mUpperRow, lp.endRow + 1)
-                } else if (lp.startRow > mInitialRow) {
-                    mLowerRow = min(mLowerRow, lp.startRow - 1)
-                }
-            }
-        }
-    }
-
-    private var mIsInIntercepting = false // 是否处于拦截中
-
-    override fun isIntercept(event: MotionEvent, course: CourseLayout): Boolean {
-        return mIsInIntercepting
-    }
-
-    override fun onTouchEvent(event: MotionEvent, course: CourseLayout) {
-        val x = event.x.toInt()
-        val y = event.y.toInt()
-        when (event.action) {
             MotionEvent.ACTION_MOVE -> {
                 if (mIsInLongPress) { // 处于长按状态
                     mLastMoveX = x
@@ -297,10 +278,21 @@ class CourseCreateAffairHelper private constructor(
         }
     }
 
-    override fun onCancelDownEvent(course: CourseLayout) {
-        // 因为是在 onDispatchTouchEvent 开启的 Runnable，
-        // 存在被顺序在前面的 OnCourseTouchListener 提前拦截事件，所以需要在这里 remove 掉
-        course.removeCallbacks(mLongPressRunnable)
+    /**
+     * 计算 [mUpperRow] 和 [mLowerRow]
+     */
+    private fun calculateUpperLowerRow() {
+        for (i in 0 until course.childCount) {
+            val child = course.getChildAt(i)
+            val lp = child.layoutParams as CourseLayoutParams
+            if (mInitialColumn in lp.startColumn..lp.endColumn) {
+                if (lp.endRow < mInitialRow) {
+                    mUpperRow = max(mUpperRow, lp.endRow + 1)
+                } else if (lp.startRow > mInitialRow) {
+                    mLowerRow = min(mLowerRow, lp.startRow - 1)
+                }
+            }
+        }
     }
 
     /**

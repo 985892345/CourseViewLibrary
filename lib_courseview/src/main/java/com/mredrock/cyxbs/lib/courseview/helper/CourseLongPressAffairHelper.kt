@@ -62,16 +62,49 @@ class CourseLongPressAffairHelper private constructor(
         VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
     }
 
-    override fun isIntercept(event: MotionEvent, course: CourseLayout): Boolean {
+    override fun isAdvanceIntercept(event: MotionEvent, course: CourseLayout): Boolean {
         val x = event.x.toInt()
         val y = event.y.toInt()
-        if (event.action == MotionEvent.ACTION_DOWN) {
-            val child = course.findItemUnderByXY(x, y)
-            val lp = child?.layoutParams as CourseLayoutParams?
-            if (lp?.type == CourseType.AFFAIR) { // 目前只有事务可以移动
-                if (child !== mAffairView) { // 防止在上一次抬手后 View 移动的动画中再次长按同一个 View
+        when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                val child = course.findItemUnderByXY(x, y)
+                val lp = child?.layoutParams as CourseLayoutParams?
+                if (lp?.type == CourseType.AFFAIR) { // 目前只有事务可以移动
                     mAffairView = child
-                    return true
+                    mInitialX = x
+                    mInitialY = y
+                    mLastMoveX = x
+                    mLastMoveY = y
+                    mDiffMoveY = y
+                    mIsInLongPress = false // 重置
+                    course.postDelayed(mLongPressRunnable, mLongPressTimeout)
+                }
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (mAffairView != null) {
+                    /*
+                    * mAffairView 的点击事件是在 UP 中触发，
+                    * 1、如果超过 mTouchSlop，则直接取消拦截（后面会被 CourseScrollView 拦截）
+                    * 2、如果在 mTouchSlop 范围内，且也处于长按状态，则直接拦截
+                    * */
+                    if (abs(x - mLastMoveX) > mTouchSlop
+                        || abs(y - mLastMoveY) > mTouchSlop
+                    ) {
+                        course.removeCallbacks(mLongPressRunnable)
+                        mAffairView = null // 重置
+                    } else {
+                        if (mIsInLongPress) {
+                            // 禁止外面的 ScrollView 拦截事件
+                            course.parent.requestDisallowInterceptTouchEvent(true)
+                            return true
+                        }
+                    }
+                }
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                if (mAffairView != null) {
+                    course.removeCallbacks(mLongPressRunnable)
+                    mAffairView = null // 重置
                 }
             }
         }
@@ -82,70 +115,34 @@ class CourseLongPressAffairHelper private constructor(
         val x = event.x.toInt()
         val y = event.y.toInt()
         when (event.action) {
-            MotionEvent.ACTION_DOWN -> {
-                mInitialX = x
-                mInitialY = y
+            MotionEvent.ACTION_MOVE -> {
+                // 走到这里说明肯定是处于长按状态的
+                mDiffMoveY = y - mLastMoveY
                 mLastMoveX = x
                 mLastMoveY = y
-                mDiffMoveY = y
 
-                mIsInLongPress = false // 重置
-                course.postDelayed(mLongPressRunnable, mLongPressTimeout)
-                // 禁止外面的 ScrollView 拦截事件
-                course.parent.requestDisallowInterceptTouchEvent(true)
-            }
-            MotionEvent.ACTION_MOVE -> {
-                if (mIsInLongPress) { // 处于长按状态
-                    mDiffMoveY = y - mLastMoveY
-                    mLastMoveX = x
-                    mLastMoveY = y
-
-                    if (!mScrollRunnable.isInScrolling) {
-                        /*
-                        * 如果 isInScrolling = true，则 translateAffairView()
-                        * 该方法应交由 mScrollRunnable 调用，而不是让 onTouchEvent() 调用
-                        * 原因如下：
-                        * 1、避免在同一帧时与 mScrollRunnable 重复调用
-                        * 2、存在手指正触摸让 ScrollView 的滚动区，但却因为手指没有移动而不回调 onTouchEvent()
-                        *    这种情况下就得让 mScrollRunnable 给 mLastMoveY 加上 ScrollView 将偏移的值来
-                        *    调用 translateAffairView()，不然就会出现滚轴滚动，但 mAffairView 却没动（横屏时尤其明显）
-                        * */
-                        translateAffairView(y) // 平移显示事务的 View
-                    }
-                    scrollIsNecessary(y)
-                } else {
-                    if (abs(x - mLastMoveX) <= mTouchSlop
-                        && abs(y - mLastMoveY) <= mTouchSlop
-                    ) {
-                        /*
-                        * 走到该分支说明：
-                        * 1、不处于长按状态，即 mIsInLongPress = false
-                        * 2、移动距离小于认定是滑动的 mTouchSlop
-                        *
-                        * 下一次移动有下面三条路可以走
-                        * 1、可能仍然回到这里
-                        * 2、如果移动距离大于 mTouchSlop，则会走下面那个 else 分支
-                        * 3、如果 mIsInLongPress 被赋值为 true（说明达到长按时间）
-                        * */
-                    } else {
-                        // 走到该分支说明在判定为长按的时间内，移动的距离大于了 mTouchSlop
-                        // 接下来的一系列事件就不该自身处理，应该被 CourseScrollView 当成滚动而拦截
-                        course.parent.requestDisallowInterceptTouchEvent(false)
-                        course.removeCallbacks(mLongPressRunnable)
-                        mAffairView = null // 重置
-                    }
+                if (!mScrollRunnable.isInScrolling) {
+                    /*
+                    * 如果 isInScrolling = true，则 translateAffairView()
+                    * 该方法应交由 mScrollRunnable 调用，而不是让 onTouchEvent() 调用
+                    * 原因如下：
+                    * 1、避免在同一帧时与 mScrollRunnable 重复调用
+                    * 2、存在手指正触摸 ScrollView 的滚动区，但却因为手指没有移动而不回调 onTouchEvent()
+                    *    这种情况下就得让 mScrollRunnable 加上 ScrollView 将偏移的值来
+                    *    调用 translateAffairView()，不然就会出现滚轴滚动，但 mAffairView 却没动（横屏时尤其明显）
+                    * */
+                    translateAffairView(y) // 平移显示事务的 View
                 }
+                scrollIsNecessary(y)
             }
             MotionEvent.ACTION_UP -> {
                 changeLocationIfNecessary()
                 mScrollRunnable.cancel()
-                course.removeCallbacks(mLongPressRunnable)
                 mAffairView = null // 重置
             }
             MotionEvent.ACTION_CANCEL -> {
                 restoreAffairViewToOldLocation()
                 mScrollRunnable.cancel()
-                course.removeCallbacks(mLongPressRunnable)
                 mAffairView = null // 重置
             }
         }
@@ -435,7 +432,6 @@ class CourseLongPressAffairHelper private constructor(
                 view.translationY = 0F // 还原
                 view.translationZ = 0F // 重置
                 // 防止动画未结束而又开启了下一次移动导致 mAffairView 改变
-                if (view === mAffairView) mAffairView = null // 重置
                 if (view.parent === course) { // 防止动画结束时 View 已经被删除了
                     val lp = view.layoutParams as CourseLayoutParams
                     lp.startRow = topRow
@@ -469,8 +465,6 @@ class CourseLongPressAffairHelper private constructor(
                 view.translationY = y
             }.addEndListener {
                 view.translationZ = 0F // 重置
-                // 防止动画未结束而又开启了下一次移动导致 mAffairView 改变
-                if (view === mAffairView) mAffairView = null // 重置
             }.start()
         }
     }
