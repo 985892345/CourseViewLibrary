@@ -79,10 +79,9 @@ internal fun Int.boolean(ty: TypedArray, defValue: Boolean): Boolean {
     return ty.getBoolean(this, defValue)
 }
 
-/**
- * 由于是属性读取时出错，应用一般是直接闪退，所以不用担心反射的性能消耗
- */
-internal inline fun <reified E: RuntimeException> Int.intOrThrow(ty: TypedArray, attrsName: String): Int {
+internal inline fun <reified E: RuntimeException> Int.intOrThrow(
+    ty: TypedArray, attrsName: String
+): Int {
     if (!ty.hasValue(this)) {
         throw E::class.java.getConstructor(String::class.java)
             .newInstance("属性 $attrsName 没有被定义！")

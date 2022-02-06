@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.Rect
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -12,7 +11,7 @@ import android.view.ViewGroup
 import com.mredrock.cyxbs.lib.courseview.net.callback.OnWeightChangeListener
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
-import com.mredrock.cyxbs.lib.courseview.net.utils.Side
+import com.mredrock.cyxbs.lib.courseview.net.utils.SideType
 import kotlin.collections.ArrayList
 import kotlin.collections.LinkedHashMap
 import kotlin.math.max
@@ -233,7 +232,7 @@ open class NetLayout : ViewGroup {
         val old = mColumnChangedWeight[column] ?: 1F
         if (old == weight) return
         mOnWeightChangeListeners.forEach {
-            it.onChange(old, weight, column, Side.COLUMN)
+            it.onChange(old, weight, column, SideType.COLUMN)
         }
         if (weight == 1F) {
             mColumnChangedWeight.remove(column)
@@ -252,7 +251,7 @@ open class NetLayout : ViewGroup {
         val old = mRowChangedWeight[row] ?: 1F
         if (old == weight) return
         mOnWeightChangeListeners.forEach {
-            it.onChange(old, weight, row, Side.ROW)
+            it.onChange(old, weight, row, SideType.ROW)
         }
         if (weight == 1F) {
             mRowChangedWeight.remove(row)

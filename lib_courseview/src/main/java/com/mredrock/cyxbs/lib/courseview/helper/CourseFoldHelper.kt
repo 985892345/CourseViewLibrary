@@ -40,7 +40,7 @@ class CourseFoldHelper private constructor(
 
     private var mClickWhich = DownWhich.OTHER // Down 时记录当前点击的位置
 
-    // 认定是滚动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
+    // 认定是在滑动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
     private val mTouchSlop = ViewConfiguration.get(course.context).scaledTouchSlop
 
     init {
@@ -164,7 +164,7 @@ class CourseFoldHelper private constructor(
         }
     }
 
-    enum class DownWhich {
+    private enum class DownWhich {
         NOON, // Down Noon 区域
         DUSK, // Down Dusk 区域
         OTHER // Down 其他区域
@@ -172,7 +172,7 @@ class CourseFoldHelper private constructor(
 
     companion object {
         /**
-         * 换成一个静态方法来 attach 到 CourseLayout，
+         * 换成一个静态方法来 attach 到 [CourseLayout]，
          * 感觉似乎没有必要，但这样写更能让以后维护的人能看懂这个类是用来干嘛的。
          *
          * attach 有连接、依附的意思，比直接给构造器传入形参相比，更能看出该类对于 [CourseLayout] 的侵入性

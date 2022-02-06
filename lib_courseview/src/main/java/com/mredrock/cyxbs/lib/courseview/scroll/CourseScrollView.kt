@@ -116,8 +116,8 @@ class CourseScrollView(
      * 2、在展开时，ScrollView 是向下展开的，触摸点就会产生偏移
      *
      * 题外话：
-     * 如果你仔细观察会发现在刚展开时会有很轻微的抖动，估计是几像素的偏移，原因在于一下几个方面：
-     * 1、NestedScrollView 重写了 scrollTo 方法，里面取得的实际的偏移值有个 static 的 clamp() 方法
+     * 如果你仔细观察会发现在刚展开时会有很轻微的抖动，估计是几像素的偏移，原因在于以下几个方面：
+     * 1、NestedScrollView 重写了 scrollTo 方法，里面取得的实际的偏移值要经过 clamp() 方法进行修正
      *    由于刚开始时子 View 的高度小于等于 NestedScrollView 的高度，所以经过 clamp() 方法修正后的偏移量
      *    为 0，于是就会产生这很轻微的抖动。
      *    (这里做一个记录)
@@ -127,6 +127,8 @@ class CourseScrollView(
         // 不处于触摸状态时不进行修正（所以在你提前抬手时，他会突然向下扩展）
         if (!mIsInTouch) return
         // 如果手指向下滑，就得让 ScrollView 向上扩展，所以 scrollY 得增加 child 的高度差
-        scrollBy(0, if (mLastMoveY > mInitialY) add else 0)
+        if (mLastMoveY > mInitialY) {
+            scrollBy(0, add)
+        }
     }
 }

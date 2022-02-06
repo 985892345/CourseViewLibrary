@@ -1,7 +1,7 @@
 package com.mredrock.cyxbs.lib.courseview.course.utils
 
 /**
- * ...
+ * 表示行状态
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/1/29

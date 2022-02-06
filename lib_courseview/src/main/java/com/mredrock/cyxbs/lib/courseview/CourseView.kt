@@ -7,13 +7,14 @@ import android.view.View
 import android.widget.LinearLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
-import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.helper.CourseCreateAffairHelper
 import com.mredrock.cyxbs.lib.courseview.helper.CourseFoldHelper
 import com.mredrock.cyxbs.lib.courseview.helper.CourseLongPressAffairHelper
+import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseLayoutContainer
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.WeekLayoutContainer
+import kotlin.random.Random
 
 /**
  * ```
@@ -75,7 +76,16 @@ class CourseView(
     private fun initCourse() {
         addView(mCourse.scrollView)
         CourseFoldHelper.attach(mCourse.layout)
-        CourseCreateAffairHelper.attach(mCourse.layout)
+        CourseCreateAffairHelper.attach(mCourse.layout).apply {
+            setTouchAffairViewClickListener {
+                replaceTouchAffairView(
+                    View(context).apply {
+                        val color = Random.nextInt(0x00FFFFFF) or 0xFF000000.toInt()
+                        setBackgroundColor(color)
+                    }, CourseType.AFFAIR
+                )
+            }
+        }
         CourseLongPressAffairHelper.attach(mCourse.layout)
 
         mCourse.layout.DEBUG = true
@@ -95,10 +105,10 @@ class CourseView(
         val v5 = View(context).apply {
             setBackgroundColor(Color.RED)
         }
-        mCourse.layout.addCourse(v1, CourseLayoutParams(2, 1, 4, CourseType.AFFAIR))
-        mCourse.layout.addCourse(v2, CourseLayoutParams(3, 1, 1, CourseType.AFFAIR))
-        mCourse.layout.addCourse(v3, CourseLayoutParams(4, 1, 4, CourseType.AFFAIR))
-        mCourse.layout.addCourse(v4, CourseLayoutParams(3, 4, 1, CourseType.AFFAIR))
-        mCourse.layout.addCourse(v5, CourseLayoutParams(1, 2, 2, CourseType.AFFAIR))
+        mCourse.layout.addCourse(v1, CourseLayoutParams(0, 2, 1, 3, CourseType.AFFAIR))
+        mCourse.layout.addCourse(v2, CourseLayoutParams(5, 7, 1, 3, CourseType.AFFAIR))
+//        mCourse.layout.addCourse(v3, CourseLayoutParams(4, 1, 4, CourseType.AFFAIR))
+//        mCourse.layout.addCourse(v4, CourseLayoutParams(3, 4, 1, CourseType.AFFAIR))
+//        mCourse.layout.addCourse(v5, CourseLayoutParams(1, 2, 2, CourseType.AFFAIR))
     }
 }

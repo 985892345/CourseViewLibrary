@@ -10,7 +10,7 @@ import android.os.Vibrator
  * @email 2767465918@qq.com
  * @date 2022/2/2 10:24
  */
-internal object Vibrator {
+internal object VibratorUtil {
 
     /**
      * 根据不同的 Android 版本调用不同的震动方法

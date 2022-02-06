@@ -14,13 +14,21 @@ import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
 import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
-import com.mredrock.cyxbs.lib.courseview.utils.Vibrator
-import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
+import com.mredrock.cyxbs.lib.courseview.utils.VibratorUtil
+import kotlin.math.*
 
 /**
- * ...
+ * 该类作用：
+ * 1、封装长按事务的功能
+ * 2、长按事务后可以对事务进行移动
+ *
+ * 该类设计：
+ * 1、对 CourseLayout 增加事件监听来实现
+ * 2、事件监听参考了 RV 的 ItemTouchHelper 的设计
+ *
+ * 注意事项：
+ * 1、该类只管理长按事务，请不要添加一些不属于该类的功能，想添加功能应该再写一个 OnCourseTouchListener
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/2 10:07
@@ -29,14 +37,14 @@ class CourseLongPressAffairHelper private constructor(
     private val course: CourseLayout
 ) : OnCourseTouchListener {
 
-    private var mInitialX = 0
-    private var mInitialY = 0
-    private var mLastMoveX = 0
-    private var mLastMoveY = 0
+    private var mInitialX = 0 // Down 时的初始 X 值
+    private var mInitialY = 0 // Down 时的初始 Y 值
+    private var mLastMoveX = 0 // Move 时的移动 X 值
+    private var mLastMoveY = 0 // Move 时的移动 Y 值
 
     private var mAffairView: View? = null
 
-    // 认定是滚动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
+    // 认定是在滑动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
     private var mTouchSlop = ViewConfiguration.get(course.context).scaledTouchSlop
 
     // 识别为长按所需的时间
@@ -49,7 +57,8 @@ class CourseLongPressAffairHelper private constructor(
     private val mLongPressRunnable = Runnable {
         mIsInLongPress = true
         unfoldNoonOrDuskIfNecessary(mAffairView!!) // 如果需要就自动展开中午和傍晚时间段
-        Vibrator.start(course.context, 36) // 长按被触发来个震动提醒
+        mAffairView!!.translationZ = 10F // 让 AffairView 显示在所有 View 之上
+        VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
     }
 
     init {
@@ -65,7 +74,6 @@ class CourseLongPressAffairHelper private constructor(
             val lp = child?.layoutParams as CourseLayoutParams?
             if (lp?.type == CourseType.AFFAIR) { // 目前只有事务可以移动
                 if (child !== mAffairView) { // 防止在上一次抬手后 View 移动的动画中再次长按同一个 View
-                    child?.translationZ = 10F // 让 AffairView 显示在所有 View 之上
                     mAffairView = child
                     return true
                 }
@@ -131,13 +139,13 @@ class CourseLongPressAffairHelper private constructor(
                 }
             }
             MotionEvent.ACTION_UP -> {
-                changePositionIfNecessary()
+                changeLocationIfNecessary()
                 mScrollRunnable.cancel()
                 course.removeCallbacks(mLongPressRunnable)
                 mAffairView = null // 重置
             }
             MotionEvent.ACTION_CANCEL -> {
-                restoreAffairViewToOldPosition()
+                restoreAffairViewToOldLocation()
                 mScrollRunnable.cancel()
                 course.removeCallbacks(mLongPressRunnable)
                 mAffairView = null // 重置
@@ -181,9 +189,11 @@ class CourseLongPressAffairHelper private constructor(
      * 如果可以改变位置，则带有动画的移动到新位置
      *
      * 判断有点多，但不算很复杂，为了以后更好的兼容，我写成了任意行宽和列宽的判断，
-     * 意思就是：目前虽然列宽都是为 1 的，但我并没有使用这特殊条件，而是写出了任意列宽的比较
+     * 意思就是：目前课表虽然列宽都是为 1 的 View，但我并没有使用这特殊条件，而是写出了任意列宽的比较
+     *
+     * 如果你要测试的话，建议把 [CourseLayout.DEBUG] 属性给打开
      */
-    private fun changePositionIfNecessary() {
+    private fun changeLocationIfNecessary() {
         val noonState = course.getNoonRowState()
         val duskState = course.getDuskRowState()
         if (noonState == RowState.ANIM_UNFOLD
@@ -195,7 +205,7 @@ class CourseLongPressAffairHelper private constructor(
             * 展开或者折叠的动画时间很短了，在这么短暂的时间内走到这里说明用户是很快就松手的，
             * 一般不会出现这种情况，如果出现了，为防止出现判断问题，所以直接回到原位置
             * */
-            restoreAffairViewToOldPosition()
+            restoreAffairViewToOldLocation()
             return
         }
         val view = mAffairView
@@ -219,8 +229,11 @@ class CourseLongPressAffairHelper private constructor(
             val leftDistance = course.getColumnsWidth(0, leftColumn) - l
             val rightDistance = r - course.getColumnsWidth(0, rightColumn - 1)
 
-            // 根据与 View 内部最相邻的界限的距离，修正此时的位置
-            // 如果不修正，那由边界高度值取得的行数和列数将比总行数和总列数大上一行和一列
+            /*
+            * 第一次修正：
+            * 根据与 View 内部最相邻的界限的距离，修正此时的位置
+            * 如果不修正，那由边界高度值取得的行数和列数将比总行数和总列数大上一行和一列
+            * */
             if (leftDistance > rightDistance) {
                 rightColumn = leftColumn + columnCount - 1
             } else {
@@ -238,7 +251,7 @@ class CourseLongPressAffairHelper private constructor(
             var maxLeftColumn = 0
             var minRightColumn = course.getColumnCount() - 1
 
-            // 判断行或列是否完全包含或被包含
+            // 判断行和列是否都完全包含或被包含，不包含取等时，取等要单独判断
             fun judgeIsContain(
                 l1: Int, r1: Int, t1: Int, b1: Int,
                 l2: Int, r2: Int, t2: Int, b2: Int
@@ -266,50 +279,95 @@ class CourseLongPressAffairHelper private constructor(
 
                 // 如果完全包含或被包含则回到原位置
                 if (judgeIsContain(l, r, t, b, l1, r1, t1, b1)) {
-                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:259)-->> 111")
-                    restoreAffairViewToOldPosition()
+                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:279)-->> 111")
+                    restoreAffairViewToOldLocation()
                     return
                 }
                 val centerX = (l + r) / 2
                 val centerY = (t + b) / 2
-                // 以下是完全包含或被包含取等时的特殊情况
+                // 以下是只有列完全包含或被包含时的特殊情况
                 if (l <= l1 && r >= r1 || l >= l1 && r <= r1) {
                     when {
                         centerY < t1 -> minBottomRow = min(minBottomRow, lp.startRow - 1)
                         centerY > b1 -> maxTopRow = max(maxTopRow, lp.endRow + 1)
                         else -> {
-                            Log.d("ggg", "(CourseLongPressAffairHelper.kt:270)-->> 222")
-                            restoreAffairViewToOldPosition()
+                            Log.d("ggg", "(CourseLongPressAffairHelper.kt:291)-->> 222")
+                            restoreAffairViewToOldLocation()
                             return
                         }
                     }
                 }
-                // 以下是完全包含或被包含取等时的特殊情况
+                // 以下是只有行完全包含或被包含的特殊情况
                 if (t <= t1 && b >= b1 || t >= t1 && b <= b1) {
                     when {
                         centerX < l1 -> minRightColumn = min(minRightColumn, lp.startColumn - 1)
                         centerX > r1 -> maxLeftColumn = max(maxLeftColumn, lp.endColumn + 1)
                         else -> {
-                            Log.d("ggg", "(CourseLongPressAffairHelper.kt:281)-->> 333")
-                            restoreAffairViewToOldPosition()
+                            Log.d("ggg", "(CourseLongPressAffairHelper.kt:303)-->> 333")
+                            restoreAffairViewToOldLocation()
                             return
                         }
                     }
                 }
-                // 以下是只有一个角互相相交时，此时计算边界最大最小值
-                when {
-                    centerX < l1 && (centerY > t1 || centerY < b1)
-                    -> minRightColumn = min(minRightColumn, lp.startColumn - 1)
-                    centerX > r1 && (centerY > t1 || centerY < b1)
-                    -> maxLeftColumn = max(maxLeftColumn, lp.endColumn + 1)
-                    centerY < t1 && (centerX > l1 || centerX < r1)
-                    -> minBottomRow = min(minBottomRow, lp.startRow - 1)
-                    centerY > b1 && (centerX > l1 || centerX < r1)
-                    -> maxTopRow = max(maxTopRow, lp.endRow + 1)
-                    else -> {
-                        Log.d("ggg", "(CourseLongPressAffairHelper.kt:297)-->> 444")
-                        restoreAffairViewToOldPosition()
-                        return
+                /*
+                * 以下是只相交一个角时，此时主要是计算边界最大最小值
+                * 情况如下：
+                * 一、水平重叠的距离超过自身一半，且垂直重叠的距离也超过一半，不允许放置，回到原位置
+                * 二、水平重叠的距离少于自身一半，且垂直重叠的距离也少于一半，根据重叠间距来计算对应的最大最小值
+                * 三、水平重叠的距离超过一半，垂直重叠的距离少于一半，计算对应的最大最小值
+                * 四、垂直重叠的距离超过一半，水平重叠的距离少于一半，计算对应的最大最小值
+                * */
+                val e1 = centerX in l1..r1
+                val e2 = centerY in t1..b1
+                if (e1 && e2) { // 情况一
+                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:317)-->> 444")
+                    restoreAffairViewToOldLocation()
+                    return
+                } else if (!e1 && !e2) { // 比较复杂的情况二
+                    if (centerX < l1 && centerY < t1) { // 在一个子 View 的左上角
+                        val dl = r - l1 // 水平重叠间距
+                        val dt = b - t1 // 垂直重叠间距
+                        if (dl > dt) {
+                            minBottomRow = min(minBottomRow, lp.startRow - 1)
+                        } else {
+                            minRightColumn = min(minRightColumn, lp.startColumn - 1)
+                        }
+                    } else if (centerX > r1 && centerY < t1) { // 在一个子 View 的右上角
+                        val dr = r1 - l // 水平重叠间距
+                        val dt = b - t1 // 垂直重叠间距
+                        if (dr > dt) {
+                            minBottomRow = min(minBottomRow, lp.startRow - 1)
+                        } else {
+                            maxLeftColumn = max(maxLeftColumn, lp.endColumn + 1)
+                        }
+                    } else if (centerX > r1 && centerY > b1) { // 在一个子 View 的右下角
+                        val dr = r1 - l // 水平重叠间距
+                        val db = b1 - t // 垂直重叠间距
+                        if (dr > db) {
+                            maxTopRow = max(maxTopRow, lp.endRow + 1)
+                        } else {
+                            maxLeftColumn = max(maxLeftColumn, lp.endColumn + 1)
+                        }
+                    } else { // 在一个子 View 的左下角
+                        val dl = r - l1 // 水平重叠间距
+                        val db = b1 - t // 垂直重叠间距
+                        if (dl > db) {
+                            maxTopRow = max(maxTopRow, lp.endRow + 1)
+                        } else {
+                            minRightColumn = min(minRightColumn, lp.startColumn - 1)
+                        }
+                    }
+                } else if (e1) { // 情况三
+                    if (centerY < t1) {
+                        minBottomRow = min(minBottomRow, lp.startRow - 1)
+                    } else if (centerY > b1) {
+                        maxTopRow = max(maxTopRow, lp.endRow + 1)
+                    }
+                } else { // 情况四
+                    if (centerX < l1) {
+                        minRightColumn = min(minRightColumn, lp.startColumn - 1)
+                    } else if (centerX > r1) {
+                        maxLeftColumn = max(maxLeftColumn, lp.endColumn + 1)
                     }
                 }
             }
@@ -318,12 +376,17 @@ class CourseLongPressAffairHelper private constructor(
             if (minRightColumn - maxLeftColumn + 1 < columnCount
                 || minBottomRow - maxTopRow + 1 < rowCount
             ) {
-                Log.d("ggg", "(CourseLongPressAffairHelper.kt:307)-->> 555")
-                restoreAffairViewToOldPosition()
+                Log.d("ggg", "(CourseLongPressAffairHelper.kt:379)-->> " +
+                        "L = $maxLeftColumn   R = $minRightColumn   T = $maxTopRow   B = $minBottomRow")
+                Log.d("ggg", "(CourseLongPressAffairHelper.kt:381)-->> 555")
+                restoreAffairViewToOldLocation()
                 return
             }
 
-            // 根据最大最小值修正最终的位置
+            /*
+            * 第二次修正：
+            * 根据最大最小值修正最终的位置
+            * */
             if (maxLeftColumn > leftColumn) {
                 leftColumn = maxLeftColumn
                 rightColumn = maxLeftColumn + columnCount - 1
@@ -352,23 +415,26 @@ class CourseLongPressAffairHelper private constructor(
                 val b1 = lp.startColumn in leftColumn..rightColumn
                 val b2 = lp.endColumn in leftColumn..rightColumn
                 if ((a1 || a2) && (b1 || b2)) {
-                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:334)-->> 666")
-                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:327)-->> ??? " +
+                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:418)-->> 666")
+                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:419)-->> ??? " +
                             "lp = $lp")
-                    restoreAffairViewToOldPosition()
+                    restoreAffairViewToOldLocation()
                     return
                 }
             }
 
+            // 计算终点位置
             val finalX = course.getColumnsWidth(0, leftColumn - 1).toFloat()
             val finalY = course.getRowsHeight(0, topRow - 1).toFloat()
+
+            // 开启动画移动到最终位置
             MoveAnimation(view.x, view.y, finalX, finalY, 200) { x, y ->
                 view.x = x
                 view.y = y
                 unfoldNoonOrDuskIfNecessary(view) // 动画中也可能会展开中午和傍晚时间段
             }.addEndListener {
-                view.translationX = 0F
-                view.translationY = 0F
+                view.translationX = 0F // 还原
+                view.translationY = 0F // 还原
                 view.translationZ = 0F // 重置
                 // 防止动画未结束而又开启了下一次移动导致 mAffairView 改变
                 if (view === mAffairView) mAffairView = null // 重置
@@ -387,7 +453,7 @@ class CourseLongPressAffairHelper private constructor(
     /**
      * 带有动画的恢复 AffairView 到原位置
      */
-    private fun restoreAffairViewToOldPosition() {
+    private fun restoreAffairViewToOldLocation() {
         val view = mAffairView
         if (view != null) {
             val translationX = view.translationX
@@ -397,7 +463,10 @@ class CourseLongPressAffairHelper private constructor(
                 view.translationZ = 0F // 重置
                 return
             }
-            MoveAnimation(translationX, translationY, 0F, 0F, 200) { x, y ->
+            // 自己拟合的一条由距离求出时间的函数，感觉比较适合动画效果 :)
+            // y = 50 * x^0.25 + 90
+            val time = hypot(translationX.toDouble(), translationY.toDouble()).pow(0.25) * 50 + 90
+            MoveAnimation(translationX, translationY, 0F, 0F, time.toLong()) { x, y ->
                 view.translationX = x
                 view.translationY = y
             }.addEndListener {
@@ -409,7 +478,7 @@ class CourseLongPressAffairHelper private constructor(
     }
 
     /**
-     * 如果你把 AffairView 滑到屏幕显示边缘区域时，则可能需要调用 [CourseScrollView] 滚动
+     * 如果你把 [mAffairView] 滑到屏幕显示边缘区域时，则可能需要调用 [CourseScrollView] 滚动
      * ```
      * 该方法作用：
      * 1、计算当前 AffairView 的 top 和 bottom 值与 ScrollView 的距离来判断是否需要让 ScrollView 滚动
@@ -510,12 +579,14 @@ class CourseLongPressAffairHelper private constructor(
          */
         private var isSlidEnoughDistance = false // 判断刚触摸时手指是否滑动了足够的距离
             get() {
-                if (!field) {
+                var boolean = field
+                if (!boolean) {
                     val upper = mInitialY - mTouchSlop * 2
                     val lower = mInitialY + mTouchSlop * 2
-                    isSlidEnoughDistance = touchY !in upper..lower
+                    boolean = touchY !in upper..lower
+                    isSlidEnoughDistance = boolean
                 }
-                return field
+                return boolean
             }
     }
 
@@ -537,7 +608,7 @@ class CourseLongPressAffairHelper private constructor(
                     onChange.invoke(x, y)
                 }
                 duration = time
-                interpolator = OvershootInterpolator(1F)
+                interpolator = OvershootInterpolator(0.6F) // 个人认为 0.6F 的回弹比较合适
                 start()
             }
             return this
@@ -551,7 +622,7 @@ class CourseLongPressAffairHelper private constructor(
 
     companion object {
         /**
-         * 换成一个静态方法来 attach 到 CourseLayout，
+         * 换成一个静态方法来 attach 到 [CourseLayout]，
          * 感觉似乎没有必要，但这样写更能让以后维护的人能看懂这个类是用来干嘛的。
          *
          * attach 有连接、依附的意思，比直接给构造器传入形参相比，更能看出该类对于 [CourseLayout] 的侵入性

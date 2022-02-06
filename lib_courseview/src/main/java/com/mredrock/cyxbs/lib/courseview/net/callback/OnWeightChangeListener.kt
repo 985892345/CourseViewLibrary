@@ -1,6 +1,6 @@
 package com.mredrock.cyxbs.lib.courseview.net.callback
 
-import com.mredrock.cyxbs.lib.courseview.net.utils.Side
+import com.mredrock.cyxbs.lib.courseview.net.utils.SideType
 
 /**
  * ...
@@ -9,5 +9,5 @@ import com.mredrock.cyxbs.lib.courseview.net.utils.Side
  * @date 2022/1/25
  */
 fun interface OnWeightChangeListener {
-    fun onChange(oldWeight: Float, newWeight: Float, which: Int, side: Side)
+    fun onChange(oldWeight: Float, newWeight: Float, which: Int, sideType: SideType)
 }

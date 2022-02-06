@@ -18,7 +18,7 @@ import com.mredrock.cyxbs.lib.courseview.course.utils.OnSaveBundleListener
 import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
-import com.mredrock.cyxbs.lib.courseview.utils.Vibrator
+import com.mredrock.cyxbs.lib.courseview.utils.VibratorUtil
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -54,9 +54,10 @@ class CourseCreateAffairHelper private constructor(
     /**
      * 替代当前触摸生成的用于添加事务的 View，位置大小都会不变
      */
-    fun replaceTouchAffairView(view: View) {
+    fun replaceTouchAffairView(view: View, type: CourseType) {
         if (mTouchAffairView.parent != null) {
             val lp = (mTouchAffairView.layoutParams as CourseLayoutParams).clone()
+            lp.type = type
             course.addCourse(view, lp)
             course.removeView(mTouchAffairView)
         }
@@ -74,7 +75,7 @@ class CourseCreateAffairHelper private constructor(
     private var mLastMoveX = 0 // Move 时的移动 X 值
     private var mLastMoveY = 0 // Move 时的移动 Y 值
 
-    // 认定是滚动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
+    // 认定是在滑动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
     private var mTouchSlop = ViewConfiguration.get(course.context).scaledTouchSlop
 
     // 识别为长按所需的时间
@@ -87,7 +88,7 @@ class CourseCreateAffairHelper private constructor(
     private val mLongPressRunnable = Runnable {
         mIsInLongPress = true
         showTouchAffairView()
-        Vibrator.start(course.context, 36) // 长按被触发来个震动提醒
+        VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
     }
 
     private var mTopRow = 0 // Move 事件中选择区域的开始行数
@@ -144,7 +145,7 @@ class CourseCreateAffairHelper private constructor(
     private fun showTouchAffairView() {
         val lp = mTouchAffairView.layoutParams as CourseLayoutParams
         // 回调监听
-        mOnTouchAffairListener?.onCreate(mTouchAffairView, lp)
+        mOnTouchAffairListener?.onCreateTouchAffair(mTouchAffairView, lp)
         // 添加 mTouchAffairView
         course.addCourse(
             mTouchAffairView,
@@ -209,7 +210,7 @@ class CourseCreateAffairHelper private constructor(
             }
             if (touchView !== mTouchAffairView) {
                 // 此时说明点击的是其他地方，不是 mTouchAffairView，则 remove 掉 mTouchAffairView
-                if (mTouchAffairView.parent != null) {
+                if (mTouchAffairView.parent != null) { // 减少遍历
                     course.removeView(mTouchAffairView)
                 }
             }
@@ -477,7 +478,7 @@ class CourseCreateAffairHelper private constructor(
 
     companion object {
         /**
-         * 换成一个静态方法来 attach 到 CourseLayout，
+         * 换成一个静态方法来 attach 到 [CourseLayout]，
          * 感觉似乎没有必要，但这样写更能让以后维护的人能看懂这个类是用来干嘛的
          *
          * attach 有连接、依附的意思，比直接给构造器传入形参相比，更能看出该类对于 [CourseLayout] 的侵入性
@@ -493,6 +494,6 @@ class CourseCreateAffairHelper private constructor(
          *
          * 在 addView 之前回调，可以直接设置一些属性
          */
-        fun onCreate(view: ImageView, lp: CourseLayoutParams)
+        fun onCreateTouchAffair(view: ImageView, lp: CourseLayoutParams)
     }
 }
