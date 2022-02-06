@@ -102,13 +102,6 @@ class CourseCreateAffairHelper private constructor(
 
     private var mOnTouchAffairListener: OnTouchAffairListener?= null
 
-    init {
-        // 给 CourseLayout 设置触摸监听
-        course.addCourseTouchListener(this)
-        // 设置 course 被摧毁重建的监听，主要是保存一些必要信息
-        course.addSaveBundleListener(this)
-    }
-
     /**
      * 用于添加事务的 View，注意：并不是最终显示事务的那个 View，该 View 只是在长按后生成的那个灰色的 View
      * ```
@@ -412,13 +405,13 @@ class CourseCreateAffairHelper private constructor(
             // 向上滚动，即手指移到底部，需要显示下面的内容
             val isNeedScrollUp =
                 nowHeight > scroll.height - moveBoundary
-                        && mTouchRow < mLowerRow // 当前触摸的行数在下限以上
+                        && mTouchRow <= mLowerRow // 当前触摸的行数在下限以上
                         && scroll.height + scroll.scrollY != scroll.getChildAt(0).height // 是否滑到底
 
             // 向下滚动，即手指移到顶部，需要显示上面的内容
             val isNeedScrollDown =
                 nowHeight < moveBoundary
-                        && mTouchRow > mUpperRow // 当前触摸的行数在上限以下
+                        && mTouchRow >= mUpperRow // 当前触摸的行数在上限以下
                         && scroll.scrollY != 0 // 是否滑到顶
             val isAllowScroll = isNeedScrollUp || isNeedScrollDown
             if (isAllowScroll) {
@@ -484,7 +477,10 @@ class CourseCreateAffairHelper private constructor(
          * attach 有连接、依附的意思，比直接给构造器传入形参相比，更能看出该类对于 [CourseLayout] 的侵入性
          */
         fun attach(course: CourseLayout): CourseCreateAffairHelper {
-            return CourseCreateAffairHelper(course)
+            return CourseCreateAffairHelper(course).apply {
+                course.addCourseTouchListener(this) // 给 CourseLayout 设置触摸监听
+                course.addSaveBundleListener(this) // 设置 course 被摧毁重建的监听，主要是保存一些必要信息
+            }
         }
     }
 

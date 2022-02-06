@@ -41,6 +41,7 @@ class CourseLongPressAffairHelper private constructor(
     private var mInitialY = 0 // Down 时的初始 Y 值
     private var mLastMoveX = 0 // Move 时的移动 X 值
     private var mLastMoveY = 0 // Move 时的移动 Y 值
+    private var mDiffMoveY = 0 // 每次 Move 的偏移值
 
     private var mAffairView: View? = null
 
@@ -59,11 +60,6 @@ class CourseLongPressAffairHelper private constructor(
         unfoldNoonOrDuskIfNecessary(mAffairView!!) // 如果需要就自动展开中午和傍晚时间段
         mAffairView!!.translationZ = 10F // 让 AffairView 显示在所有 View 之上
         VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
-    }
-
-    init {
-        // 给 CourseLayout 设置触摸监听
-        course.addCourseTouchListener(this)
     }
 
     override fun isIntercept(event: MotionEvent, course: CourseLayout): Boolean {
@@ -91,6 +87,7 @@ class CourseLongPressAffairHelper private constructor(
                 mInitialY = y
                 mLastMoveX = x
                 mLastMoveY = y
+                mDiffMoveY = y
 
                 mIsInLongPress = false // 重置
                 course.postDelayed(mLongPressRunnable, mLongPressTimeout)
@@ -99,6 +96,7 @@ class CourseLongPressAffairHelper private constructor(
             }
             MotionEvent.ACTION_MOVE -> {
                 if (mIsInLongPress) { // 处于长按状态
+                    mDiffMoveY = y - mLastMoveY
                     mLastMoveX = x
                     mLastMoveY = y
 
@@ -438,7 +436,7 @@ class CourseLongPressAffairHelper private constructor(
                 view.translationZ = 0F // 重置
                 // 防止动画未结束而又开启了下一次移动导致 mAffairView 改变
                 if (view === mAffairView) mAffairView = null // 重置
-                if (view.parent is CourseLayout) { // 防止动画结束时 View 已经被删除了
+                if (view.parent === course) { // 防止动画结束时 View 已经被删除了
                     val lp = view.layoutParams as CourseLayoutParams
                     lp.startRow = topRow
                     lp.endRow = bottomRow
@@ -534,7 +532,6 @@ class CourseLongPressAffairHelper private constructor(
          * 取消滚动
          */
         fun cancel() {
-            isSlidEnoughDistance = false // 重置
             if (isInScrolling) {
                 isInScrolling = false // 重置
                 course.removeCallbacks(this)
@@ -546,20 +543,21 @@ class CourseLongPressAffairHelper private constructor(
          * 是否允许滚动，如果允许，则计算滚动速度给 [velocity] 变量
          */
         private fun isAllowScrollAndCalculateVelocity(view: View): Boolean {
-            if (!isSlidEnoughDistance) return false
             val scroll = course.mCourseScrollView
             val diffHeight = course.getDiffHeightWithScrollView()
             val topHeight = (view.y + diffHeight).toInt()
             val bottomHeight = topHeight + view.height
-            val moveBoundary = 100 // 移动的边界值
+            val moveBoundary = 50 // 移动的边界值
             // 向上滚动，即手指移到底部，需要显示下面的内容
             val isNeedScrollUp =
                 bottomHeight > scroll.height - moveBoundary
+                        && mDiffMoveY > 0
                         && scroll.height + scroll.scrollY != scroll.getChildAt(0).height // 是否滑到底
 
             // 向下滚动，即手指移到顶部，需要显示上面的内容
             val isNeedScrollDown =
                 topHeight < moveBoundary
+                        && mDiffMoveY < 0
                         && scroll.scrollY != 0 // 是否滑到顶
             val isAllowScroll = isNeedScrollUp || isNeedScrollDown
             if (isAllowScroll) {
@@ -573,21 +571,6 @@ class CourseLongPressAffairHelper private constructor(
             }
             return isAllowScroll
         }
-
-        /**
-         * 判断刚触摸时手指是否滑动了足够的距离
-         */
-        private var isSlidEnoughDistance = false // 判断刚触摸时手指是否滑动了足够的距离
-            get() {
-                var boolean = field
-                if (!boolean) {
-                    val upper = mInitialY - mTouchSlop * 2
-                    val lower = mInitialY + mTouchSlop * 2
-                    boolean = touchY !in upper..lower
-                    isSlidEnoughDistance = boolean
-                }
-                return boolean
-            }
     }
 
     private class MoveAnimation(
@@ -628,7 +611,9 @@ class CourseLongPressAffairHelper private constructor(
          * attach 有连接、依附的意思，比直接给构造器传入形参相比，更能看出该类对于 [CourseLayout] 的侵入性
          */
         fun attach(course: CourseLayout): CourseLongPressAffairHelper {
-            return CourseLongPressAffairHelper(course)
+            return CourseLongPressAffairHelper(course).apply {
+                course.addCourseTouchListener(this) // 给 CourseLayout 设置触摸监听
+            }
         }
     }
 }

@@ -174,7 +174,7 @@ open class NetLayout : ViewGroup {
     }
 
     /**
-     * 得到 [start] - [end] 列之间的宽度，当视图没有被测量时返回 -1
+     * 得到 [start] 到 [end] 列之间的宽度，当视图没有被测量时返回 -1
      *
      * 该方法也可用于得到某列开始和结束的 X 值
      * ```
@@ -186,7 +186,7 @@ open class NetLayout : ViewGroup {
      * ```
      */
     fun getColumnsWidth(start: Int, end: Int): Int {
-        if (start >= mNetAttrs.columnCount || start < 0) {
+        if (start > mNetAttrs.columnCount || start < 0) {
             throw IllegalArgumentException(
                 "start = $start 不能大于或等于 ${mNetAttrs.columnCount} 且小于 -1！")
         }
@@ -195,31 +195,33 @@ open class NetLayout : ViewGroup {
                 "end = $end 不能大于或等于 ${mNetAttrs.columnCount} 且小于 -1！")
         }
         if (width == 0) return -1
+        if (start == mNetAttrs.columnCount) return width
         return getColumnsWidthInternal(start, end, width)
     }
 
     /**
-     * 得到 [start] - [end] 行之间的宽度，当视图没有被测量时返回 -1
+     * 得到 [start] 到 [end] 行之间的宽度，当视图没有被测量时返回 -1
      *
      * 该方法也可用于得到某行开始和结束的 Y 值
      * ```
      * 形参如下：
-     * (0, -1) 为第零行开始的 X     (0, 0)  为第零行结束的 X
-     * (0, 0)  为第一行开始的 X     (0, 1)  为第一行结束的 X
-     * (0, 1)  为第二行开始的 X     (0, 2)  为第二行结束的 X
+     * (0, -1) 为第零行开始的 Y     (0, 0)  为第零行结束的 Y
+     * (0, 0)  为第一行开始的 Y     (0, 1)  为第一行结束的 Y
+     * (0, 1)  为第二行开始的 Y     (0, 2)  为第二行结束的 Y
      * ......
      * ```
      */
     fun getRowsHeight(start: Int, end: Int): Int {
-        if (start >= mNetAttrs.rowCount || start < 0) {
+        if (start > mNetAttrs.rowCount || start < 0) {
             throw IllegalArgumentException(
-                "start = $start 不能大于或等于 ${mNetAttrs.rowCount} 且小于 -1！")
+                "start = $start 不能大于 ${mNetAttrs.rowCount} 且小于 -1！")
         }
         if (end >= mNetAttrs.rowCount || end < -1) {
             throw IllegalArgumentException(
-                "end = $end 不能大于或等于 ${mNetAttrs.rowCount} 且小于 -1！")
+                "end = $end 不能大于 ${mNetAttrs.rowCount} 且小于 -1！")
         }
         if (height == 0) return -1
+        if (start == mNetAttrs.rowCount) return height
         return getRowsHeightInternal(start, end, height)
     }
 

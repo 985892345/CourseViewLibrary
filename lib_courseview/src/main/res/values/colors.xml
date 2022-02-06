@@ -3,6 +3,8 @@
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
+    <color name="course_tv_timeline">@color/common_level_one_font_color</color>
+
     <color name="common_level_one_font_color">#112C54</color>
 
     <color name="text">#FFFFFBEB</color>

@@ -10,6 +10,7 @@ import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.helper.CourseCreateAffairHelper
 import com.mredrock.cyxbs.lib.courseview.helper.CourseFoldHelper
 import com.mredrock.cyxbs.lib.courseview.helper.CourseLongPressAffairHelper
+import com.mredrock.cyxbs.lib.courseview.helper.CourseTimelineHelper
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseLayoutContainer
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
@@ -87,8 +88,9 @@ class CourseView(
             }
         }
         CourseLongPressAffairHelper.attach(mCourse.layout)
+        CourseTimelineHelper.attach(mCourse.layout)
 
-        mCourse.layout.DEBUG = true
+//        mCourse.layout.DEBUG = true
 
         val v1 = View(context).apply {
             setBackgroundColor(Color.BLUE)
