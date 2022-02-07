@@ -24,7 +24,8 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  *
  *
  * 二、View.onInterceptTouchEvent: 可以提前拦截子 View 事件的地方
- * 1、DOWN: 在某一个 listener 的 isAdvanceIntercept() 返回 true 后，将把该 listener 赋值给 mInterceptingOnTouchListener
+ * 1、DOWN: 在某一个 listener 的 isAdvanceIntercept() 返回 true 后，
+ *       ↓     将把该 listener 赋值给 mAdvanceInterceptingOnTouchListener
  *       ↓
  *       ↓
  *       ↓
@@ -34,43 +35,41 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  *       ↓                                   ↓                                   ↓
  *   l2.onCancelDownEvent                l3.onCancelDownEvent                    ↓
  *   l3.onCancelDownEvent                    ↓                                   ↓
- *       ↓                                   ↓                            mInterceptingOnTouchListener = l3
+ *       ↓                                   ↓                            mAdvanceInterceptingOnTouchListener = l3
  *       ↓                                   ↓
- *       ↓                             mInterceptingOnTouchListener = l2
+ *       ↓                             mAdvanceInterceptingOnTouchListener = l2
  *       ↓
- *   mInterceptingOnTouchListener = l1
+ *   mAdvanceInterceptingOnTouchListener = l1
  *
- * 2、MOVE: 在某一个 listener 的 isAdvanceIntercept() 返回 true 后，将把该 listener 赋值给 mInterceptingOnTouchListener
- *       ↓   注意：这里拦截是会拦截使用 isIntercept() 来拦截的 listener
- *       ↓
+ * 2、MOVE: 在某一个 listener 的 isAdvanceIntercept() 返回 true 后，
+ *       ↓      将把该 listener 赋值给 mAdvanceInterceptingOnTouchListener
+ *       ↓           这里可以拦截已经被子 View 拦截的事件
  *       ↓
  *   l1.isAdvanceIntercept() → → → → → → l2.isAdvanceIntercept() → → → → → → l3.isAdvanceIntercept()
  *       ↓                     false         ↓                     false         ↓
  *       ↓ true                              ↓ true                              ↓ true
  *       ↓                                   ↓                                   ↓
- *   l2.onTouchEvent(CANCEL)             l3.onTouchEvent(CANCEL)                 ↓
- *   l3.onTouchEvent(CANCEL)                 ↓                                   ↓
- *       ↓                                   ↓                            mInterceptingOnTouchListener = l3
+ *       ↓                                   ↓                            mAdvanceInterceptingOnTouchListener = l3
  *       ↓                                   ↓
- *       ↓                             mInterceptingOnTouchListener = l2
+ *       ↓                             mAdvanceInterceptingOnTouchListener = l2
  *       ↓
- *   mInterceptingOnTouchListener = l1
+ *   mAdvanceInterceptingOnTouchListener = l1
  *
  *
  *
  * 三、View.onTouchEvent:
- * 1、DOWN: 在 mInterceptingOnTouchListener = null 时，
- *       ↓       在某一个 listener 的 isIntercept() 返回 true 后，将把该 listener 赋值给 mInterceptingOnTouchListener
+ * 1、DOWN: 在 mAdvanceInterceptingOnTouchListener = null 时，
+ *       ↓       则某一个 listener 的 isIntercept() 返回 true 后，将把该 listener 赋值给 mInterceptingOnTouchListener
  *       ↓  在 != null 时，
- *       ↓       直接分配事件给 mInterceptingOnTouchListener
+ *       ↓       直接分配事件给 mAdvanceInterceptingOnTouchListener
  *       ↓
- *       ↓                                       false
- *   if (mInterceptingOnTouchListener == null) --------> mInterceptingOnTouchListener.onTouchEvent()
+ *       ↓                                              false
+ *   if (mAdvanceInterceptingOnTouchListener == null) --------> mAdvanceInterceptingOnTouchListener.onTouchEvent()
  *       ↓
  *       ↓ true
  *       ↓
- *   l1.isIntercept() → → → → → → l2.isIntercept() → → → → → → l3.isIntercept()
- *       ↓               false         ↓              false         ↓
+ *   l1.isIntercept() → → → → → → l2.isIntercept() → → → → → → l3.isIntercept() → → → → → → return true
+ *       ↓               false         ↓              false         ↓              false
  *       ↓ true                        ↓ true                       ↓ true
  *       ↓                             ↓                            ↓
  *       ↓                             ↓                            ↓
@@ -84,10 +83,27 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  *       ↓
  *   mInterceptingOnTouchListener = l1
  *
- * 2、MOVE: 这里直接把事件分配给已经拦截的 listener 处理，即 mInterceptingOnTouchListener
+ * 2、MOVE: 如果有提前拦截的 mAdvanceInterceptingOnTouchListener，就直接交给它处理
+ *       ↓      没有就会询问一遍是否有 listener 要提前拦截，有的话就赋值给 mAdvanceInterceptingOnTouchListener
+ *       ↓           如果询问完后都没有，这时才会把事件交给 mInterceptingOnTouchListener 处理
  *       ↓
+ *       ↓                                              false
+ *   if (mAdvanceInterceptingOnTouchListener == null) --------> mAdvanceInterceptingOnTouchListener.onTouchEvent()
  *       ↓
- *   mInterceptingOnTouchListener.onTouchEvent()
+ *       ↓ true  接下来会重新走一遍在 View.onInterceptTouchEvent 中 Move 的逻辑
+ *       ↓
+ *   l1.isAdvanceIntercept() → → → → → → l2.isAdvanceIntercept() → → → → → → l3.isAdvanceIntercept() → → → → → → mInterceptingOnTouchListener?.onTouchEvent()
+ *       ↓                     false         ↓                     false         ↓                     false
+ *       ↓ true                              ↓ true                              ↓ true
+ *       ↓                                   ↓                                   ↓
+ *       ↓                                   ↓                     mAdvanceInterceptingOnTouchListener = l3
+ *       ↓                                   ↓                     mInterceptingOnTouchListener?.onTouchEvent(CANCEL)
+ *       ↓                                   ↓
+ *       ↓                     mAdvanceInterceptingOnTouchListener = l2
+ *       ↓                     mInterceptingOnTouchListener?.onTouchEvent(CANCEL)
+ *       ↓
+ *   mAdvanceInterceptingOnTouchListener = l1
+ *   mInterceptingOnTouchListener?.onTouchEvent(CANCEL)
  *
  *   整体与 View 的事件分发有些类似，在 Down 事件中找到拦截的 View，在 Move 事件中直接把事件传递给它
  * ```
@@ -102,6 +118,9 @@ interface OnCourseTouchListener {
      *
      * **NOTE：** 与 onInterceptTouchEvent 有部分相同之处，只是回调是在 View 的 onTouchEvent 里面调用的，
      * 所以是不能拦截子 View 的事件的
+     * ```
+     * 注：只能接收到 Down 事件
+     * ```
      */
     fun isIntercept(event: MotionEvent, course: CourseLayout): Boolean = false
 
@@ -110,22 +129,34 @@ interface OnCourseTouchListener {
      * 并且也会拦截使用 [isIntercept] 来拦截的 listener
      *
      * **NOTE：** 与 onInterceptTouchEvent 完全一样，只有一次返回 true 的机会，返回后就不会再次调用
+     * ```
+     * 注：可以接收到 Down、Move、Cancel 等全部事件
+     * ```
      */
     fun isAdvanceIntercept(event: MotionEvent, course: CourseLayout): Boolean = false
 
     /**
      * 处理事件
+     * ```
+     * 注：可以接收到 Down、Move、Cancel 等全部事件
+     * ```
      */
     fun onTouchEvent(event: MotionEvent, course: CourseLayout)
 
     /**
      * Down 事件中，被顺序在前面的 OnCourseTouchListener 拦截时回调
+     * ```
+     * 注：只能接收到 Down 事件
+     * ```
      */
     fun onCancelDownEvent(event: MotionEvent, course: CourseLayout) { }
 
     /**
      * 在 CourseLayout 的 dispatchTouchEvent() 中调用，即事件分发下来时就回调，
      * 每一个 OnCourseTouchListener 都可以收到
+     * ```
+     * 注：可以接收到 Down、Move、Cancel 等全部事件
+     * ```
      */
     fun onDispatchTouchEvent(event: MotionEvent, course: CourseLayout) { }
 }

@@ -167,7 +167,7 @@ class CourseCreateAffairHelper private constructor(
      */
     override fun onDispatchTouchEvent(event: MotionEvent, course: CourseLayout) {
         if (event.action == MotionEvent.ACTION_DOWN) {
-            mIsInIntercepting = false
+            mIsInIntercepting = false // 重置
             val x = event.x.toInt()
             val y = event.y.toInt()
             val touchView = course.findItemUnderByXY(x, y)

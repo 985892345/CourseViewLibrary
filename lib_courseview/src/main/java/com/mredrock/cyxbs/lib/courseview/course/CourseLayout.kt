@@ -324,6 +324,8 @@ class CourseLayout : NetLayout {
     private val mCourseTouchListener = ArrayList<OnCourseTouchListener>(5)
     // 自定义事件处理中拦截的监听者
     private var mInterceptingOnTouchListener: OnCourseTouchListener? = null
+    // 自定义事件处理中提前拦截的监听者
+    private var mAdvanceInterceptingOnTouchListener: OnCourseTouchListener? = null
     // 在 View 被摧毁时需要保存必要信息的监听
     private val mSaveBundleListeners = ArrayList<OnSaveBundleListener>(3)
 
@@ -426,33 +428,32 @@ class CourseLayout : NetLayout {
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
         var isIntercept = false
-        when (ev.action) {
-            MotionEvent.ACTION_DOWN -> {
-                mInterceptingOnTouchListener = null // 重置
-                mCourseTouchListener.forEach {
-                    if (mInterceptingOnTouchListener == null) {
-                        if (it.isAdvanceIntercept(ev, this)) {
-                            mInterceptingOnTouchListener = it
-                            isIntercept = true
-                        }
-                    } else {
-                        it.onCancelDownEvent(ev, this)
+        if (ev.action == MotionEvent.ACTION_DOWN) {
+            mAdvanceInterceptingOnTouchListener = null // 重置
+            mCourseTouchListener.forEach {
+                if (mAdvanceInterceptingOnTouchListener == null) {
+                    if (it.isAdvanceIntercept(ev, this)) {
+                        mAdvanceInterceptingOnTouchListener = it
+                        isIntercept = true
                     }
+                } else {
+                    it.onCancelDownEvent(ev, this)
                 }
             }
-            MotionEvent.ACTION_MOVE -> {
-                mCourseTouchListener.forEach {
-                    if (it.isAdvanceIntercept(ev, this)) {
-                        if (mInterceptingOnTouchListener != it) {
-                            // 通知之前拦截的 listener，事件已经被其他 listener 拦截
-                            mInterceptingOnTouchListener?.onTouchEvent(
-                                MotionEvent.obtain(ev).apply {
-                                    action = MotionEvent.ACTION_CANCEL
-                                }, this)
-                            mInterceptingOnTouchListener = it
-                        }
-                        return true
-                    }
+        } else {
+            /*
+            * 走到这一步说明：
+            * 1、mInterceptingOnTouchListener 一定为 null
+            *   （如果 mInterceptingOnTouchListener 不为 null，则说明：
+            *      1、没有子 View 拦截事件；
+            *      2、CourseLayout 自身拦截了事件
+            *      ==> onInterceptTouchEvent() 不会再被调用，也就不会再走到这一步）
+            * 2、事件一定被子 View 拦截
+            * */
+            mCourseTouchListener.forEach {
+                if (it.isAdvanceIntercept(ev, this)) {
+                    mAdvanceInterceptingOnTouchListener = it
+                    return true
                 }
             }
         }
@@ -461,23 +462,46 @@ class CourseLayout : NetLayout {
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (mInterceptingOnTouchListener != null) {
-            mInterceptingOnTouchListener?.onTouchEvent(event, this)
+        if (mAdvanceInterceptingOnTouchListener != null) {
+            mAdvanceInterceptingOnTouchListener!!.onTouchEvent(event, this)
             return true
         }
         if (event.action == MotionEvent.ACTION_DOWN) {
+            mInterceptingOnTouchListener = null // 重置
             // 分配自定义事件处理的监听
             mCourseTouchListener.forEach {
                 if (mInterceptingOnTouchListener == null) {
                     if (it.isIntercept(event, this)) {
                         mInterceptingOnTouchListener = it
-                        it.onTouchEvent(event, this)
                     }
                 } else {
                     it.onCancelDownEvent(event, this)
                 }
             }
+        } else {
+            /*
+            * 走到这里说明：
+            * 1、Down 事件中没有提前拦截的 listener，即 mAdvanceInterceptingOnTouchListener 为 null
+            * 2、Down 事件中没有任何子 View 拦截
+            * 3、CourseLayout 自身拦截事件
+            * 4、因为自身拦截事件，onInterceptTouchEvent() 不会再被调用
+            * */
+            mCourseTouchListener.forEach {
+                if (it.isAdvanceIntercept(event, this)) {
+                    mAdvanceInterceptingOnTouchListener = it
+                    it.onTouchEvent(event, this)
+                    if (mInterceptingOnTouchListener !== it) {
+                        // 如果不是同一个就通知 mInterceptingOnTouchListener CANCEL 事件
+                        mInterceptingOnTouchListener?.onTouchEvent(
+                            event.apply { action = MotionEvent.ACTION_CANCEL },
+                            this
+                        )
+                    }
+                    return true
+                }
+            }
         }
+        mInterceptingOnTouchListener?.onTouchEvent(event, this)
         return true
     }
 

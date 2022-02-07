@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/cd_background"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:layout_margin="1dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="0dp" >
+
+    <TextView
+        android:id="@+id/tv_top"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/widget_course_margin"
+        android:layout_marginTop="@dimen/widget_course_margin"
+        android:layout_marginEnd="@dimen/widget_course_margin"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="3"
+        android:textSize="11dp"
+        android:layout_gravity="top"
+        tools:ignore="SpUsage"
+        tools:text="高等数学"/>
+
+    <TextView
+        android:id="@+id/tv_bottom"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="@dimen/widget_course_margin"
+        android:layout_marginEnd="@dimen/widget_course_margin"
+        android:layout_marginBottom="@dimen/widget_course_margin"
+        android:ellipsize="end"
+        android:gravity="center"
+        android:maxLines="3"
+        android:textSize="11dp"
+        android:layout_gravity="bottom"
+        tools:ignore="SpUsage"
+        tools:text="2333"/>
+
+</androidx.cardview.widget.CardView>

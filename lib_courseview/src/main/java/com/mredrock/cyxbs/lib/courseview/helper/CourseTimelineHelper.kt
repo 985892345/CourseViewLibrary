@@ -59,12 +59,17 @@ class CourseTimelineHelper private constructor(
     fun setVisible(boolean: Boolean) {
         mVisible = boolean
         course.invalidate()
+        mRefreshRunnable.cancel()
+        if (boolean) {
+            mRefreshRunnable.start()
+        }
     }
 
-    private val mCalendar = Calendar.getInstance()
-    private val mCircleRadius = 3.dp2pxF()
-    private var mVisible = true
+    private val mCalendar = Calendar.getInstance() // 用于装换时间
+    private val mCircleRadius = 3.dp2pxF() // 小圆半径
+    private var mVisible = true // 是否显示
 
+    // 画笔
     private val mPaint = Paint().apply {
         color = 0xFF2A4E84.toInt()
         isAntiAlias = true
@@ -72,6 +77,7 @@ class CourseTimelineHelper private constructor(
         strokeWidth = 1.dp2pxF()
     }
 
+    // 用于每隔一段时间就刷新的 Runnable
     private val mRefreshRunnable = object : Runnable {
         override fun run() {
             course.invalidate()
@@ -88,10 +94,11 @@ class CourseTimelineHelper private constructor(
     }
 
     init {
+        // 如果类初始化时 View 已经被添加到屏幕上，则直接 start()
         if (course.isAttachedToWindow) {
             mRefreshRunnable.start()
         }
-        // 添加 View 状态的监听，在脱离视图时取消 Runnable，防止内存泄漏
+        // 添加 View 状态的监听，在脱离视图时取消 mRefreshRunnable，防止内存泄漏
         course.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
             override fun onViewAttachedToWindow(v: View) {
                 mRefreshRunnable.start()
@@ -132,12 +139,12 @@ class CourseTimelineHelper private constructor(
         val now = hour * 60 + minute
 
         return when {
-            now <= 8 * 60 -> {
+            now <= 8 * 60 -> { //  8:00 前
                 mCircleRadius + course.getRowsHeight(
                     0, LESSON_1_TOP - 1
                 )
             }
-            now <= 8 * 60 + 45 -> {
+            now <= 8 * 60 + 45 -> { // 8:00 - 8:45 第一节课
                 val start = 8 * 60
                 val multiple = (now - start) / 45F
                 val lessonH = course.getRowsHeight(
@@ -148,7 +155,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_1_TOP - 1
                 )
             }
-            now <= 8 * 60 + 55 -> {
+            now <= 8 * 60 + 55 -> { // 8:45 - 8:55 第一节课课间
                 val start = 8 * 60 + 45
                 val end = 8 * 60 + 55
                 val multiple = (now - start) / (end - start).toFloat()
@@ -160,7 +167,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_1_BOTTOM
                 )
             }
-            now <= 9 * 60 + 40 -> {
+            now <= 9 * 60 + 40 -> { // 8:55 - 9:40 第二节课
                 val start = 8 * 60 + 55
                 val multiple = (now - start) / 45F
                 val lessonH = course.getRowsHeight(
@@ -171,7 +178,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_2_TOP - 1
                 )
             }
-            now <= 10 * 60 + 15 -> {
+            now <= 10 * 60 + 15 -> { // 9:40 - 10:15 第二节课课间
                 val start = 9 * 60 + 40
                 val end = 10 * 60 + 15
                 val multiple = (now - start) / (end - start).toFloat()
@@ -183,7 +190,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_2_BOTTOM
                 )
             }
-            now <= 11 * 60 -> {
+            now <= 11 * 60 -> { // 10:15 - 11:00 第三节课
                 val start = 10 * 60 + 15
                 val multiple = (now - start) / 45F
                 val lessonH = course.getRowsHeight(
@@ -194,7 +201,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_3_TOP - 1
                 )
             }
-            now <= 11 * 60 + 10 -> {
+            now <= 11 * 60 + 10 -> { // 11:00 - 11:10 第三节课课间
                 val start = 11 * 60
                 val end = 11 * 60 + 10
                 val multiple = (now - start) / (end - start).toFloat()
@@ -206,7 +213,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_3_BOTTOM
                 )
             }
-            now <= 11 * 60 + 55 -> {
+            now <= 11 * 60 + 55 -> { // 11:10 - 11:55 第四节课
                 val start = 11 * 60 + 10
                 val multiple = (now - start) / 45F
                 val lessonH = course.getRowsHeight(
@@ -217,7 +224,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_4_TOP - 1
                 )
             }
-            now <= 14 * 60 -> {
+            now <= 14 * 60 -> { // 11:55 - 14:00 中午时间段
                 val start = 11 * 60 + 55
                 val end = 14 * 60
                 val multiple = (now - start) / (end - start).toFloat()
@@ -229,7 +236,7 @@ class CourseTimelineHelper private constructor(
                     0, NOON_TOP - 1
                 )
             }
-            now <= 14 * 60 + 45 -> {
+            now <= 14 * 60 + 45 -> { // 14:00 - 14:45 第五节课
                 val start = 14 * 60
                 val multiple = (now - start) / 45F
                 val lessonH = course.getRowsHeight(
@@ -240,7 +247,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_5_TOP - 1
                 )
             }
-            now <= 14 * 60 + 55 -> {
+            now <= 14 * 60 + 55 -> { // 14:45 - 14:55 第五节课课间
                 val start = 14 * 60 + 45
                 val end = 14 * 60 + 55
                 val multiple = (now - start) / (end - start).toFloat()
@@ -252,7 +259,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_5_BOTTOM
                 )
             }
-            now <= 15 * 60 + 40 -> {
+            now <= 15 * 60 + 40 -> { // 14:55 - 15:40 第六节课
                 val start = 14 * 60 + 55
                 val multiple = (now - start) / 45F
                 val lessonH = course.getRowsHeight(
@@ -263,7 +270,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_6_TOP - 1
                 )
             }
-            now <= 16 * 60 + 15 -> {
+            now <= 16 * 60 + 15 -> { // 15:40 - 16:15 第六节课课间
                 val start = 15 * 60 + 40
                 val end = 16 * 60 + 15
                 val multiple = (now - start) / (end - start).toFloat()
@@ -275,7 +282,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_6_BOTTOM
                 )
             }
-            now <= 17 * 60 -> {
+            now <= 17 * 60 -> { // 16:15 - 17:00 第七节课
                 val start = 16 * 60 + 15
                 val multiple = (now - start) / 45F
                 val lessonH = course.getRowsHeight(
@@ -286,7 +293,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_7_TOP - 1
                 )
             }
-            now <= 17 * 60 + 10 -> {
+            now <= 17 * 60 + 10 -> { // 17:00 - 17:10 第七节课课间
                 val start = 17 * 60
                 val end = 17 * 60 + 10
                 val multiple = (now - start) / (end - start).toFloat()
@@ -298,7 +305,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_7_BOTTOM
                 )
             }
-            now <= 17 * 60 + 55 -> {
+            now <= 17 * 60 + 55 -> { // 17:10 - 17:55 第八节课
                 val start = 17 * 60 + 10
                 val multiple = (now - start) / 45F
                 val lessonH = course.getRowsHeight(
@@ -309,7 +316,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_8_TOP - 1
                 )
             }
-            now <= 19 * 60 -> {
+            now <= 19 * 60 -> { // 17:55 - 19:00 傍晚时间段
                 val start = 17 * 60 + 55
                 val end = 19 * 60
                 val multiple = (now - start) / (end - start).toFloat()
@@ -321,7 +328,7 @@ class CourseTimelineHelper private constructor(
                     0, DUSK_TOP - 1
                 )
             }
-            now <= 19 * 60 + 45 -> {
+            now <= 19 * 60 + 45 -> { // 19:00 - 19:45 第九节课
                 val start = 19 * 60
                 val multiple = (now - start) / 45F
                 val lessonH = course.getRowsHeight(
@@ -332,7 +339,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_9_TOP - 1
                 )
             }
-            now <= 19 * 60 + 55 -> {
+            now <= 19 * 60 + 55 -> { // 19:45 - 19:55 第九节课课间
                 val start = 19 * 60 + 45
                 val end = 19 * 60 + 55
                 val multiple = (now - start) / (end - start).toFloat()
@@ -344,7 +351,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_9_BOTTOM
                 )
             }
-            now <= 20 * 60 + 40 -> {
+            now <= 20 * 60 + 40 -> { // 19:55 - 20:40 第十节课
                 val start = 19 * 60 + 55
                 val multiple = (now - start) / 45F
                 val lessonH = course.getRowsHeight(
@@ -355,7 +362,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_10_TOP - 1
                 )
             }
-            now <= 20 * 60 + 50 -> {
+            now <= 20 * 60 + 50 -> { // 20:40 - 20:50 第十节课课间
                 val start = 20 * 60 + 40
                 val end = 20 * 60 + 50
                 val multiple = (now - start) / (end - start).toFloat()
@@ -367,7 +374,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_10_BOTTOM
                 )
             }
-            now <= 21 * 60 + 35 -> {
+            now <= 21 * 60 + 35 -> { // 20:50 - 21:35 第十一节课
                 val start = 20 * 60 + 50
                 val multiple = (now - start) / 45F
                 val lessonH = course.getRowsHeight(
@@ -378,7 +385,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_11_TOP - 1
                 )
             }
-            now <= 21 * 60 + 45 -> {
+            now <= 21 * 60 + 45 -> { // 21:35 - 21:45 第十一节课课间
                 val start = 21 * 60 + 35
                 val end = 21 * 60 + 45
                 val multiple = (now - start) / (end - start).toFloat()
@@ -390,7 +397,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_11_BOTTOM
                 )
             }
-            now <= 22 * 60 + 30 -> {
+            now <= 22 * 60 + 30 -> { // 21:45 - 22:30 第十二节课
                 val start = 21 * 60 + 45
                 val multiple = (now - start) / 45F
                 val lessonH = course.getRowsHeight(
@@ -401,7 +408,7 @@ class CourseTimelineHelper private constructor(
                     0, LESSON_12_TOP - 1
                 )
             }
-            now <= 24 * 60 -> {
+            now <= 24 * 60 -> { // 22:30 - 24:00 晚上最后一节课下课到凌晨
                 val start = 22 * 60 + 30
                 val end = 24 * 60
                 val multiple = (now - start) / (end - start).toFloat()

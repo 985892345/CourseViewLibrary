@@ -101,6 +101,12 @@ class CourseLongPressAffairHelper private constructor(
                     }
                 }
             }
+            MotionEvent.ACTION_UP -> {
+                if (mAffairView != null) {
+                    course.removeCallbacks(mLongPressRunnable)
+                    mAffairView = null // 重置
+                }
+            }
             MotionEvent.ACTION_CANCEL -> {
                 if (mAffairView != null) {
                     course.removeCallbacks(mLongPressRunnable)

@@ -14,6 +14,7 @@ import com.mredrock.cyxbs.lib.courseview.helper.CourseTimelineHelper
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseLayoutContainer
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
+import com.mredrock.cyxbs.lib.courseview.utils.LessonHelper
 import com.mredrock.cyxbs.lib.courseview.utils.WeekLayoutContainer
 import kotlin.random.Random
 
@@ -55,11 +56,38 @@ import kotlin.random.Random
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/1/20
-*/
+ */
 class CourseView(
     context: Context,
     attrs: AttributeSet
 ) : LinearLayout(context, attrs) {
+
+    fun addMyCourse(beginLesson: Int, period: Int) {
+        val view = LessonHelper.getLessonItem(
+            beginLesson,
+            period,
+            mCourse.layout,
+            LessonHelper.LessonType.MY
+        )
+    }
+
+    fun addMyAffair(beginLesson: Int, period: Int) {
+        val view = LessonHelper.getLessonItem(
+            beginLesson,
+            period,
+            mCourse.layout,
+            LessonHelper.LessonType.AFFAIR
+        )
+    }
+
+    fun addLinkCourse(beginLesson: Int, period: Int) {
+        val view = LessonHelper.getLessonItem(
+            beginLesson,
+            period,
+            mCourse.layout,
+            LessonHelper.LessonType.LINK
+        )
+    }
 
     private val mWeek = WeekLayoutContainer(this)
     private val mCourse = CourseLayoutContainer(this)
