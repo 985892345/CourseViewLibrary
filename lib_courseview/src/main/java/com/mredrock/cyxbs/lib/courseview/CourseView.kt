@@ -3,6 +3,7 @@ package com.mredrock.cyxbs.lib.courseview
 import android.content.Context
 import android.graphics.Color
 import android.util.AttributeSet
+import android.util.Log
 import android.view.View
 import android.widget.LinearLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
@@ -62,8 +63,9 @@ class CourseView(
     attrs: AttributeSet
 ) : LinearLayout(context, attrs) {
 
-    fun addMyCourse(beginLesson: Int, period: Int) {
-        val view = LessonHelper.getLessonItem(
+    fun addMyCourse(day: Int, beginLesson: Int, period: Int) {
+        LessonHelper.addLessonItem(
+            day,
             beginLesson,
             period,
             mCourse.layout,
@@ -71,8 +73,9 @@ class CourseView(
         )
     }
 
-    fun addMyAffair(beginLesson: Int, period: Int) {
-        val view = LessonHelper.getLessonItem(
+    fun addMyAffair(day: Int, beginLesson: Int, period: Int) {
+        LessonHelper.addLessonItem(
+            day,
             beginLesson,
             period,
             mCourse.layout,
@@ -80,13 +83,18 @@ class CourseView(
         )
     }
 
-    fun addLinkCourse(beginLesson: Int, period: Int) {
-        val view = LessonHelper.getLessonItem(
+    fun addLinkCourse(day: Int, beginLesson: Int, period: Int) {
+        LessonHelper.addLessonItem(
+            day,
             beginLesson,
             period,
             mCourse.layout,
             LessonHelper.LessonType.LINK
         )
+    }
+
+    fun addCourse(bean: CourseBean, type: LessonHelper.LessonType) {
+        LessonHelper.addLessonItem(bean, mCourse.layout, type)
     }
 
     private val mWeek = WeekLayoutContainer(this)
@@ -107,38 +115,15 @@ class CourseView(
         CourseFoldHelper.attach(mCourse.layout)
         CourseCreateAffairHelper.attach(mCourse.layout).apply {
             setTouchAffairViewClickListener {
-                replaceTouchAffairView(
-                    View(context).apply {
-                        val color = Random.nextInt(0x00FFFFFF) or 0xFF000000.toInt()
-                        setBackgroundColor(color)
-                    }, CourseType.AFFAIR
-                )
+                removeTouchAffairView()
+                addCourse(getCourseBean(), LessonHelper.LessonType.AFFAIR)
             }
         }
         CourseLongPressAffairHelper.attach(mCourse.layout)
         CourseTimelineHelper.attach(mCourse.layout)
 
-//        mCourse.layout.DEBUG = true
-
-        val v1 = View(context).apply {
-            setBackgroundColor(Color.BLUE)
-        }
-        val v2 = View(context).apply {
-            setBackgroundColor(Color.GREEN)
-        }
-        val v3 = View(context).apply {
-            setBackgroundColor(Color.BLACK)
-        }
-        val v4 = View(context).apply {
-            setBackgroundColor(Color.LTGRAY)
-        }
-        val v5 = View(context).apply {
-            setBackgroundColor(Color.RED)
-        }
-        mCourse.layout.addCourse(v1, CourseLayoutParams(0, 2, 1, 3, CourseType.AFFAIR))
-        mCourse.layout.addCourse(v2, CourseLayoutParams(5, 7, 1, 3, CourseType.AFFAIR))
-//        mCourse.layout.addCourse(v3, CourseLayoutParams(4, 1, 4, CourseType.AFFAIR))
-//        mCourse.layout.addCourse(v4, CourseLayoutParams(3, 4, 1, CourseType.AFFAIR))
-//        mCourse.layout.addCourse(v5, CourseLayoutParams(1, 2, 2, CourseType.AFFAIR))
+        addMyCourse(0, 3, 2)
+        addMyCourse(3, 5, 2)
+        addMyAffair(2, -1, 1)
     }
 }

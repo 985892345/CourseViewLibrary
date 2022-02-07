@@ -24,7 +24,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="1"
+            app:course_layout_startPos="0"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -38,7 +38,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="2"
+            app:course_layout_startPos="1"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -52,7 +52,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="3"
+            app:course_layout_startPos="2"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -66,7 +66,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="4"
+            app:course_layout_startPos="3"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -80,7 +80,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="5"
+            app:course_layout_startPos="4"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -94,7 +94,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="6"
+            app:course_layout_startPos="5"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -108,7 +108,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="7"
+            app:course_layout_startPos="6"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -122,7 +122,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="8"
+            app:course_layout_startPos="7"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -136,7 +136,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="9"
+            app:course_layout_startPos="8"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -150,7 +150,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="10"
+            app:course_layout_startPos="9"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -164,7 +164,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="11"
+            app:course_layout_startPos="10"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -178,7 +178,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="12"
+            app:course_layout_startPos="11"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -192,7 +192,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="13"
+            app:course_layout_startPos="12"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -206,7 +206,7 @@
             android:textStyle="bold"
             android:gravity="center"
             app:course_layout_day="0"
-            app:course_layout_startPos="14"
+            app:course_layout_startPos="13"
             app:course_layout_length="1"
             app:course_layout_type="time"
             tools:ignore="HardcodedText,SpUsage" />
@@ -218,7 +218,7 @@
             android:scaleType="centerInside"
             android:src="@drawable/ic_baseline_arrow_forward_ios_24"
             app:course_layout_day="0"
-            app:course_layout_startPos="4"
+            app:course_layout_startPos="3"
             app:course_layout_length="3"
             app:course_layout_type="arrow_noon"
             tools:ignore="ContentDescription" />
@@ -230,7 +230,7 @@
             android:scaleType="centerInside"
             android:src="@drawable/ic_baseline_arrow_forward_ios_24"
             app:course_layout_day="0"
-            app:course_layout_startPos="9"
+            app:course_layout_startPos="8"
             app:course_layout_length="3"
             app:course_layout_type="arrow_dusk"
             tools:ignore="ContentDescription" />

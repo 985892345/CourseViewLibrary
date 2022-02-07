@@ -33,12 +33,23 @@ class CourseLayoutParams : NetLayoutParams, CourseBean, Serializable {
         }
     }
 
-    override val day: Int
+    override var day: Int
         get() = startColumn
-    override val startPos: Int
-        get() = startRow + 1
-    override val length: Int
+        set(value) {
+            endColumn = value + columnCount - 1
+            startColumn = value
+        }
+    override var startPos: Int
+        get() = startRow
+        set(value) {
+            endRow = value + rowCount - 1
+            startRow = value
+        }
+    override var length: Int
         get() = endRow - startRow + 1
+        set(value) {
+            endRow = startRow + value - 1
+        }
     override var type: CourseType
 
     constructor(
@@ -52,7 +63,7 @@ class CourseLayoutParams : NetLayoutParams, CourseBean, Serializable {
         type = R.styleable.CourseLayout_Layout_course_layout_type.courseType(ty)
         ty.recycle()
         if (startPos != UNSET) {
-            startRow = startPos - 1
+            startRow = startPos
         }
         if (length != UNSET) {
             endRow = startRow + length - 1
@@ -69,8 +80,8 @@ class CourseLayoutParams : NetLayoutParams, CourseBean, Serializable {
         length: Int,
         type: CourseType
     ) : this(
-        startPos - 1,
-        startPos + length - 2,
+        startPos,
+        startPos + length - 1,
         day,
         day,
         type

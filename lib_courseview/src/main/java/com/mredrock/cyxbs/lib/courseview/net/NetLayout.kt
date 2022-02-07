@@ -5,13 +5,16 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.util.AttributeSet
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.net.callback.OnWeightChangeListener
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
 import com.mredrock.cyxbs.lib.courseview.net.utils.SideType
+import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import kotlin.collections.ArrayList
 import kotlin.collections.LinkedHashMap
 import kotlin.math.max
@@ -236,10 +239,10 @@ open class NetLayout : ViewGroup {
         mOnWeightChangeListeners.forEach {
             it.onChange(old, weight, column, SideType.COLUMN)
         }
-        if (weight == 1F) {
-            mColumnChangedWeight.remove(column)
-        } else {
-            mColumnChangedWeight[column] = weight
+        when {
+            weight == 1F -> mColumnChangedWeight.remove(column)
+            weight > 0F -> mColumnChangedWeight[column] = weight
+            else -> mColumnChangedWeight[column] = 0F
         }
         requestLayout()
     }
@@ -255,10 +258,10 @@ open class NetLayout : ViewGroup {
         mOnWeightChangeListeners.forEach {
             it.onChange(old, weight, row, SideType.ROW)
         }
-        if (weight == 1F) {
-            mRowChangedWeight.remove(row)
-        } else {
-            mRowChangedWeight[row] = weight
+        when {
+            weight == 1F -> mRowChangedWeight.remove(row)
+            weight > 0F -> mRowChangedWeight[row] = weight
+            else -> mRowChangedWeight[row] = 0F
         }
         requestLayout()
     }
@@ -471,15 +474,21 @@ open class NetLayout : ViewGroup {
 
                 maxWidth = max(
                     maxWidth,
-                    if (childWithParentColumnMultiple == 0F) 0
-                    else ((child.measuredWidth + lp.leftMargin + lp.rightMargin) /
-                            childWithParentColumnMultiple).toInt()
+                    when {
+                        childWithParentColumnMultiple == 0F -> 0
+                        child.measuredWidth == 0 -> 0
+                        else -> ((child.measuredWidth + lp.leftMargin + lp.rightMargin) /
+                                childWithParentColumnMultiple).toInt()
+                    }
                 )
                 maxHeight = max(
                     maxHeight,
-                    if (childWithParentRowMultiple == 0F) 0
-                    else ((child.measuredHeight + lp.topMargin + lp.bottomMargin) /
-                            childWithParentRowMultiple).toInt()
+                    when {
+                        childWithParentRowMultiple == 0F -> 0
+                        child.measuredHeight == 0 -> 0
+                        else -> ((child.measuredHeight + lp.topMargin + lp.bottomMargin) /
+                                childWithParentRowMultiple).toInt()
+                    }
                 )
                 childState = combineMeasuredStates(childState, child.measuredState)
                 if (!widthIsExactly && lp.width == LayoutParams.MATCH_PARENT ||
@@ -550,7 +559,7 @@ open class NetLayout : ViewGroup {
      * 获取开始列到结束列所占的总比例大小
      */
     private fun getColumnsWeightInternal(start: Int, end: Int): Float {
-        if (end >= mNetAttrs.columnCount) throw RuntimeException()
+        if (end >= getColumnCount()) throw RuntimeException("end = $end   rowCount = ${getColumnCount()}")
         var childColumnSize = 0F
         for (column in start..end) {
             childColumnSize += mColumnChangedWeight[column] ?: 1F
@@ -562,7 +571,7 @@ open class NetLayout : ViewGroup {
      * 获取开始行到结束行所占的总比例大小
      */
     private fun getRowsWeightInternal(start: Int, end: Int): Float {
-        if (end >= mNetAttrs.rowCount) throw RuntimeException()
+        if (end >= getRowCount()) throw RuntimeException("end = $end   rowCount = ${getRowCount()}")
         var childRowSize = 0F
         for (row in start..end) {
             childRowSize += mRowChangedWeight[row] ?: 1F

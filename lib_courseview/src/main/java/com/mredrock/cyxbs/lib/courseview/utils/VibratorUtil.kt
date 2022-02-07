@@ -36,7 +36,7 @@ internal object VibratorUtil {
                     )
                 )
             } else {
-                vibrator.vibrate(30)
+                vibrator.vibrate(milliseconds)
             }
         }
     }

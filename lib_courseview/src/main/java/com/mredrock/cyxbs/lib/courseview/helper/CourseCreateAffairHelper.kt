@@ -2,10 +2,12 @@ package com.mredrock.cyxbs.lib.courseview.helper
 
 import android.graphics.drawable.GradientDrawable
 import android.os.*
+import android.util.Log
 import android.view.*
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
+import com.mredrock.cyxbs.lib.courseview.CourseBean
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.DUSK_BOTTOM
@@ -51,14 +53,12 @@ class CourseCreateAffairHelper private constructor(
         mTouchAffairView.setOnClickListener(l)
     }
 
-    /**
-     * 替代当前触摸生成的用于添加事务的 View，位置大小都会不变
-     */
-    fun replaceTouchAffairView(view: View, type: CourseType) {
+    fun getCourseBean(): CourseBean {
+        return mTouchAffairView.layoutParams as CourseLayoutParams
+    }
+
+    fun removeTouchAffairView() {
         if (mTouchAffairView.parent != null) {
-            val lp = (mTouchAffairView.layoutParams as CourseLayoutParams).clone()
-            lp.type = type
-            course.addCourse(view, lp)
             course.removeView(mTouchAffairView)
         }
     }
@@ -132,8 +132,6 @@ class CourseCreateAffairHelper private constructor(
 
     /**
      * 显示 mTouchAffairView（用于添加事务的 View）
-     * @author 985892345
-     * @date 2022/1/31 18:07
      */
     private fun showTouchAffairView() {
         val lp = mTouchAffairView.layoutParams as CourseLayoutParams

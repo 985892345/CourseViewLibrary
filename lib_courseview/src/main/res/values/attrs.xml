@@ -3,7 +3,7 @@
 
     <declare-styleable name="CourseLayout_Layout">
         <attr name="course_layout_day" format="integer"/>
-        <!--从 1 开始-->
+        <!--从 0 开始-->
         <attr name="course_layout_startPos" format="integer"/>
         <attr name="course_layout_length" format="integer"/>
         <!--添加进来的子 View 的类型，与 utils 包下 CourseType 一一对应-->

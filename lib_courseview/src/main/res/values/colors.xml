@@ -25,4 +25,7 @@
     <color name="common_morning_course_text_color">#FF8015</color>
     <color name="common_afternoon_course_text_color">#FF6262</color>
     <color name="common_evening_course_text_color">#4066EA</color>
+
+    <!--事务备忘条纹-->
+    <color name="common_transaction_background_stripe_color">#FFE4E7EC</color>
 </resources>
