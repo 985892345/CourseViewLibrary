@@ -10,7 +10,7 @@ import android.content.res.TypedArray
  */
 enum class CourseType(val i: Int) {
     MY(0),
-    OTHER(1),
+    LINK(1),
     AFFAIR(2),
     TIME(3),
     AFFAIR_TOUCH(4),
@@ -24,7 +24,7 @@ enum class CourseType(val i: Int) {
         fun get(i: Int): CourseType {
             return when (i) {
                 MY.i -> MY
-                OTHER.i -> OTHER
+                LINK.i -> LINK
                 AFFAIR.i -> AFFAIR
                 TIME.i -> TIME
                 AFFAIR_TOUCH.i -> AFFAIR_TOUCH

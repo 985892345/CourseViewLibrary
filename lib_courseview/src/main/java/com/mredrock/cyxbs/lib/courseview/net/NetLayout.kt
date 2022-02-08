@@ -72,6 +72,8 @@ open class NetLayout : ViewGroup {
     /**
      * 倒序查找子 View
      *
+     * **NOTE：** 按照 View 的行列范围来查找
+     *
      * 如果要修改子 View 的添加顺序可以重写 [getChildAfterIndex]
      * @see getChildAfterIndex
      * @see findItemUnderByRowColumn
@@ -79,12 +81,11 @@ open class NetLayout : ViewGroup {
     fun findItemUnderByXY(x: Int, y: Int): View? {
         for (i in childCount - 1 downTo 0) {
             val child = getChildAt(i)
-            val translationX = child.translationX
-            val translationY = child.translationY
-            if (x >= child.left + translationX
-                && x <= child.right + translationX
-                && y >= child.top + translationY
-                && y <= child.bottom + translationY
+            val lp = child.layoutParams.net()
+            if (x >= lp.constraintLeft
+                && x <= lp.constraintRight
+                && y >= lp.constraintTop
+                && y <= lp.constraintBottom
             ) {
                 return child
             }

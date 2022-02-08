@@ -1,6 +1,8 @@
 package com.mredrock.cyxbs.lib.courseview.utils
 
+import android.content.Context
 import android.content.res.Resources
+import androidx.core.content.ContextCompat
 import kotlin.math.roundToInt
 
 /**
@@ -17,3 +19,7 @@ internal fun Int.dp2pxF(): Float = Resources.getSystem().displayMetrics.density 
 internal fun Float.dp2px(): Int = this.dp2pxF().roundToInt()
 
 internal fun Float.dp2pxF(): Float = Resources.getSystem().displayMetrics.density * this
+
+internal fun Int.color(context: Context): Int {
+    return ContextCompat.getColor(context, this)
+}

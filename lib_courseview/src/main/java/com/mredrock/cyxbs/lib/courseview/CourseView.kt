@@ -1,10 +1,7 @@
 package com.mredrock.cyxbs.lib.courseview
 
 import android.content.Context
-import android.graphics.Color
 import android.util.AttributeSet
-import android.util.Log
-import android.view.View
 import android.widget.LinearLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
@@ -17,7 +14,6 @@ import com.mredrock.cyxbs.lib.courseview.utils.CourseLayoutContainer
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.LessonHelper
 import com.mredrock.cyxbs.lib.courseview.utils.WeekLayoutContainer
-import kotlin.random.Random
 
 /**
  * ```
@@ -95,6 +91,10 @@ class CourseView(
 
     fun addCourse(bean: CourseBean, type: LessonHelper.LessonType) {
         LessonHelper.addLessonItem(bean, mCourse.layout, type)
+    }
+
+    fun clear() {
+        LessonHelper.clear(mCourse.layout)
     }
 
     private val mWeek = WeekLayoutContainer(this)
