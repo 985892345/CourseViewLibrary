@@ -54,7 +54,7 @@ class CourseLongPressAffairHelper private constructor(
     private var mIsNoonFoldedWhenLongPress = true // 长按开始时中午时间段是否处于折叠状态
     private var mIsDuskFoldedWhenLongPress = true // 长按开始时傍晚时间段是否处于折叠状态
 
-    private var mAffairView: View? = null
+    private var mAffairView: View? = null // 长按的那个 View 的引用
 
     // 认定是在滑动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
     private var mTouchSlop = ViewConfiguration.get(course.context).scaledTouchSlop
@@ -67,6 +67,20 @@ class CourseLongPressAffairHelper private constructor(
 
     // 长按时执行的 Runnable
     private val mLongPressRunnable = Runnable {
+        /*
+        * overlay 是一个很神奇的东西，有了这个东西就可以防止布局对 View 的影响，
+        * 而且仍可以在父布局中显示
+        *
+        * 由于在长按时移动会自动展开中午和傍晚的情况，这时会使 View 的 top 值改变，
+        * 导致 View 的实际位置向下移动
+        *
+        * 而我是通过 translationY 直接计算的偏移量，如果 View 的 top 值改变了，
+        * 就会使 View 的位置也发生改变
+        *
+        * 但如果使用 overlay 就不一样了，这个相当于是在父布局顶层专门绘制，View 的位置不会受到
+        * 重新布局的影响
+        * */
+        course.overlay.add(mAffairView!!)
         mIsInLongPress = true
         mAffairView!!.translationZ = 10F // 让 AffairView 显示在所有 View 之上
         VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
@@ -102,42 +116,52 @@ class CourseLongPressAffairHelper private constructor(
                     mInitialY = y
                     mLastMoveX = x
                     mLastMoveY = y
-                    mDiffMoveY = y
+                    mDiffMoveY = 0 // 重置
                     mIsInLongPress = false // 重置
                     course.postDelayed(mLongPressRunnable, mLongPressTimeout)
+                    // 禁止外面的 ScrollView 拦截事件
+                    course.parent.requestDisallowInterceptTouchEvent(true)
                 }
             }
             MotionEvent.ACTION_MOVE -> {
                 if (mAffairView != null) {
-                    /*
-                    * mAffairView 的点击事件是在 UP 中触发，
-                    * 1、如果超过 mTouchSlop，则直接取消拦截（后面会被 CourseScrollView 拦截）
-                    * 2、如果在 mTouchSlop 范围内，且也处于长按状态，则直接拦截
-                    * */
-                    if (abs(x - mLastMoveX) > mTouchSlop
-                        || abs(y - mLastMoveY) > mTouchSlop
-                    ) {
-                        course.removeCallbacks(mLongPressRunnable)
-                        mAffairView = null // 重置
+                    if (mIsInLongPress) {
+                        return true
                     } else {
-                        if (mIsInLongPress) {
-                            // 禁止外面的 ScrollView 拦截事件
-                            course.parent.requestDisallowInterceptTouchEvent(true)
-                            return true // 这里是拦截的开始
+                        /*
+                        * mAffairView 的点击事件是在 UP 中触发，
+                        * 1、如果超过 mTouchSlop，则直接取消拦截（后面会被 CourseScrollView 拦截）
+                        * 2、如果在 mTouchSlop 范围内，且也处于长按状态，则直接拦截
+                        * */
+                        if (abs(x - mLastMoveX) > mTouchSlop
+                            || abs(y - mLastMoveY) > mTouchSlop
+                        ) {
+                            course.removeCallbacks(mLongPressRunnable)
+                            mAffairView = null // 重置
+                            // 允许外面的 ScrollView 拦截事件
+                            course.parent.requestDisallowInterceptTouchEvent(false)
                         }
                     }
                 }
             }
             MotionEvent.ACTION_UP -> {
                 if (mAffairView != null) {
-                    course.removeCallbacks(mLongPressRunnable)
+                    if (mIsInLongPress) {
+                        recoverFoldState(mAffairView!!) // 恢复
+                    } else {
+                        course.removeCallbacks(mLongPressRunnable)
+                    }
                     mAffairView = null // 重置
                 }
             }
             MotionEvent.ACTION_CANCEL -> {
                 if (mAffairView != null) {
                     // 走到这里说明：移动距离大于 mTouchSlop 而被父布局提前拦截
-                    course.removeCallbacks(mLongPressRunnable)
+                    if (mIsInLongPress) {
+                        recoverFoldState(mAffairView!!) // 恢复
+                    } else {
+                        course.removeCallbacks(mLongPressRunnable)
+                    }
                     mAffairView = null // 重置
                 }
             }
@@ -150,7 +174,8 @@ class CourseLongPressAffairHelper private constructor(
         val y = event.y.toInt()
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                // 注意：这里 Down 事件是不会被调用的，具体原因请自己分析 :)
+                // 注意：这里 Down 事件是不会被调用的
+                // 原因：因为是在 Move 中才拦截的事件，不是在 Down 时拦截的
             }
             MotionEvent.ACTION_MOVE -> {
                 // 走到这里说明肯定是处于长按状态的
@@ -185,27 +210,10 @@ class CourseLongPressAffairHelper private constructor(
         }
     }
 
-    private fun recoverFoldState() {
-        if (mIsNoonFoldedWhenLongPress) {
-            when (course.getNoonRowState()) {
-                RowState.UNFOLD, RowState.UNFOLD_ANIM -> {
-                    course.foldNoonForce()
-                }
-                else -> {}
-            }
-        }
-        if (mIsDuskFoldedWhenLongPress) {
-            when (course.getDuskRowState()) {
-                RowState.UNFOLD, RowState.UNFOLD_ANIM -> {
-                    course.foldDuskForce()
-                }
-                else -> {}
-            }
-        }
-    }
-
     /**
      * 平移 AffairView
+     *
+     * @param y 为当前触摸位置到 [course] 顶部的距离
      */
     private fun translateAffairView(y: Int) {
         mAffairView?.let {
@@ -220,21 +228,24 @@ class CourseLongPressAffairHelper private constructor(
      * 判断当前平移 AffairView 中是否需要自动展开中午或者傍晚时间段
      */
     private fun unfoldNoonOrDuskIfNecessary(view: View) {
-        val top = view.y.toInt()
-        val bottom = top + view.height
-        val topRow = course.getRow(top)
-        val bottomRow = course.getRow(bottom)
+        val lp = view.layoutParams as CourseLayoutParams
+        val top = lp.constraintTop + view.translationY
+        val bottom = lp.constraintBottom + view.translationY
+        val topNoon = course.getRowsHeight(0, CourseLayout.NOON_TOP - 1)
+        val bottomNoon = topNoon + course.getRowsHeight(CourseLayout.NOON_TOP, CourseLayout.NOON_BOTTOM)
+        val topDusk = course.getRowsHeight(0, CourseLayout.DUSK_TOP - 1)
+        val bottomDusk = topDusk + course.getRowsHeight(CourseLayout.DUSK_TOP, CourseLayout.DUSK_BOTTOM)
         val noonState = course.getNoonRowState()
         val duskState = course.getDuskRowState()
         // 如果包含了中午时间段
-        if (topRow <= CourseLayout.NOON_TOP && bottomRow >= CourseLayout.NOON_BOTTOM) {
+        if (top <= topNoon && bottom >= bottomNoon) {
             when (noonState) {
                 RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldNoonForce()
                 else -> {}
             }
         }
         // 如果包含了傍晚时间段
-        if (topRow <= CourseLayout.DUSK_TOP && bottomRow >= CourseLayout.DUSK_BOTTOM) {
+        if (top <= topDusk && bottom >= bottomDusk) {
             when (duskState) {
                 RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldDuskForce()
                 else -> {}
@@ -243,7 +254,7 @@ class CourseLongPressAffairHelper private constructor(
     }
 
     /**
-     * 如果可以改变位置，则带有动画的移动到新位置
+     * 作用：如果可以改变位置，则带有动画的移动到新位置
      *
      * 判断有点多，但不算很复杂，为了以后更好的兼容，我写成了任意行宽和列宽的判断，
      * 意思就是：目前课表虽然列宽都是为 1 的 View，但我并没有使用这特殊条件，而是写出了任意列宽的比较
@@ -268,6 +279,12 @@ class CourseLongPressAffairHelper private constructor(
         val view = mAffairView
         if (view != null) {
             val layoutParams = view.layoutParams as CourseLayoutParams
+            /*
+            * 可能你会问为什么不直接用 View.left + View.translationX 或者直接 View.x
+            * 原因如下：
+            * 虽然目前课表的每个 item 都是宽高都是 match，
+            * 但 item 的移动都是限制在方格内的，不应该用 View 的位置来判断
+            * */
             val l = layoutParams.constraintLeft + view.translationX.toInt()
             val r = layoutParams.constraintRight + view.translationX.toInt()
             val t = layoutParams.constraintTop + view.translationY.toInt()
@@ -471,28 +488,26 @@ class CourseLongPressAffairHelper private constructor(
             }
 
             // 计算终点位置
-            val finalX = course.getColumnsWidth(0, leftColumn - 1).toFloat()
-            val finalY = course.getRowsHeight(0, topRow - 1).toFloat()
+            val finalDx = course.getColumnsWidth(0, leftColumn - 1) - layoutParams.constraintLeft.toFloat()
+            val finalDy = course.getRowsHeight(0, topRow - 1) - layoutParams.constraintTop.toFloat()
 
             // 开启动画移动到最终位置
-            MoveAnimation(view.x, view.y, finalX, finalY, 200) { x, y ->
-                view.x = x
-                view.y = y
+            MoveAnimation(view.translationX, view.translationY, finalDx, finalDy, 200) { x, y ->
+                view.translationX = x
+                view.translationY = y
             }.addEndListener {
-                recoverFoldState()
                 view.translationX = 0F // 还原
                 view.translationY = 0F // 还原
                 view.translationZ = 0F // 重置
-                // 防止动画未结束而又开启了下一次移动导致 mAffairView 改变
-                if (view.parent === course) { // 防止动画结束时 View 已经被删除了
-                    val lp = view.layoutParams as CourseLayoutParams
-                    lp.startRow = topRow
-                    lp.endRow = bottomRow
-                    lp.startColumn = leftColumn
-                    lp.endColumn = rightColumn
-                    view.layoutParams = lp // 刷新布局
-                    mOnAffairMoveListener?.onMoveOverAffair(view, lp)
-                }
+                val lp = view.layoutParams as CourseLayoutParams
+                lp.startRow = topRow
+                lp.endRow = bottomRow
+                lp.startColumn = leftColumn
+                lp.endColumn = rightColumn
+                course.overlay.remove(view)
+                course.addView(view)
+                mOnAffairMoveListener?.onMoveOverAffair(view, lp)
+                recoverFoldState(view)
             }.start()
         }
     }
@@ -508,6 +523,9 @@ class CourseLongPressAffairHelper private constructor(
             // 没有平移量时直接结束
             if (translationX == 0F && translationY == 0F) {
                 view.translationZ = 0F // 重置
+                recoverFoldState(view)
+                course.overlay.remove(view)
+                course.addView(view)
                 return
             }
             // 自己拟合的一条由距离求出时间的函数，感觉比较适合动画效果 :)
@@ -517,9 +535,43 @@ class CourseLongPressAffairHelper private constructor(
                 view.translationX = x
                 view.translationY = y
             }.addEndListener {
-                recoverFoldState()
                 view.translationZ = 0F // 重置
+                course.overlay.remove(view)
+                course.addView(view)
+                recoverFoldState(view)
             }.start()
+        }
+    }
+
+    /**
+     * 用于恢复折叠状态
+     */
+    private fun recoverFoldState(view: View) {
+        if (view.parent !is CourseLayout) return
+        val lp = view.layoutParams as CourseLayoutParams
+        val isContainNoon = lp.startRow <= CourseLayout.NOON_TOP
+                && lp.endRow >= CourseLayout.NOON_BOTTOM
+        val isContainDusk = lp.startRow <= CourseLayout.DUSK_TOP
+                && lp.endRow >= CourseLayout.DUSK_BOTTOM
+        // 当不包含中午时间段时
+        if (!isContainNoon) {
+            if (mIsNoonFoldedWhenLongPress) {
+                when (course.getNoonRowState()) {
+                    RowState.UNFOLD, RowState.UNFOLD_ANIM -> {
+                        course.foldNoonForce()
+                    }
+                    else -> {}
+                }
+            }
+        }
+        // 当不包含傍晚时间段时
+        if (!isContainDusk) {
+            if (mIsDuskFoldedWhenLongPress) {
+                when (course.getDuskRowState()) {
+                    RowState.UNFOLD, RowState.UNFOLD_ANIM -> course.foldDuskForce()
+                    else -> {}
+                }
+            }
         }
     }
 

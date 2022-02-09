@@ -90,6 +90,7 @@ class CourseScrollView(
             MotionEvent.ACTION_DOWN -> {
                 mInitialY = y
                 mLastMoveY = y
+                mDiffMoveY = 0
                 mIsInTouch = true
             }
             MotionEvent.ACTION_MOVE -> {

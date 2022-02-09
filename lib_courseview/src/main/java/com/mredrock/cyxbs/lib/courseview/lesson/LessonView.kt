@@ -11,7 +11,6 @@ import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import kotlin.math.abs
-import kotlin.math.max
 import kotlin.math.pow
 
 /**
@@ -61,6 +60,27 @@ class LessonView(
         canvas.clipPath(mPath)
         super.draw(canvas)
         canvas.restore()
+
+        changeAlphaInFoldAnim()
+    }
+
+    /**
+     * 如果自身只在中午或者傍晚时间段，则在折叠和展开时实时改变透明度
+     */
+    private fun changeAlphaInFoldAnim() {
+        val parent = parent
+        if (parent is CourseLayout) {
+            val lp = layoutParams as CourseLayoutParams
+            if (lp.startRow == CourseLayout.NOON_TOP
+                && lp.endRow == CourseLayout.NOON_BOTTOM
+                || lp.startRow == CourseLayout.DUSK_TOP
+                && lp.endRow == CourseLayout.DUSK_BOTTOM
+            ) {
+                val totalHeight = lp.rowCount * parent.getRowsHeight(0, 0)
+                val x = height / totalHeight.toFloat()
+                alpha = x * x
+            }
+        }
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -78,19 +98,22 @@ class LessonView(
                 if (abs(x - mLastMoveX) > mTouchSlop
                     || abs(y - mLastMoveY) > mTouchSlop
                 ) {
-                    restoreAnim()
+                    recoverAnim()
                 }
             }
             MotionEvent.ACTION_UP -> {
-                restoreAnim()
+                recoverAnim()
             }
             MotionEvent.ACTION_CANCEL -> {
-                restoreAnim()
+                recoverAnim()
             }
         }
         return super.dispatchTouchEvent(ev)
     }
 
+    /**
+     * 实现按下后的 Q 弹动画
+     */
     private fun startAnim() {
         animate()
             .scaleX(0.85F)
@@ -99,7 +122,7 @@ class LessonView(
             .start()
     }
 
-    private fun restoreAnim() {
+    private fun recoverAnim() {
         animate().cancel()
         animate()
             .scaleX(1F)

@@ -138,11 +138,12 @@ class CourseLayout : NetLayout {
     /**
      * 带有动画的强制折叠中午时间段。会 cancel 掉之前的动画
      */
-    fun foldNoonForce() {
+    fun foldNoonForce(onChanged: ((Float) -> Unit)? = null) {
         val nowWeight = mNoonAnimation?.nowWeight ?: 0.99999F
         mNoonAnimation?.cancel()
         mNoonAnimation = FoldAnimation(nowWeight) {
             changeNoonWeight(it)
+            onChanged?.invoke(it)
         }.addEndListener {
             mNoonAnimation = null
             mNoonImageView.visibility = VISIBLE
@@ -163,12 +164,13 @@ class CourseLayout : NetLayout {
     /**
      * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
      */
-    fun unfoldNoonForce() {
+    fun unfoldNoonForce(onChanged: ((Float) -> Unit)? = null) {
         val nowWeight = mNoonAnimation?.nowWeight ?: 0.00001F
         mNoonAnimation?.cancel()
         mNoonImageView.visibility = INVISIBLE
         mNoonAnimation = UnfoldAnimation(nowWeight) {
             changeNoonWeight(it)
+            onChanged?.invoke(it)
         }.addEndListener {
             mNoonAnimation = null
         }.start()
@@ -188,11 +190,12 @@ class CourseLayout : NetLayout {
     /**
      * 带有动画的强制折叠傍晚时间段。会 cancel 掉之前的动画
      */
-    fun foldDuskForce() {
+    fun foldDuskForce(onChanged: ((Float) -> Unit)? = null) {
         val nowWeight = mDuskAnimation?.nowWeight ?: 0.99999F
         mDuskAnimation?.cancel()
         mDuskAnimation = FoldAnimation(nowWeight) {
             changeDuskWeight(it)
+            onChanged?.invoke(it)
         }.addEndListener {
             mDuskAnimation = null
             mDuskImageView.visibility = VISIBLE
@@ -213,12 +216,13 @@ class CourseLayout : NetLayout {
     /**
      * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
      */
-    fun unfoldDuskForce() {
+    fun unfoldDuskForce(onChanged: ((Float) -> Unit)? = null) {
         val nowWeight = mDuskAnimation?.nowWeight ?: 0.00001F
         mDuskAnimation?.cancel()
         mDuskImageView.visibility = INVISIBLE
         mDuskAnimation = UnfoldAnimation(nowWeight) {
             changeDuskWeight(it)
+            onChanged?.invoke(it)
         }.addEndListener {
             mDuskAnimation = null
         }.start()
