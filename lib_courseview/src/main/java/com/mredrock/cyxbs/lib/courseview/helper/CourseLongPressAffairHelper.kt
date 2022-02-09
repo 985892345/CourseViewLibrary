@@ -67,20 +67,6 @@ class CourseLongPressAffairHelper private constructor(
 
     // 长按时执行的 Runnable
     private val mLongPressRunnable = Runnable {
-        /*
-        * overlay 是一个很神奇的东西，有了这个东西就可以防止布局对 View 的影响，
-        * 而且仍可以在父布局中显示
-        *
-        * 由于在长按时移动会自动展开中午和傍晚的情况，这时会使 View 的 top 值改变，
-        * 导致 View 的实际位置向下移动
-        *
-        * 而我是通过 translationY 直接计算的偏移量，如果 View 的 top 值改变了，
-        * 就会使 View 的位置也发生改变
-        *
-        * 但如果使用 overlay 就不一样了，这个相当于是在父布局顶层专门绘制，View 的位置不会受到
-        * 重新布局的影响
-        * */
-        course.overlay.add(mAffairView!!)
         mIsInLongPress = true
         mAffairView!!.translationZ = 10F // 让 AffairView 显示在所有 View 之上
         VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
@@ -178,6 +164,7 @@ class CourseLongPressAffairHelper private constructor(
                 // 原因：因为是在 Move 中才拦截的事件，不是在 Down 时拦截的
             }
             MotionEvent.ACTION_MOVE -> {
+                putInOverlay()
                 // 走到这里说明肯定是处于长按状态的
                 mDiffMoveY = y - mLastMoveY
                 mLastMoveX = x
@@ -207,6 +194,35 @@ class CourseLongPressAffairHelper private constructor(
                 mScrollRunnable.cancel()
                 mAffairView = null // 重置
             }
+        }
+    }
+
+    /**
+     * 作用：在没有进行动画的时候放进 overlay
+     *
+     * 原因：主要因为存在这种情况，当该 View 的中间部分包含了正处于折叠状态的中午或傍晚时间段，
+     * 这个时候添加进 overlay 将会缺少中午或者傍晚时间段的高度
+     */
+    private fun putInOverlay() {
+        val noonState = course.getNoonRowState()
+        val duskState = course.getDuskRowState()
+        if ((noonState == RowState.FOLD || noonState == RowState.UNFOLD)
+            && (duskState == RowState.FOLD || duskState == RowState.UNFOLD)
+        ) {
+            /*
+            * overlay 是一个很神奇的东西，有了这个东西就可以防止布局对 View 的影响，
+            * 而且仍可以在父布局中显示
+            *
+            * 由于在长按时移动会自动展开中午和傍晚的情况，这时会使 View 的 top 值改变，
+            * 导致 View 的实际位置向下移动
+            *
+            * 而我是通过 translationY 直接计算的偏移量，如果 View 的 top 值改变了，
+            * 就会使 View 的位置也发生改变
+            *
+            * 但如果使用 overlay 就不一样了，这个相当于是在父布局顶层专门绘制，View 的位置不会受到
+            * 重新布局的影响
+            * */
+            course.overlay.add(mAffairView!!)
         }
     }
 
