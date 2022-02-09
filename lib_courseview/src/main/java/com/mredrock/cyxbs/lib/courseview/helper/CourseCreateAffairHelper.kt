@@ -2,12 +2,10 @@ package com.mredrock.cyxbs.lib.courseview.helper
 
 import android.graphics.drawable.GradientDrawable
 import android.os.*
-import android.util.Log
 import android.view.*
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
-import com.mredrock.cyxbs.lib.courseview.CourseBean
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.DUSK_BOTTOM
@@ -51,10 +49,6 @@ class CourseCreateAffairHelper private constructor(
      */
     fun setTouchAffairViewClickListener(l: View.OnClickListener) {
         mTouchAffairView.setOnClickListener(l)
-    }
-
-    fun getCourseBean(): CourseBean {
-        return mTouchAffairView.layoutParams as CourseLayoutParams
     }
 
     fun removeTouchAffairView() {
@@ -122,7 +116,7 @@ class CourseCreateAffairHelper private constructor(
                 cornerRadii =
                     floatArrayOf(radius, radius, radius, radius, radius, radius, radius, radius)
                 // 背景颜色
-                setColor(ContextCompat.getColor(course.context, R.color.course_add_affair_color))
+                setColor(ContextCompat.getColor(course.context, R.color.course_affair_color))
             }
             // 设置 ImageView 的前景图片
             setImageResource(R.drawable.course_ic_add_circle_white)
@@ -299,9 +293,9 @@ class CourseCreateAffairHelper private constructor(
      * 1、根据 [y] 值来计算当前 mTouchAffairView 的位置并刷新布局
      */
     private fun changeTouchAffairView(y: Int) {
+        mTouchRow = course.getRow(y) // 当前触摸的行数
         val touchView = course.findItemUnderByXY(mInitialX, y)
         if (touchView == null || touchView === mTouchAffairView) {
-            mTouchRow = course.getRow(y) // 当前触摸的行数
             var topRow: Int
             var bottomRow: Int
             // 根据当前触摸的行数与初始行数比较，得到 topRow、bottomRow
@@ -312,6 +306,8 @@ class CourseCreateAffairHelper private constructor(
                 topRow = mTouchRow
                 bottomRow = mInitialRow
             }
+            // 判断是否展开中午或者傍晚时间段（在滑过中午或者傍晚时需要将他们自动展开）
+            unfoldNoonOrDuskIfNecessary(topRow, bottomRow)
             if (topRow < mUpperRow) topRow = mUpperRow // 根据上限再次修正 topRow
             if (bottomRow > mLowerRow) bottomRow = mLowerRow // 根据下限再次修正 bottomRow
             if (topRow != mTopRow || bottomRow != mBottomRow) { // 避免不必要的刷新
@@ -322,8 +318,6 @@ class CourseCreateAffairHelper private constructor(
                 lp.endRow = bottomRow
                 mTouchAffairView.layoutParams = lp // 设置属性，刷新布局
             }
-            // 判断是否展开中午或者傍晚时间段（在滑过中午或者傍晚时需要将他们自动展开）
-            unfoldNoonOrDuskIfNecessary()
         }
     }
 
@@ -420,15 +414,15 @@ class CourseCreateAffairHelper private constructor(
     /**
      * 判断当前滑动中是否需要自动展开中午或者傍晚时间段
      */
-    private fun unfoldNoonOrDuskIfNecessary() {
-        if (mTopRow <= NOON_TOP && mBottomRow >= NOON_BOTTOM) {
+    private fun unfoldNoonOrDuskIfNecessary(topRow: Int, bottomRow: Int) {
+        if (topRow <= NOON_TOP && bottomRow >= NOON_BOTTOM) {
             if (course.getNoonRowState() == RowState.FOLD) {
-                course.unfoldNoon()
+                course.unfoldNoonForce()
             }
         }
-        if (mTopRow <= DUSK_TOP && mBottomRow >= DUSK_BOTTOM) {
+        if (topRow <= DUSK_TOP && bottomRow >= DUSK_BOTTOM) {
             if (course.getDuskRowState() == RowState.FOLD) {
-                course.unfoldDusk()
+                course.unfoldDuskForce()
             }
         }
     }

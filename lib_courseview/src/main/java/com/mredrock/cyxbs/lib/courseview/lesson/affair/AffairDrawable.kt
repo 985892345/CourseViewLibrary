@@ -58,7 +58,9 @@ class AffairDrawable(context: Context) : Drawable() {
         canvas.restore()
     }
 
-    override fun setAlpha(alpha: Int) {}
+    override fun setAlpha(alpha: Int) {
+        mPaint.alpha = alpha
+    }
     override fun setColorFilter(colorFilter: ColorFilter?) {}
     override fun getOpacity(): Int = PixelFormat.OPAQUE
 }

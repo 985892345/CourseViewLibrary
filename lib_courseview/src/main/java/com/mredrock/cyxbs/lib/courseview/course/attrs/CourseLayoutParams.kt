@@ -2,7 +2,7 @@ package com.mredrock.cyxbs.lib.courseview.course.attrs
 
 import android.content.Context
 import android.util.AttributeSet
-import com.mredrock.cyxbs.lib.courseview.CourseBean
+import com.mredrock.cyxbs.lib.courseview.course.CourseBeanInternal
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.base.int
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
@@ -16,7 +16,7 @@ import java.io.Serializable
  * @email 2767465918@qq.com
  * @date 2022/1/20
  */
-class CourseLayoutParams : NetLayoutParams, CourseBean, Serializable {
+class CourseLayoutParams : NetLayoutParams, CourseBeanInternal, Serializable {
 
     /**
      * 克隆一个一样的，但只复制了重要的东西，并没有完全一样
@@ -101,7 +101,7 @@ class CourseLayoutParams : NetLayoutParams, CourseBean, Serializable {
         type = lp.type
     }
 
-    constructor(bean: CourseBean) : this(bean.day, bean.startPos, bean.length, bean.type)
+    constructor(bean: CourseBeanInternal) : this(bean.day, bean.startPos, bean.length, bean.type)
 
     override fun toString(): String {
         return "${this::class.simpleName}(" +

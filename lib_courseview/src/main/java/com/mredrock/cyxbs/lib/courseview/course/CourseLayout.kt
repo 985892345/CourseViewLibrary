@@ -8,13 +8,9 @@ import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
 import android.util.AttributeSet
-import android.util.Log
-import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.BounceInterpolator
-import android.view.animation.OvershootInterpolator
 import android.widget.ImageView
 import androidx.core.animation.addListener
 import com.mredrock.cyxbs.lib.courseview.R
@@ -87,7 +83,7 @@ class CourseLayout : NetLayout {
     }
 
     /**
-     * 用于在 CourseDecoration 和 OnCourseTouchListener 中，[CourseLayout] 即将被摧毁时保存一些必要的信息
+     * 用于在 [CourseDecoration] 和 [OnCourseTouchListener] 中，[CourseLayout] 即将被摧毁时保存一些必要的信息
      */
     fun addSaveBundleListener(l: OnSaveBundleListener) {
         mSaveBundleListeners.add(l)
@@ -97,12 +93,13 @@ class CourseLayout : NetLayout {
      * 得到当前中午那一行的状态
      */
     fun getNoonRowState(): RowState {
-        if (mNoonAnimation is FoldAnimation) return RowState.ANIM_FOLD
-        if (mNoonAnimation is UnfoldAnimation) return RowState.ANIM_UNFOLD
+        if (mNoonAnimation is FoldAnimation) return RowState.FOLD_ANIM
+        if (mNoonAnimation is UnfoldAnimation) return RowState.UNFOLD_ANIM
         return when (getRowsWeight(NOON_TOP, NOON_BOTTOM) / (NOON_BOTTOM - NOON_TOP + 1)) {
             1F -> RowState.UNFOLD
             0F -> RowState.FOLD
-            else -> throw RuntimeException("出现这个 error 你把中午时间段的比重私自修改了")
+            else -> throw RuntimeException("出现这个 error 说明你把中午时间段的比重私自修改了")
+            // 动画都结束了，你让我怎么判断？
         }
     }
 
@@ -110,12 +107,13 @@ class CourseLayout : NetLayout {
      * 得到当前中午那一行的状态
      */
     fun getDuskRowState(): RowState {
-        if (mDuskAnimation is FoldAnimation) return RowState.ANIM_FOLD
-        if (mDuskAnimation is UnfoldAnimation) return RowState.ANIM_UNFOLD
+        if (mDuskAnimation is FoldAnimation) return RowState.FOLD_ANIM
+        if (mDuskAnimation is UnfoldAnimation) return RowState.UNFOLD_ANIM
         return when (getRowsWeight(DUSK_TOP, DUSK_BOTTOM) / (DUSK_BOTTOM - DUSK_TOP + 1)) {
             1F -> RowState.UNFOLD
             0F -> RowState.FOLD
-            else -> throw RuntimeException("出现这个 error 你把傍晚时间段的比重私自修改了")
+            else -> throw RuntimeException("出现这个 error 说明你把傍晚时间段的比重私自修改了")
+            // 动画都结束了，你让我怎么判断？
         }
     }
 
@@ -138,127 +136,103 @@ class CourseLayout : NetLayout {
     }
 
     /**
+     * 带有动画的强制折叠中午时间段。会 cancel 掉之前的动画
+     */
+    fun foldNoonForce() {
+        val nowWeight = mNoonAnimation?.nowWeight ?: 0.99999F
+        mNoonAnimation?.cancel()
+        mNoonAnimation = FoldAnimation(nowWeight) {
+            changeNoonWeight(it)
+        }.addEndListener {
+            mNoonAnimation = null
+            mNoonImageView.visibility = VISIBLE
+        }.start()
+    }
+
+    /**
      * 不带动画的立即折叠中午时间段。如果此时正处于展开动画，则立马取消；如果正处于折叠动画，则不做取消操作
      */
     fun foldNoonWithoutAnim() {
-        if (mNoonAnimation == null) {
-            changeNoonWeight(0F)
-            mNoonImageView.visibility = VISIBLE
-        } else if (mNoonAnimation is UnfoldAnimation) {
-            mNoonAnimation?.cancel()
+        if (mNoonAnimation is FoldAnimation) return
+        mNoonAnimation?.cancel()
+        mNoonAnimation = null
+        changeNoonWeight(0F)
+        mNoonImageView.visibility = VISIBLE
+    }
+
+    /**
+     * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
+     */
+    fun unfoldNoonForce() {
+        val nowWeight = mNoonAnimation?.nowWeight ?: 0.00001F
+        mNoonAnimation?.cancel()
+        mNoonImageView.visibility = INVISIBLE
+        mNoonAnimation = UnfoldAnimation(nowWeight) {
+            changeNoonWeight(it)
+        }.addEndListener {
             mNoonAnimation = null
-            changeNoonWeight(0F)
-            mNoonImageView.visibility = VISIBLE
-        }
+        }.start()
     }
 
     /**
      * 不带动画的立即展开中午时间段。如果此时正处于折叠动画，则立马取消；如果正处于展开动画，则不做取消操作
      */
     fun unfoldNoonWithoutAnim() {
-        if (mNoonAnimation == null) {
-            changeNoonWeight(1F)
-            mNoonImageView.visibility = INVISIBLE
-        } else if (mNoonAnimation is FoldAnimation) {
-            mNoonAnimation?.cancel()
-            mNoonAnimation = null
-            changeNoonWeight(1F)
-            mNoonImageView.visibility = INVISIBLE
-        }
+        if (mNoonAnimation is UnfoldAnimation) return
+        mNoonAnimation?.cancel()
+        mNoonAnimation = null
+        changeNoonWeight(1F)
+        mNoonImageView.visibility = INVISIBLE
     }
 
     /**
-     * 带有动画的折叠中午时间段，折叠动画和展开动画不共存，如果整叠正在运行，则调用展开动画将会失败
+     * 带有动画的强制折叠傍晚时间段。会 cancel 掉之前的动画
      */
-    fun foldNoon(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
-        if (mNoonAnimation == null) {
-            mNoonAnimation = FoldAnimation {
-                changeNoonWeight(it)
-                onChanged?.invoke(it)
-            }.addEndListener {
-                mNoonAnimation = null
-                mNoonImageView.visibility = VISIBLE
-                onEnd?.invoke()
-            }.start()
-        }
-    }
-
-    /**
-     * 带有动画的展开中午时间段，折叠动画和展开动画不共存，如果展开正在运行，则调用折叠动画将会失败
-     */
-    fun unfoldNoon(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
-        if (mNoonAnimation == null) {
-            mNoonImageView.visibility = INVISIBLE
-            mNoonAnimation = UnfoldAnimation {
-                changeNoonWeight(it)
-                onChanged?.invoke(it)
-            }.addEndListener {
-                mNoonAnimation = null
-                onEnd?.invoke()
-            }.start()
-        }
+    fun foldDuskForce() {
+        val nowWeight = mDuskAnimation?.nowWeight ?: 0.99999F
+        mDuskAnimation?.cancel()
+        mDuskAnimation = FoldAnimation(nowWeight) {
+            changeDuskWeight(it)
+        }.addEndListener {
+            mDuskAnimation = null
+            mDuskImageView.visibility = VISIBLE
+        }.start()
     }
 
     /**
      * 不带动画的立即折叠傍晚时间段。如果此时正处于展开动画，则立马取消；如果正处于折叠动画，则不做取消操作
      */
     fun foldDuskWithoutAnim() {
-        if (mDuskAnimation == null) {
-            changeDuskWeight(0F)
-            mDuskImageView.visibility = VISIBLE
-        } else if (mDuskAnimation is UnfoldAnimation) {
-            mDuskAnimation?.cancel()
+        if (mDuskAnimation is FoldAnimation) return
+        mDuskAnimation?.cancel()
+        mDuskAnimation = null
+        changeDuskWeight(0F)
+        mDuskImageView.visibility = VISIBLE
+    }
+
+    /**
+     * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
+     */
+    fun unfoldDuskForce() {
+        val nowWeight = mDuskAnimation?.nowWeight ?: 0.00001F
+        mDuskAnimation?.cancel()
+        mDuskImageView.visibility = INVISIBLE
+        mDuskAnimation = UnfoldAnimation(nowWeight) {
+            changeDuskWeight(it)
+        }.addEndListener {
             mDuskAnimation = null
-            changeDuskWeight(0F)
-            mDuskImageView.visibility = VISIBLE
-        }
+        }.start()
     }
 
     /**
      * 不带动画的立即展开傍晚时间段。如果此时正处于折叠动画，则立马取消；如果正处于展开动画，则不做取消操作
      */
     fun unfoldDuskWithoutAnim() {
-        if (mDuskAnimation == null) {
-            changeDuskWeight(1F)
-            mDuskImageView.visibility = INVISIBLE
-        } else if (mDuskAnimation is FoldAnimation) {
-            mDuskAnimation?.cancel()
-            mDuskAnimation = null
-            changeDuskWeight(1F)
-            mDuskImageView.visibility = INVISIBLE
-        }
-    }
-
-    /**
-     * 带有动画的折叠傍晚时间段，折叠动画和展开动画不共存，如果整叠正在运行，则调用展开动画将会失败
-     */
-    fun foldDusk(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
-        if (mDuskAnimation == null) {
-            mDuskAnimation = FoldAnimation {
-                changeDuskWeight(it)
-                onChanged?.invoke(it)
-            }.addEndListener {
-                mDuskAnimation = null
-                mDuskImageView.visibility = VISIBLE
-                onEnd?.invoke()
-            }.start()
-        }
-    }
-
-    /**
-     * 带有动画的展开傍晚时间段，折叠动画和展开动画不共存，如果展开正在运行，则调用折叠动画将会失败
-     */
-    fun unfoldDusk(onEnd: (() -> Unit)? = null, onChanged: ((Float) -> Unit)? = null) {
-        if (mDuskAnimation == null) {
-            mDuskImageView.visibility = INVISIBLE
-            mDuskAnimation = UnfoldAnimation {
-                changeDuskWeight(it)
-                onChanged?.invoke(it)
-            }.addEndListener {
-                mDuskAnimation = null
-                onEnd?.invoke()
-            }.start()
-        }
+        if (mDuskAnimation is UnfoldAnimation) return
+        mDuskAnimation?.cancel()
+        mDuskAnimation = null
+        changeDuskWeight(1F)
+        mDuskImageView.visibility = INVISIBLE
     }
 
     fun addNoonAnimationEndListener(onEnd: () -> Unit): Boolean {
@@ -544,13 +518,15 @@ class CourseLayout : NetLayout {
 
     // 折叠动画
     private class FoldAnimation(
+        nowWeight: Float = 0.99999F,
         onChanged: (Float) -> Unit
-    ) : ChangeWeightAnimation(0.99999F, 0F, 200, onChanged)
+    ) : ChangeWeightAnimation(nowWeight, 0F, (nowWeight * 200).toLong(), onChanged)
 
     // 展开动画
     private class UnfoldAnimation(
+        nowWeight: Float = 0.00001F,
         onChanged: (Float) -> Unit
-    ) : ChangeWeightAnimation(0.00001F, 1F, 200, onChanged)
+    ) : ChangeWeightAnimation(nowWeight, 1F, ((1 - nowWeight) * 200).toLong(), onChanged)
 
     // 比重改变的动画封装类
     private abstract class ChangeWeightAnimation(
@@ -559,10 +535,12 @@ class CourseLayout : NetLayout {
         val time: Long,
         private val onChanged: (Float) -> Unit
     ) {
+        val nowWeight: Float
+            get() = animator.animatedValue as Float
         private var animator: ValueAnimator = ValueAnimator.ofFloat(startWeight, endWeight)
         fun start(): ChangeWeightAnimation {
             animator.run {
-                addUpdateListener { onChanged.invoke(animatedValue as Float) }
+                addUpdateListener { onChanged.invoke(nowWeight) }
                 duration = time
                 this.start()
             }
@@ -603,12 +581,12 @@ class CourseLayout : NetLayout {
 
         // 即将被摧毁，保存折叠状态
         when (getNoonRowState()) {
-            RowState.FOLD, RowState.ANIM_FOLD -> ss.isFoldNoon = true
-            RowState.UNFOLD, RowState.ANIM_UNFOLD -> ss.isFoldNoon = false
+            RowState.FOLD, RowState.FOLD_ANIM -> ss.isFoldNoon = true
+            RowState.UNFOLD, RowState.UNFOLD_ANIM -> ss.isFoldNoon = false
         }
         when (getDuskRowState()) {
-            RowState.FOLD, RowState.ANIM_FOLD -> ss.isFoldDusk = true
-            RowState.UNFOLD, RowState.ANIM_UNFOLD -> ss.isFoldDusk = false
+            RowState.FOLD, RowState.FOLD_ANIM -> ss.isFoldDusk = true
+            RowState.UNFOLD, RowState.UNFOLD_ANIM -> ss.isFoldDusk = false
         }
         return ss
     }

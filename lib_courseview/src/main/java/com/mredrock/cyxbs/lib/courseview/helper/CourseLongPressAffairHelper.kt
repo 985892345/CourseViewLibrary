@@ -1,7 +1,6 @@
 package com.mredrock.cyxbs.lib.courseview.helper
 
 import android.animation.ValueAnimator
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -37,11 +36,23 @@ class CourseLongPressAffairHelper private constructor(
     private val course: CourseLayout
 ) : OnCourseTouchListener {
 
+    /**
+     * 设置事务移动监听
+     */
+    fun setAffairMoveListener(l: OnAffairMoveListener) {
+        mOnAffairMoveListener = l
+    }
+
+    private var mOnAffairMoveListener: OnAffairMoveListener? = null
+
     private var mInitialX = 0 // Down 时的初始 X 值
     private var mInitialY = 0 // Down 时的初始 Y 值
     private var mLastMoveX = 0 // Move 时的移动 X 值
     private var mLastMoveY = 0 // Move 时的移动 Y 值
     private var mDiffMoveY = 0 // 每次 Move 的偏移值
+
+    private var mIsNoonFoldedWhenLongPress = true // 长按开始时中午时间段是否处于折叠状态
+    private var mIsDuskFoldedWhenLongPress = true // 长按开始时傍晚时间段是否处于折叠状态
 
     private var mAffairView: View? = null
 
@@ -57,9 +68,25 @@ class CourseLongPressAffairHelper private constructor(
     // 长按时执行的 Runnable
     private val mLongPressRunnable = Runnable {
         mIsInLongPress = true
-        unfoldNoonOrDuskIfNecessary(mAffairView!!) // 如果需要就自动展开中午和傍晚时间段
         mAffairView!!.translationZ = 10F // 让 AffairView 显示在所有 View 之上
         VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
+        // 回调监听
+        mOnAffairMoveListener?.onLongPressAffair(
+            mAffairView!!,
+            mAffairView!!.layoutParams as CourseLayoutParams
+        )
+        // 记录长按开始时的中午状态
+        mIsNoonFoldedWhenLongPress = when (course.getNoonRowState()) {
+            RowState.FOLD, RowState.FOLD_ANIM-> true
+            RowState.UNFOLD, RowState.UNFOLD_ANIM -> false
+        }
+        // 记录长按开始时的傍晚状态
+        mIsDuskFoldedWhenLongPress = when (course.getDuskRowState()) {
+            RowState.FOLD, RowState.FOLD_ANIM-> true
+            RowState.UNFOLD, RowState.UNFOLD_ANIM -> false
+        }
+        // 如果需要就自动展开中午和傍晚时间段
+        unfoldNoonOrDuskIfNecessary(mAffairView!!)
     }
 
     override fun isAdvanceIntercept(event: MotionEvent, course: CourseLayout): Boolean {
@@ -96,7 +123,7 @@ class CourseLongPressAffairHelper private constructor(
                         if (mIsInLongPress) {
                             // 禁止外面的 ScrollView 拦截事件
                             course.parent.requestDisallowInterceptTouchEvent(true)
-                            return true
+                            return true // 这里是拦截的开始
                         }
                     }
                 }
@@ -109,6 +136,7 @@ class CourseLongPressAffairHelper private constructor(
             }
             MotionEvent.ACTION_CANCEL -> {
                 if (mAffairView != null) {
+                    // 走到这里说明：移动距离大于 mTouchSlop 而被父布局提前拦截
                     course.removeCallbacks(mLongPressRunnable)
                     mAffairView = null // 重置
                 }
@@ -121,6 +149,9 @@ class CourseLongPressAffairHelper private constructor(
         val x = event.x.toInt()
         val y = event.y.toInt()
         when (event.action) {
+            MotionEvent.ACTION_DOWN -> {
+                // 注意：这里 Down 事件是不会被调用的，具体原因请自己分析 :)
+            }
             MotionEvent.ACTION_MOVE -> {
                 // 走到这里说明肯定是处于长按状态的
                 mDiffMoveY = y - mLastMoveY
@@ -154,6 +185,25 @@ class CourseLongPressAffairHelper private constructor(
         }
     }
 
+    private fun recoverFoldState() {
+        if (mIsNoonFoldedWhenLongPress) {
+            when (course.getNoonRowState()) {
+                RowState.UNFOLD, RowState.UNFOLD_ANIM -> {
+                    course.foldNoonForce()
+                }
+                else -> {}
+            }
+        }
+        if (mIsDuskFoldedWhenLongPress) {
+            when (course.getDuskRowState()) {
+                RowState.UNFOLD, RowState.UNFOLD_ANIM -> {
+                    course.foldDuskForce()
+                }
+                else -> {}
+            }
+        }
+    }
+
     /**
      * 平移 AffairView
      */
@@ -174,14 +224,20 @@ class CourseLongPressAffairHelper private constructor(
         val bottom = top + view.height
         val topRow = course.getRow(top)
         val bottomRow = course.getRow(bottom)
+        val noonState = course.getNoonRowState()
+        val duskState = course.getDuskRowState()
+        // 如果包含了中午时间段
         if (topRow <= CourseLayout.NOON_TOP && bottomRow >= CourseLayout.NOON_BOTTOM) {
-            if (course.getNoonRowState() == RowState.FOLD) {
-                course.unfoldNoon()
+            when (noonState) {
+                RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldNoonForce()
+                else -> {}
             }
         }
+        // 如果包含了傍晚时间段
         if (topRow <= CourseLayout.DUSK_TOP && bottomRow >= CourseLayout.DUSK_BOTTOM) {
-            if (course.getDuskRowState() == RowState.FOLD) {
-                course.unfoldDusk()
+            when (duskState) {
+                RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldDuskForce()
+                else -> {}
             }
         }
     }
@@ -197,10 +253,10 @@ class CourseLongPressAffairHelper private constructor(
     private fun changeLocationIfNecessary() {
         val noonState = course.getNoonRowState()
         val duskState = course.getDuskRowState()
-        if (noonState == RowState.ANIM_UNFOLD
-            || noonState == RowState.ANIM_FOLD
-            || duskState == RowState.ANIM_UNFOLD
-            || duskState == RowState.ANIM_FOLD
+        if (noonState == RowState.UNFOLD_ANIM
+            || noonState == RowState.FOLD_ANIM
+            || duskState == RowState.UNFOLD_ANIM
+            || duskState == RowState.FOLD_ANIM
         ) {
             /*
             * 展开或者折叠的动画时间很短了，在这么短暂的时间内走到这里说明用户是很快就松手的，
@@ -280,7 +336,6 @@ class CourseLongPressAffairHelper private constructor(
 
                 // 如果完全包含或被包含则回到原位置
                 if (judgeIsContain(l, r, t, b, l1, r1, t1, b1)) {
-                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:279)-->> 111")
                     restoreAffairViewToOldLocation()
                     return
                 }
@@ -292,7 +347,6 @@ class CourseLongPressAffairHelper private constructor(
                         centerY < t1 -> minBottomRow = min(minBottomRow, lp.startRow - 1)
                         centerY > b1 -> maxTopRow = max(maxTopRow, lp.endRow + 1)
                         else -> {
-                            Log.d("ggg", "(CourseLongPressAffairHelper.kt:291)-->> 222")
                             restoreAffairViewToOldLocation()
                             return
                         }
@@ -304,7 +358,6 @@ class CourseLongPressAffairHelper private constructor(
                         centerX < l1 -> minRightColumn = min(minRightColumn, lp.startColumn - 1)
                         centerX > r1 -> maxLeftColumn = max(maxLeftColumn, lp.endColumn + 1)
                         else -> {
-                            Log.d("ggg", "(CourseLongPressAffairHelper.kt:303)-->> 333")
                             restoreAffairViewToOldLocation()
                             return
                         }
@@ -321,7 +374,6 @@ class CourseLongPressAffairHelper private constructor(
                 val e1 = centerX in l1..r1
                 val e2 = centerY in t1..b1
                 if (e1 && e2) { // 情况一
-                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:317)-->> 444")
                     restoreAffairViewToOldLocation()
                     return
                 } else if (!e1 && !e2) { // 比较复杂的情况二
@@ -377,9 +429,6 @@ class CourseLongPressAffairHelper private constructor(
             if (minRightColumn - maxLeftColumn + 1 < columnCount
                 || minBottomRow - maxTopRow + 1 < rowCount
             ) {
-                Log.d("ggg", "(CourseLongPressAffairHelper.kt:379)-->> " +
-                        "L = $maxLeftColumn   R = $minRightColumn   T = $maxTopRow   B = $minBottomRow")
-                Log.d("ggg", "(CourseLongPressAffairHelper.kt:381)-->> 555")
                 restoreAffairViewToOldLocation()
                 return
             }
@@ -416,9 +465,6 @@ class CourseLongPressAffairHelper private constructor(
                 val b1 = lp.startColumn in leftColumn..rightColumn
                 val b2 = lp.endColumn in leftColumn..rightColumn
                 if ((a1 || a2) && (b1 || b2)) {
-                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:418)-->> 666")
-                    Log.d("ggg", "(CourseLongPressAffairHelper.kt:419)-->> ??? " +
-                            "lp = $lp")
                     restoreAffairViewToOldLocation()
                     return
                 }
@@ -432,8 +478,8 @@ class CourseLongPressAffairHelper private constructor(
             MoveAnimation(view.x, view.y, finalX, finalY, 200) { x, y ->
                 view.x = x
                 view.y = y
-                unfoldNoonOrDuskIfNecessary(view) // 动画中也可能会展开中午和傍晚时间段
             }.addEndListener {
+                recoverFoldState()
                 view.translationX = 0F // 还原
                 view.translationY = 0F // 还原
                 view.translationZ = 0F // 重置
@@ -445,6 +491,7 @@ class CourseLongPressAffairHelper private constructor(
                     lp.startColumn = leftColumn
                     lp.endColumn = rightColumn
                     view.layoutParams = lp // 刷新布局
+                    mOnAffairMoveListener?.onMoveOverAffair(view, lp)
                 }
             }.start()
         }
@@ -470,6 +517,7 @@ class CourseLongPressAffairHelper private constructor(
                 view.translationX = x
                 view.translationY = y
             }.addEndListener {
+                recoverFoldState()
                 view.translationZ = 0F // 重置
             }.start()
         }
@@ -507,7 +555,8 @@ class CourseLongPressAffairHelper private constructor(
                     val endScrollY = course.mCourseScrollView.scrollY
                     // 调用 scrollBy 后不一定会滑动你设置的值
                     // 所有需要得到滚动前和滚动后的 scrollY 来算偏移量
-                    touchY += endScrollY - startScrollY
+                    val dScrollY = endScrollY - startScrollY
+                    touchY += dScrollY
                     translateAffairView(touchY)
                     ViewCompat.postOnAnimation(course, this)
                 } else {
@@ -552,13 +601,13 @@ class CourseLongPressAffairHelper private constructor(
             val isNeedScrollUp =
                 bottomHeight > scroll.height - moveBoundary
                         && mDiffMoveY > 0
-                        && scroll.height + scroll.scrollY != scroll.getChildAt(0).height // 是否滑到底
+                        && scroll.height + scroll.scrollY < scroll.getChildAt(0).height // 是否滑到底
 
             // 向下滚动，即手指移到顶部，需要显示上面的内容
             val isNeedScrollDown =
                 topHeight < moveBoundary
                         && mDiffMoveY < 0
-                        && scroll.scrollY != 0 // 是否滑到顶
+                        && scroll.scrollY > 0 // 是否滑到顶
             val isAllowScroll = isNeedScrollUp || isNeedScrollDown
             if (isAllowScroll) {
                 velocity = if (isNeedScrollUp) {
@@ -601,6 +650,18 @@ class CourseLongPressAffairHelper private constructor(
             animator.addListener(onEnd = { onEnd.invoke() })
             return this
         }
+    }
+
+    interface OnAffairMoveListener {
+        /**
+         * 长按事务时回调
+         */
+        fun onLongPressAffair(view: View, lp: CourseLayoutParams)
+
+        /**
+         * 移动到新位置时回调
+         */
+        fun onMoveOverAffair(view: View, lp: CourseLayoutParams)
     }
 
     companion object {

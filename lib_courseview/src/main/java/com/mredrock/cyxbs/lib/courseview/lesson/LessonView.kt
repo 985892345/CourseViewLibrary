@@ -8,7 +8,10 @@ import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.widget.FrameLayout
 import com.mredrock.cyxbs.lib.courseview.R
+import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
+import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.pow
 
 /**

@@ -15,16 +15,18 @@
     <!--    课表标识当天阴影-->
     <color name="common_course_identifies_the_current_shadow_color">#93E8F0FC</color>
 
-    <color name="course_add_affair_color">#FFE9EDF2</color>
+
 
     <!--    课表课程色块颜色-->
     <color name="common_morning_course_color">#F9E7D8</color>
     <color name="common_afternoon_course_color">#F9E3E4</color>
     <color name="common_evening_course_color">#DDE3F8</color>
+    <color name="course_affair_color">#FFE9EDF2</color>
     <!--    课程色块内的字体颜色-->
     <color name="common_morning_course_text_color">#FF8015</color>
     <color name="common_afternoon_course_text_color">#FF6262</color>
     <color name="common_evening_course_text_color">#4066EA</color>
+    <color name="course_affair_tv_color">#112C57</color>
 
     <!--事务备忘条纹-->
     <color name="common_transaction_background_stripe_color">#FFE4E7EC</color>

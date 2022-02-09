@@ -2,6 +2,7 @@ package com.mredrock.cyxbs.lib.courseview.scroll
 
 import android.content.Context
 import android.util.AttributeSet
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import androidx.core.widget.NestedScrollView
@@ -79,6 +80,7 @@ class CourseScrollView(
 
     private var mInitialY = 0 // Down 时的初始 Y 值
     private var mLastMoveY = 0 // Move 时的移动 Y 值
+    private var mDiffMoveY = 0 // 每次 Move 的偏移值
 
     private var mIsInTouch = false // 是否处于触摸状态
 
@@ -91,6 +93,7 @@ class CourseScrollView(
                 mIsInTouch = true
             }
             MotionEvent.ACTION_MOVE -> {
+                mDiffMoveY = y - mLastMoveY
                 mLastMoveY = y
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> mIsInTouch = false
@@ -127,7 +130,7 @@ class CourseScrollView(
         // 不处于触摸状态时不进行修正（所以在你提前抬手时，他会突然向下扩展）
         if (!mIsInTouch) return
         // 如果手指向下滑，就得让 ScrollView 向上扩展，所以 scrollY 得增加 child 的高度差
-        if (mLastMoveY > mInitialY) {
+        if (mDiffMoveY > 0) {
             scrollBy(0, add)
         }
     }

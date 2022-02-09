@@ -2,16 +2,18 @@ package com.mredrock.cyxbs.lib.courseview
 
 import android.content.Context
 import android.util.AttributeSet
+import android.view.View
 import android.widget.LinearLayout
+import com.mredrock.cyxbs.lib.courseview.course.CourseBeanInternal
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.helper.CourseCreateAffairHelper
 import com.mredrock.cyxbs.lib.courseview.helper.CourseFoldHelper
 import com.mredrock.cyxbs.lib.courseview.helper.CourseLongPressAffairHelper
 import com.mredrock.cyxbs.lib.courseview.helper.CourseTimelineHelper
+import com.mredrock.cyxbs.lib.courseview.lesson.LessonView
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseLayoutContainer
-import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.LessonHelper
 import com.mredrock.cyxbs.lib.courseview.utils.WeekLayoutContainer
 
@@ -59,46 +61,91 @@ class CourseView(
     attrs: AttributeSet
 ) : LinearLayout(context, attrs) {
 
-    fun addMyCourse(day: Int, beginLesson: Int, period: Int) {
+    fun addMyCourse(
+        day: Int,
+        beginLesson: Int,
+        period: Int,
+        title: String,
+        content: String,
+        onClick: ((view: LessonView, lp: CourseLayoutParams) -> Unit)? = null
+    ) {
         LessonHelper.addLessonItem(
             day,
             beginLesson,
             period,
             mCourse.layout,
-            LessonHelper.LessonType.MY
+            title, content,
+            LessonHelper.LessonType.MY,
+            onClick
         )
     }
 
-    fun addMyAffair(day: Int, beginLesson: Int, period: Int) {
+    fun addMyAffair(
+        day: Int,
+        beginLesson: Int,
+        period: Int,
+        title: String,
+        content: String,
+        onClick: ((view: LessonView, lp: CourseLayoutParams) -> Unit)? = null
+    ) {
         LessonHelper.addLessonItem(
             day,
             beginLesson,
             period,
             mCourse.layout,
-            LessonHelper.LessonType.AFFAIR
+            title, content,
+            LessonHelper.LessonType.AFFAIR,
+            onClick
         )
     }
 
-    fun addLinkCourse(day: Int, beginLesson: Int, period: Int) {
+    fun addLinkCourse(
+        day: Int,
+        beginLesson: Int,
+        period: Int,
+        title: String,
+        content: String,
+        onClick: ((view: LessonView, lp: CourseLayoutParams) -> Unit)? = null
+    ) {
         LessonHelper.addLessonItem(
             day,
             beginLesson,
             period,
             mCourse.layout,
-            LessonHelper.LessonType.LINK
+            title, content,
+            LessonHelper.LessonType.LINK,
+            onClick
         )
     }
 
-    fun addCourse(bean: CourseBean, type: LessonHelper.LessonType) {
-        LessonHelper.addLessonItem(bean, mCourse.layout, type)
+    fun addCourse(
+        bean: CourseBeanInternal,
+        title: String,
+        content: String,
+        type: LessonHelper.LessonType,
+        onClick: ((view: LessonView, lp: CourseLayoutParams) -> Unit)? = null
+    ) {
+        LessonHelper.addLessonItem(
+            bean,
+            mCourse.layout,
+            title,
+            content,
+            type,
+            onClick
+        )
     }
 
     fun clear() {
-        LessonHelper.clear(mCourse.layout)
+        LessonHelper.clearLessonAndAffair(mCourse.layout)
+    }
+
+    fun setOnClickTouchAffairListener(onClick: (view: View, lp: CourseLayoutParams) -> Unit) {
+        mOnClickTouchAffairListener = onClick
     }
 
     private val mWeek = WeekLayoutContainer(this)
     private val mCourse = CourseLayoutContainer(this)
+    private var mOnClickTouchAffairListener: ((View, CourseLayoutParams) -> Unit)? = null
 
     init {
         orientation = VERTICAL
@@ -115,15 +162,22 @@ class CourseView(
         CourseFoldHelper.attach(mCourse.layout)
         CourseCreateAffairHelper.attach(mCourse.layout).apply {
             setTouchAffairViewClickListener {
+                mOnClickTouchAffairListener?.invoke(it, it.layoutParams as CourseLayoutParams)
                 removeTouchAffairView()
-                addCourse(getCourseBean(), LessonHelper.LessonType.AFFAIR)
+                addCourse(
+                    it.layoutParams as CourseLayoutParams,
+                    "自习", "114514",
+                    LessonHelper.LessonType.AFFAIR
+                )
             }
         }
         CourseLongPressAffairHelper.attach(mCourse.layout)
         CourseTimelineHelper.attach(mCourse.layout)
 
-        addMyCourse(0, 3, 2)
-        addMyCourse(3, 5, 2)
-        addMyAffair(2, -1, 1)
+        addMyCourse(0, 3, 2, "高等数学", "114514")
+        addMyCourse(3, 5, 2, "大学物理", "114514")
+        addMyCourse(5, 9, 4, "数据结构", "114514")
+        addMyCourse(1, 11, 2, "离散数学", "114514")
+        addMyAffair(2, -1, 1, "自习", "114514")
     }
 }
