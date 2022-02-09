@@ -100,6 +100,7 @@ class CourseLongPressAffairHelper private constructor(
         }
         // 如果需要就自动展开中午和傍晚时间段
         unfoldNoonOrDuskIfNecessary(mAffairView!!)
+        putAffairViewIntoOverlayIfCan() // 只能放在展开动画后
     }
 
     override fun isAdvanceIntercept(event: MotionEvent, course: CourseLayout): Boolean {
@@ -178,7 +179,7 @@ class CourseLongPressAffairHelper private constructor(
                 // 原因：因为是在 Move 中才拦截的事件，不是在 Down 时拦截的
             }
             MotionEvent.ACTION_MOVE -> {
-                putInOverlay()
+                putAffairViewIntoOverlayIfCan()
                 // 走到这里说明肯定是处于长按状态的
                 mDiffMoveY = y - mLastMoveY
                 mLastMoveX = x
@@ -217,8 +218,8 @@ class CourseLongPressAffairHelper private constructor(
      * 原因：主要因为存在这种情况，当该 View 的中间部分包含了正处于折叠状态的中午或傍晚时间段，
      * 这个时候添加进 overlay 将会缺少中午或者傍晚时间段的高度
      */
-    private fun putInOverlay() {
-        if (mAffairView?.parent is CourseLayout) {
+    private fun putAffairViewIntoOverlayIfCan() {
+        if (mAffairView?.parent is CourseLayout) { // 用于判断只调用一次
             val noonState = course.getNoonRowState()
             val duskState = course.getDuskRowState()
             if ((noonState == RowState.FOLD || noonState == RowState.UNFOLD)
@@ -242,7 +243,7 @@ class CourseLongPressAffairHelper private constructor(
                     val lp = it.layoutParams as CourseLayoutParams
                     mSubstituteLp.copy(lp)
                     // 用一个透明的 View 去代替 mAffairView 的位置，因为使用 overlay 会使 View 被移除
-                    // 这里还有其他原因，主要是为了防止在回到正确位置的动画中点击导致穿透
+                    // 这里还有一个原因，防止在回到正确位置的动画中点击导致穿透
                     course.addCourse(mSubstituteView, mSubstituteLp)
                 }
             }
@@ -279,14 +280,22 @@ class CourseLongPressAffairHelper private constructor(
         val noonState = course.getNoonRowState()
         val duskState = course.getDuskRowState()
         // 如果包含了中午时间段
-        if (top <= topNoon && bottom >= bottomNoon) {
+        if (top < topNoon
+            && bottom > bottomNoon
+            || lp.startRow <= CourseLayout.NOON_TOP
+            && lp.endRow >= CourseLayout.NOON_TOP
+        ) {
             when (noonState) {
                 RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldNoonForce()
                 else -> {}
             }
         }
         // 如果包含了傍晚时间段
-        if (top <= topDusk && bottom >= bottomDusk) {
+        if (top < topDusk
+            && bottom > bottomDusk
+            || lp.startRow <= CourseLayout.DUSK_TOP
+            && lp.endRow >= CourseLayout.DUSK_BOTTOM
+        ) {
             when (duskState) {
                 RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldDuskForce()
                 else -> {}
@@ -567,25 +576,23 @@ class CourseLongPressAffairHelper private constructor(
     private fun restoreAffairViewToOldLocation() {
         val view = mAffairView
         if (view != null) {
-            val translationX = view.translationX
-            val translationY = view.translationY
-            // 没有平移量时直接结束
-            if (translationX == 0F && translationY == 0F) {
-                view.translationZ = 0F // 重置
-                course.overlay.remove(view)
-                course.addView(view)
-                course.removeView(mSubstituteView)
-                recoverFoldState(view)
-                mAffairView = null // 重置
-                return
-            }
+            val dx = mSubstituteView.left - view.x
+            val dy = mSubstituteView.top - view.y
             // 自己拟合的一条由距离求出时间的函数，感觉比较适合动画效果 :)
             // y = 50 * x^0.25 + 90
-            val time = hypot(translationX.toDouble(), translationY.toDouble()).pow(0.25) * 50 + 90
-            MoveAnimation(translationX, translationY, 0F, 0F, time.toLong()) { x, y ->
-                view.translationX = x
-                view.translationY = y
+            val time = hypot(dx, dy).pow(0.25F) * 50 + 90
+            MoveAnimation(
+                view.x,
+                view.y,
+                mSubstituteView.left.toFloat(),
+                mSubstituteView.top.toFloat(),
+                time.toLong()
+            ) { x, y ->
+                view.x = x
+                view.y = y
             }.addEndListener {
+                view.translationX = 0F // 还原
+                view.translationY = 0F // 还原
                 view.translationZ = 0F // 重置
                 course.overlay.remove(view)
                 course.addView(view)
