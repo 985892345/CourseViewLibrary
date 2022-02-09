@@ -1,6 +1,7 @@
 package com.mredrock.cyxbs.lib.courseview.helper
 
 import android.animation.ValueAnimator
+import android.graphics.Color
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -14,6 +15,7 @@ import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.VibratorUtil
+import com.mredrock.cyxbs.lib.courseview.utils.lazyUnlock
 import kotlin.math.*
 
 /**
@@ -27,6 +29,9 @@ import kotlin.math.*
  *
  * 注意事项：
  * 1、该类只管理长按事务，请不要添加一些不属于该类的功能，想添加功能应该再写一个 OnCourseTouchListener
+ *
+ * 这个类的代码量有点小多，主要是长按松手时的逻辑判断和一些细节处理，虽然我不敢保证，应该是没什么很影响用户体验的 bug，
+ * 整体设计也是考虑了很多，只要以后需求不涉及到长按移动事务，基本上是不用修改这个类的
  *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
@@ -55,6 +60,14 @@ class CourseLongPressAffairHelper private constructor(
     private var mIsDuskFoldedWhenLongPress = true // 长按开始时傍晚时间段是否处于折叠状态
 
     private var mAffairView: View? = null // 长按的那个 View 的引用
+    // mAffairView 替身 View，用于提前占位，防止点击穿透
+    private val mSubstituteView by lazyUnlock {
+        View(course.context).apply {
+            setBackgroundColor(Color.TRANSPARENT)
+        }
+    }
+    // 替身 View 的 lp
+    private val mSubstituteLp = CourseLayoutParams(0, 0, 0, 0, CourseType.AFFAIR)
 
     // 认定是在滑动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
     private var mTouchSlop = ViewConfiguration.get(course.context).scaledTouchSlop
@@ -77,12 +90,12 @@ class CourseLongPressAffairHelper private constructor(
         )
         // 记录长按开始时的中午状态
         mIsNoonFoldedWhenLongPress = when (course.getNoonRowState()) {
-            RowState.FOLD, RowState.FOLD_ANIM-> true
+            RowState.FOLD, RowState.FOLD_ANIM -> true
             RowState.UNFOLD, RowState.UNFOLD_ANIM -> false
         }
         // 记录长按开始时的傍晚状态
         mIsDuskFoldedWhenLongPress = when (course.getDuskRowState()) {
-            RowState.FOLD, RowState.FOLD_ANIM-> true
+            RowState.FOLD, RowState.FOLD_ANIM -> true
             RowState.UNFOLD, RowState.UNFOLD_ANIM -> false
         }
         // 如果需要就自动展开中午和傍晚时间段
@@ -95,6 +108,7 @@ class CourseLongPressAffairHelper private constructor(
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 val child = course.findItemUnderByXY(x, y)
+                if (child == mSubstituteView) return false
                 val lp = child?.layoutParams as CourseLayoutParams?
                 if (lp?.type == CourseType.AFFAIR) { // 目前只有事务可以移动
                     mAffairView = child
@@ -204,25 +218,34 @@ class CourseLongPressAffairHelper private constructor(
      * 这个时候添加进 overlay 将会缺少中午或者傍晚时间段的高度
      */
     private fun putInOverlay() {
-        val noonState = course.getNoonRowState()
-        val duskState = course.getDuskRowState()
-        if ((noonState == RowState.FOLD || noonState == RowState.UNFOLD)
-            && (duskState == RowState.FOLD || duskState == RowState.UNFOLD)
-        ) {
-            /*
-            * overlay 是一个很神奇的东西，有了这个东西就可以防止布局对 View 的影响，
-            * 而且仍可以在父布局中显示
-            *
-            * 由于在长按时移动会自动展开中午和傍晚的情况，这时会使 View 的 top 值改变，
-            * 导致 View 的实际位置向下移动
-            *
-            * 而我是通过 translationY 直接计算的偏移量，如果 View 的 top 值改变了，
-            * 就会使 View 的位置也发生改变
-            *
-            * 但如果使用 overlay 就不一样了，这个相当于是在父布局顶层专门绘制，View 的位置不会受到
-            * 重新布局的影响
-            * */
-            course.overlay.add(mAffairView!!)
+        if (mAffairView?.parent is CourseLayout) {
+            val noonState = course.getNoonRowState()
+            val duskState = course.getDuskRowState()
+            if ((noonState == RowState.FOLD || noonState == RowState.UNFOLD)
+                && (duskState == RowState.FOLD || duskState == RowState.UNFOLD)
+            ) {
+                /*
+                * overlay 是一个很神奇的东西，有了这个东西就可以防止布局对 View 的影响，
+                * 而且仍可以在父布局中显示
+                *
+                * 由于在长按时移动会自动展开中午和傍晚的情况，这时会使 View 的 top 值改变，
+                * 导致 View 的实际位置向下移动
+                *
+                * 而我是通过 translationY 直接计算的偏移量，如果 View 的 top 值改变了，
+                * 就会使 View 的位置也发生改变
+                *
+                * 但如果使用 overlay 就不一样了，这个相当于是在父布局顶层专门绘制，View 的位置不会受到
+                * 重新布局的影响
+                * */
+                mAffairView?.let {
+                    course.overlay.add(it)
+                    val lp = it.layoutParams as CourseLayoutParams
+                    mSubstituteLp.copy(lp)
+                    // 用一个透明的 View 去代替 mAffairView 的位置，因为使用 overlay 会使 View 被移除
+                    // 这里还有其他原因，主要是为了防止在回到正确位置的动画中点击导致穿透
+                    course.addCourse(mSubstituteView, mSubstituteLp)
+                }
+            }
         }
     }
 
@@ -248,9 +271,11 @@ class CourseLongPressAffairHelper private constructor(
         val top = lp.constraintTop + view.translationY
         val bottom = lp.constraintBottom + view.translationY
         val topNoon = course.getRowsHeight(0, CourseLayout.NOON_TOP - 1)
-        val bottomNoon = topNoon + course.getRowsHeight(CourseLayout.NOON_TOP, CourseLayout.NOON_BOTTOM)
+        val bottomNoon =
+            topNoon + course.getRowsHeight(CourseLayout.NOON_TOP, CourseLayout.NOON_BOTTOM)
         val topDusk = course.getRowsHeight(0, CourseLayout.DUSK_TOP - 1)
-        val bottomDusk = topDusk + course.getRowsHeight(CourseLayout.DUSK_TOP, CourseLayout.DUSK_BOTTOM)
+        val bottomDusk =
+            topDusk + course.getRowsHeight(CourseLayout.DUSK_TOP, CourseLayout.DUSK_BOTTOM)
         val noonState = course.getNoonRowState()
         val duskState = course.getDuskRowState()
         // 如果包含了中午时间段
@@ -360,7 +385,7 @@ class CourseLongPressAffairHelper private constructor(
             * */
             for (i in 0 until course.childCount - 1) {
                 val child = course.getChildAt(i)
-                if (child == view) continue
+                if (child == mSubstituteView) continue
                 val lp = child.layoutParams as CourseLayoutParams
                 val l1 = lp.constraintLeft
                 val r1 = lp.constraintRight
@@ -491,7 +516,7 @@ class CourseLongPressAffairHelper private constructor(
             * */
             for (i in 0 until course.childCount - 1) {
                 val child = course.getChildAt(i)
-                if (child == view) continue
+                if (child == mSubstituteView) continue
                 val lp = child.layoutParams as CourseLayoutParams
                 val a1 = lp.startRow in topRow..bottomRow
                 val a2 = lp.endRow in topRow..bottomRow
@@ -504,8 +529,15 @@ class CourseLongPressAffairHelper private constructor(
             }
 
             // 计算终点位置
-            val finalDx = course.getColumnsWidth(0, leftColumn - 1) - layoutParams.constraintLeft.toFloat()
+            val finalDx =
+                course.getColumnsWidth(0, leftColumn - 1) - layoutParams.constraintLeft.toFloat()
             val finalDy = course.getRowsHeight(0, topRow - 1) - layoutParams.constraintTop.toFloat()
+
+            mSubstituteLp.startRow = topRow
+            mSubstituteLp.endRow = bottomRow
+            mSubstituteLp.startColumn = leftColumn
+            mSubstituteLp.endColumn = rightColumn
+            mSubstituteView.layoutParams = mSubstituteLp // 让替身提前去占位，防止点击穿透
 
             // 开启动画移动到最终位置
             MoveAnimation(view.translationX, view.translationY, finalDx, finalDy, 200) { x, y ->
@@ -522,6 +554,7 @@ class CourseLongPressAffairHelper private constructor(
                 lp.endColumn = rightColumn
                 course.overlay.remove(view)
                 course.addView(view)
+                course.removeView(mSubstituteView)
                 mOnAffairMoveListener?.onMoveOverAffair(view, lp)
                 recoverFoldState(view)
             }.start()
@@ -539,9 +572,11 @@ class CourseLongPressAffairHelper private constructor(
             // 没有平移量时直接结束
             if (translationX == 0F && translationY == 0F) {
                 view.translationZ = 0F // 重置
-                recoverFoldState(view)
                 course.overlay.remove(view)
                 course.addView(view)
+                course.removeView(mSubstituteView)
+                recoverFoldState(view)
+                mAffairView = null // 重置
                 return
             }
             // 自己拟合的一条由距离求出时间的函数，感觉比较适合动画效果 :)
@@ -554,6 +589,7 @@ class CourseLongPressAffairHelper private constructor(
                 view.translationZ = 0F // 重置
                 course.overlay.remove(view)
                 course.addView(view)
+                course.removeView(mSubstituteView)
                 recoverFoldState(view)
             }.start()
         }

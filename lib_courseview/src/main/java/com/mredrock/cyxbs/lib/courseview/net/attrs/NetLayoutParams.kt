@@ -142,6 +142,24 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
     var constraintBottom = 0
         internal set
 
+    fun <T: NetLayoutParams> copy(other: T) {
+        width = other.width
+        height = other.height
+        leftMargin = other.leftMargin
+        rightMargin = other.rightMargin
+        topMargin = other.topMargin
+        bottomMargin = other.bottomMargin
+        gravity = other.gravity
+        startRow = other.startRow
+        endRow = other.endRow
+        startColumn = other.startColumn
+        endColumn = other.endColumn
+        constraintLeft = other.constraintLeft
+        constraintRight = other.constraintRight
+        constraintTop = other.constraintTop
+        constraintBottom = other.constraintBottom
+    }
+
     override fun toString(): String {
         return "${this::class.simpleName}(" +
                 "startRow = $startRow, " +

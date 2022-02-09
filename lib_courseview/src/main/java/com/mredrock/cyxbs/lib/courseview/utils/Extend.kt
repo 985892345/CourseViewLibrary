@@ -20,6 +20,6 @@ internal fun Float.dp2px(): Int = this.dp2pxF().roundToInt()
 
 internal fun Float.dp2pxF(): Float = Resources.getSystem().displayMetrics.density * this
 
-internal fun Int.color(context: Context): Int {
-    return ContextCompat.getColor(context, this)
-}
+internal fun Int.color(context: Context): Int = ContextCompat.getColor(context, this)
+
+internal fun <T> lazyUnlock(initializer: () -> T) = lazy(LazyThreadSafetyMode.NONE, initializer)

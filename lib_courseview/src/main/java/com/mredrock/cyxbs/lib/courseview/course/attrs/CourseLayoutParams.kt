@@ -16,21 +16,20 @@ import java.io.Serializable
  * @email 2767465918@qq.com
  * @date 2022/1/20
  */
-class CourseLayoutParams : NetLayoutParams, CourseBeanInternal, Serializable {
+open class CourseLayoutParams : NetLayoutParams, CourseBeanInternal, Serializable {
 
     /**
-     * 克隆一个一样的，但只复制了重要的东西，并没有完全一样
+     * 克隆一个一样的
      */
     fun clone(): CourseLayoutParams {
         return CourseLayoutParams(startRow, endRow, startColumn, endColumn, type).also {
-            it.width = width
-            it.height = height
-            it.leftMargin = leftMargin
-            it.rightMargin = rightMargin
-            it.topMargin = topMargin
-            it.bottomMargin = bottomMargin
-            it.gravity = gravity
+            it.copy(this)
         }
+    }
+
+    fun <T : CourseLayoutParams> copy(other: T) {
+        super.copy(other)
+        type = other.type
     }
 
     override var day: Int
@@ -50,7 +49,7 @@ class CourseLayoutParams : NetLayoutParams, CourseBeanInternal, Serializable {
         set(value) {
             endRow = startRow + value - 1
         }
-    override var type: CourseType
+    final override var type: CourseType
 
     constructor(
         context: Context,
