@@ -27,6 +27,7 @@ import kotlin.math.min
  * ```
  * 该类作用：
  * 1、封装长按生成自定义行程的功能
+ * 2、支持添加事务的灰色 View 的长按整体移动
  *
  * 该类设计：
  * 1、对 CourseLayout 增加事件监听来实现
@@ -35,6 +36,7 @@ import kotlin.math.min
  *
  * 注意事项：
  * 1、该类只管理创建事务，请不要添加一些不属于该类的功能，想添加功能应该再写一个 OnCourseTouchListener
+ * 2、长按整体移动的实现基本依靠 AbstractCourseLongPressMoveHelper
  * ```
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
@@ -58,6 +60,13 @@ class CourseCreateAffairHelper private constructor(
     }
 
     /**
+     * 设置长按移动监听
+     */
+    fun setMoveListener(l: CourseLongPressMoveHelper.OnMoveListener) {
+        mLongPressMoveHelper.setMoveListener(l)
+    }
+
+    /**
      * 设置触摸空白区域生成的用于添加事务的 View 的事件监听
      */
     fun setTouchAffairListener(l: OnTouchAffairListener) {
@@ -68,6 +77,9 @@ class CourseCreateAffairHelper private constructor(
     private var mInitialY = 0 // Down 时的初始 Y 值
     private var mLastMoveX = 0 // Move 时的移动 X 值
     private var mLastMoveY = 0 // Move 时的移动 Y 值
+
+    private var mIsNoonFoldedWhenLongPress = true // 长按开始时中午时间段是否处于折叠状态
+    private var mIsDuskFoldedWhenLongPress = true // 长按开始时傍晚时间段是否处于折叠状态
 
     // 认定是在滑动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
     private var mTouchSlop = ViewConfiguration.get(course.context).scaledTouchSlop
@@ -83,6 +95,16 @@ class CourseCreateAffairHelper private constructor(
         mIsInLongPress = true
         showTouchAffairView()
         VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
+        // 记录长按开始时的中午状态
+        mIsNoonFoldedWhenLongPress = when (course.getNoonRowState()) {
+            RowState.FOLD, RowState.UNFOLD_ANIM -> true
+            RowState.UNFOLD, RowState.FOLD_ANIM -> false
+        }
+        // 记录长按开始时的傍晚状态
+        mIsDuskFoldedWhenLongPress = when (course.getDuskRowState()) {
+            RowState.FOLD, RowState.UNFOLD_ANIM -> true
+            RowState.UNFOLD, RowState.FOLD_ANIM -> false
+        }
     }
 
     private var mTopRow = 0 // Move 事件中选择区域的开始行数
@@ -143,50 +165,57 @@ class CourseCreateAffairHelper private constructor(
         )
     }
 
-    /**
-     * 你可能会比较疑惑为什么在事件分发中对事件拦截进行提前判断? 或者为什么我要重写这个方法?
-     * ```
-     * 原因如下：
-     * 1、onDispatchTouchEvent() 早于 isIntercept() 调用，所以提前判断是否拦截不会出现问题
-     * 2、主要原因在于何时取消 mTouchAffairView 的显示，需要知道当前点击的是否是这个 mTouchAffairView，
-     *       如果不是就 remove 掉
-     *    而却会出现事件被 CourseLayout 的子 View 拦截的情况，出现这种情况时，isIntercept() 是不会被调用的，
-     *    所以就没有办法去 remove 掉 mTouchAffairView
-     * 3、接 2，为了将 mTouchAffairView 的 remove 封装起来，就只能将拦截提前判断
-     * 缺点：
-     * 1、在一些不必要的情况下（比如子 View 会拦截时）也进行了判断的处理，但为了更好的封装性，这点消耗还是能接受的
-     * ```
-     */
-    override fun onDispatchTouchEvent(event: MotionEvent, course: CourseLayout) {
+    override fun onCancelDownEvent(event: MotionEvent, course: CourseLayout) {
+        // 这里是被前一个 onCourseTouchListener 拦截 Down 事件的时候
+        val x = event.x.toInt()
+        val y = event.y.toInt()
+        val touchView = course.findItemUnderByXY(x, y)
+        if (touchView !== mTouchAffairView) {
+            // 此时说明点击的是其他地方，不是 mTouchAffairView，则 remove 掉 mTouchAffairView
+            if (mTouchAffairView.parent != null) { // 减少遍历
+                course.removeView(mTouchAffairView)
+            }
+        }
+    }
+
+    private var mIsInLongPressMove = false
+    private var mLongPressMoveHelper = CourseLongPressMoveHelper(course) {
+        it === mTouchAffairView
+    }
+
+    override fun isAdvanceIntercept(event: MotionEvent, course: CourseLayout): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
-            mIsInIntercepting = false // 重置
+            mIsInLongPressMove = false
             val x = event.x.toInt()
             val y = event.y.toInt()
             val touchView = course.findItemUnderByXY(x, y)
-            /*
-            * 这里 touchView = null 时一定会将事件给 CourseLayout#onTouchEvent() 处理，
-            * 之后事件就会分发到每个 OnCourseTouchListener 中，
-            * 如果事件能够传递到该 listener，则会直接交给自身的 onTouchEvent() 处理
-            * */
-            if (touchView == null) {
-                mIsInIntercepting = true
-            }
             if (touchView !== mTouchAffairView) {
                 // 此时说明点击的是其他地方，不是 mTouchAffairView，则 remove 掉 mTouchAffairView
                 if (mTouchAffairView.parent != null) { // 减少遍历
                     course.removeView(mTouchAffairView)
                 }
             }
+            if (touchView == null) {
+                /*
+                * 如果为 null，直接拦截
+                * 长按整体移动与长按移动生成事务是互相排斥的，因为前者需要长按事务这个 View，而后者需要长按空白区域
+                * return true 后 isAdvanceIntercept() 就不会再被调用
+                * */
+                return true
+            }
+            /*
+            * 如果 Down 事件没有拦截，就全权交给整体移动的帮助类处理
+            * */
+            mIsInLongPressMove = true
         }
-    }
-
-    private var mIsInIntercepting = false // 是否处于拦截中
-
-    override fun isIntercept(event: MotionEvent, course: CourseLayout): Boolean {
-        return mIsInIntercepting
+        return mLongPressMoveHelper.isAdvanceIntercept(event, course)
     }
 
     override fun onTouchEvent(event: MotionEvent, course: CourseLayout) {
+        if (mIsInLongPressMove) {
+            mLongPressMoveHelper.onTouchEvent(event, course)
+            return
+        }
         val x = event.x.toInt()
         val y = event.y.toInt()
         when (event.action) {
@@ -262,6 +291,7 @@ class CourseCreateAffairHelper private constructor(
                         showTouchAffairView()
                     }
                 }
+                recoverFoldState()
             }
             MotionEvent.ACTION_CANCEL -> {
                 mScrollRunnable.cancel()
@@ -290,34 +320,32 @@ class CourseCreateAffairHelper private constructor(
     /**
      * 该方法作用：
      *
-     * 1、根据 [y] 值来计算当前 mTouchAffairView 的位置并刷新布局
+     * 1、根据 [y] 值来计算当前 [mTouchAffairView] 的位置并刷新布局
      */
     private fun changeTouchAffairView(y: Int) {
         mTouchRow = course.getRow(y) // 当前触摸的行数
-        val touchView = course.findItemUnderByXY(mInitialX, y)
-        if (touchView == null || touchView === mTouchAffairView) {
-            var topRow: Int
-            var bottomRow: Int
-            // 根据当前触摸的行数与初始行数比较，得到 topRow、bottomRow
-            if (mTouchRow > mInitialRow) {
-                topRow = mInitialRow
-                bottomRow = mTouchRow
-            } else {
-                topRow = mTouchRow
-                bottomRow = mInitialRow
-            }
-            // 判断是否展开中午或者傍晚时间段（在滑过中午或者傍晚时需要将他们自动展开）
-            unfoldNoonOrDuskIfNecessary(topRow, bottomRow)
-            if (topRow < mUpperRow) topRow = mUpperRow // 根据上限再次修正 topRow
-            if (bottomRow > mLowerRow) bottomRow = mLowerRow // 根据下限再次修正 bottomRow
-            if (topRow != mTopRow || bottomRow != mBottomRow) { // 避免不必要的刷新
-                mTopRow = topRow
-                mBottomRow = bottomRow
-                val lp = mTouchAffairView.layoutParams as CourseLayoutParams
-                lp.startRow = topRow
-                lp.endRow = bottomRow
-                mTouchAffairView.layoutParams = lp // 设置属性，刷新布局
-            }
+        var topRow: Int
+        var bottomRow: Int
+        // 根据当前触摸的行数与初始行数比较，得到 topRow、bottomRow
+        if (mTouchRow > mInitialRow) {
+            topRow = mInitialRow
+            bottomRow = mTouchRow
+        } else {
+            topRow = mTouchRow
+            bottomRow = mInitialRow
+        }
+        // 判断是否展开中午或者傍晚时间段（在滑过中午或者傍晚时需要将他们自动展开）
+        // 这里得用根据上下限修正前的值，不然用修正后的值，时间段不会打开
+        unfoldNoonOrDuskIfNecessary(topRow, bottomRow)
+        if (topRow < mUpperRow) topRow = mUpperRow // 根据上限再次修正 topRow
+        if (bottomRow > mLowerRow) bottomRow = mLowerRow // 根据下限再次修正 bottomRow
+        if (topRow != mTopRow || bottomRow != mBottomRow) { // 避免不必要的刷新
+            mTopRow = topRow
+            mBottomRow = bottomRow
+            val lp = mTouchAffairView.layoutParams as CourseLayoutParams
+            lp.startRow = topRow
+            lp.endRow = bottomRow
+            mTouchAffairView.layoutParams = lp // 设置属性，刷新布局
         }
     }
 
@@ -427,6 +455,25 @@ class CourseCreateAffairHelper private constructor(
         }
     }
 
+    /**
+     * 用于恢复折叠状态
+     */
+    private fun recoverFoldState() {
+        val lp = mTouchAffairView.layoutParams as CourseLayoutParams
+        if (mIsNoonFoldedWhenLongPress && !CourseLayout.isContainNoon(lp)) {
+            when (course.getNoonRowState()) {
+                RowState.UNFOLD, RowState.UNFOLD_ANIM -> course.foldNoonForce()
+                else -> {}
+            }
+        }
+        if (mIsDuskFoldedWhenLongPress && !CourseLayout.isContainDusk(lp)) {
+            when (course.getDuskRowState()) {
+                RowState.UNFOLD, RowState.UNFOLD_ANIM -> course.foldDuskForce()
+                else -> {}
+            }
+        }
+    }
+
     override fun onSaveInstanceState(): Bundle? {
         // mTouchAffairView 没有被添加时不用保存信息
         if (mTouchAffairView.parent == null) return null
@@ -453,6 +500,15 @@ class CourseCreateAffairHelper private constructor(
         }
     }
 
+    interface OnTouchAffairListener {
+        /**
+         * 创建 TouchAffairView 的监听
+         *
+         * 在 addView 之前回调，可以直接设置一些属性
+         */
+        fun onCreateTouchAffair(view: ImageView, lp: CourseLayoutParams)
+    }
+
     companion object {
         /**
          * 换成一个静态方法来 attach 到 [CourseLayout]，
@@ -463,17 +519,8 @@ class CourseCreateAffairHelper private constructor(
         fun attach(course: CourseLayout): CourseCreateAffairHelper {
             return CourseCreateAffairHelper(course).apply {
                 course.addCourseTouchListener(this) // 给 CourseLayout 设置触摸监听
-                course.addSaveBundleListener(this) // 设置 course 被摧毁重建的监听，主要是保存一些必要信息
+                course.addSaveBundleListener(this) // 设置 course 被摧毁重建的监听，主要是保存一些重要信息
             }
         }
-    }
-
-    interface OnTouchAffairListener {
-        /**
-         * 创建 TouchAffairView 的监听
-         *
-         * 在 addView 之前回调，可以直接设置一些属性
-         */
-        fun onCreateTouchAffair(view: ImageView, lp: CourseLayoutParams)
     }
 }

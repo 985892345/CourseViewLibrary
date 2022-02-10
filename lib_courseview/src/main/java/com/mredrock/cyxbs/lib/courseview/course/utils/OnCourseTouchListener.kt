@@ -114,23 +114,28 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 interface OnCourseTouchListener {
 
     /**
-     * 是否拦截事件。只会在 Down 事件中调用，即如果在 Down 时不拦截，则之后就不会再有拦截的机会 (除非使用 [isAdvanceIntercept] 来拦截)
+     * 是否拦截事件。
      *
-     * **NOTE：** 与 onInterceptTouchEvent 有部分相同之处，只是回调是在 View 的 onTouchEvent 里面调用的，
-     * 所以是不能拦截子 View 的事件的
+     * 只会在子 View 不拦截时的 Down 事件中调用，即如果在 Down 时不拦截，则之后就不会再有拦截的机会
+     * (除非使用 [isAdvanceIntercept] 来拦截)
+     *
+     * **NOTE：** 与 onInterceptTouchEvent 有部分相同之处，但回调是在 View 的 onTouchEvent 里面调用的，
+     * 所以是不能提前拦截子 View 的事件的，只会在子 View 不拦截时才会轮到回调这个方法
      * ```
-     * 注：只能接收到 Down 事件
+     * 注：只能接收到子 View 不拦截时的 Down 事件
      * ```
      */
     fun isIntercept(event: MotionEvent, course: CourseLayout): Boolean = false
 
     /**
-     * 是否提前拦截事件。可以在 Down 和 Move 中都拦截事件，且拦截后会拦截子 View 的事件，
+     * 是否提前拦截事件。
+     *
+     * 可以在 Down 和 Move 中都拦截事件，且拦截后会拦截子 View 的事件，
      * 并且也会拦截使用 [isIntercept] 来拦截的 listener
      *
-     * **NOTE：** 与 onInterceptTouchEvent 完全一样，只有一次返回 true 的机会，返回后就不会再次调用
+     * **NOTE：** 与 onInterceptTouchEvent 完全一样，**只有一次返回 true 的机会**，返回后就不会再次调用
      * ```
-     * 注：可以接收到 Down、Move、Cancel 等全部事件
+     * 注：可以接收到子 View 拦截前的 Down、Move、Cancel 等全部事件
      * ```
      */
     fun isAdvanceIntercept(event: MotionEvent, course: CourseLayout): Boolean = false

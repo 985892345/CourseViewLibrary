@@ -78,23 +78,38 @@ class CourseScrollView(
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
     }
 
-    private var mInitialY = 0 // Down 时的初始 Y 值
-    private var mLastMoveY = 0 // Move 时的移动 Y 值
-    private var mDiffMoveY = 0 // 每次 Move 的偏移值
+    var mInitialX = 0 // Down 时的初始 X 值
+        private set
+    var mInitialY = 0 // Down 时的初始 Y 值
+        private set
+    var mLastMoveX = 0 // Move 时的移动 X 值
+        private set
+    var mLastMoveY = 0 // Move 时的移动 Y 值
+        private set
+    var mDiffMoveX = 0 // 每次 Move 的偏移值
+        private set
+    var mDiffMoveY = 0 // 每次 Move 的偏移值
+        private set
 
     private var mIsInTouch = false // 是否处于触摸状态
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        val x = ev.x.toInt()
         val y = ev.y.toInt()
         when (ev.action) {
             MotionEvent.ACTION_DOWN -> {
+                mInitialX = x
                 mInitialY = y
+                mLastMoveX = x
                 mLastMoveY = y
                 mDiffMoveY = 0
+                mDiffMoveX = 0
                 mIsInTouch = true
             }
             MotionEvent.ACTION_MOVE -> {
+                mDiffMoveX = x - mLastMoveX
                 mDiffMoveY = y - mLastMoveY
+                mLastMoveX = x
                 mLastMoveY = y
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> mIsInTouch = false

@@ -98,8 +98,7 @@ class CourseLayout : NetLayout {
         return when (getRowsWeight(NOON_TOP, NOON_BOTTOM) / (NOON_BOTTOM - NOON_TOP + 1)) {
             1F -> RowState.UNFOLD
             0F -> RowState.FOLD
-            else -> throw RuntimeException("出现这个 error 说明你把中午时间段的比重私自修改了")
-            // 动画都结束了，你让我怎么判断？
+            else -> mNoonRowState
         }
     }
 
@@ -112,8 +111,7 @@ class CourseLayout : NetLayout {
         return when (getRowsWeight(DUSK_TOP, DUSK_BOTTOM) / (DUSK_BOTTOM - DUSK_TOP + 1)) {
             1F -> RowState.UNFOLD
             0F -> RowState.FOLD
-            else -> throw RuntimeException("出现这个 error 说明你把傍晚时间段的比重私自修改了")
-            // 动画都结束了，你让我怎么判断？
+            else -> mDuskRowState
         }
     }
 
@@ -139,6 +137,7 @@ class CourseLayout : NetLayout {
      * 带有动画的强制折叠中午时间段。会 cancel 掉之前的动画
      */
     fun foldNoonForce(onChanged: ((Float) -> Unit)? = null) {
+        mNoonRowState = RowState.FOLD_ANIM
         val nowWeight = mNoonAnimation?.nowWeight ?: 0.99999F
         mNoonAnimation?.cancel()
         mNoonAnimation = FoldAnimation(nowWeight) {
@@ -165,6 +164,7 @@ class CourseLayout : NetLayout {
      * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
      */
     fun unfoldNoonForce(onChanged: ((Float) -> Unit)? = null) {
+        mNoonRowState = RowState.UNFOLD_ANIM
         val nowWeight = mNoonAnimation?.nowWeight ?: 0.00001F
         mNoonAnimation?.cancel()
         mNoonImageView.visibility = INVISIBLE
@@ -191,6 +191,7 @@ class CourseLayout : NetLayout {
      * 带有动画的强制折叠傍晚时间段。会 cancel 掉之前的动画
      */
     fun foldDuskForce(onChanged: ((Float) -> Unit)? = null) {
+        mDuskRowState = RowState.FOLD_ANIM
         val nowWeight = mDuskAnimation?.nowWeight ?: 0.99999F
         mDuskAnimation?.cancel()
         mDuskAnimation = FoldAnimation(nowWeight) {
@@ -217,6 +218,7 @@ class CourseLayout : NetLayout {
      * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
      */
     fun unfoldDuskForce(onChanged: ((Float) -> Unit)? = null) {
+        mDuskRowState = RowState.UNFOLD_ANIM
         val nowWeight = mDuskAnimation?.nowWeight ?: 0.00001F
         mDuskAnimation?.cancel()
         mDuskImageView.visibility = INVISIBLE
@@ -248,6 +250,9 @@ class CourseLayout : NetLayout {
         mDuskAnimation?.addEndListener(onEnd)
         return mDuskAnimation != null
     }
+
+    private var mNoonRowState = RowState.FOLD // 当前中午时间段的状态，主要用于上一层保险，不能光靠他来判断
+    private var mDuskRowState = RowState.FOLD // 当前傍晚时间段的状态，主要用于上一层保险，不能光靠他来判断
 
     /**
      * 得到 [CourseLayout] 外层包裹的 [CourseScrollView]
@@ -409,9 +414,9 @@ class CourseLayout : NetLayout {
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-        var isIntercept = false
         if (ev.action == MotionEvent.ACTION_DOWN) {
             mAdvanceInterceptingOnTouchListener = null // 重置
+            var isIntercept = false
             mCourseTouchListener.forEach {
                 if (mAdvanceInterceptingOnTouchListener == null) {
                     if (it.isAdvanceIntercept(ev, this)) {
@@ -422,6 +427,7 @@ class CourseLayout : NetLayout {
                     it.onCancelDownEvent(ev, this)
                 }
             }
+            return isIntercept
         } else {
             /*
             * 走到这一步说明：
@@ -439,7 +445,7 @@ class CourseLayout : NetLayout {
                 }
             }
         }
-        return isIntercept
+        return false
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -488,16 +494,12 @@ class CourseLayout : NetLayout {
     }
 
     override fun dispatchDraw(canvas: Canvas) {
+        mCourseDecoration.forEach {
+            it.onDraw(canvas, this)
+        }
         super.dispatchDraw(canvas)
         mCourseDecoration.forEach {
             it.onDrawOver(canvas, this)
-        }
-    }
-
-    override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-        mCourseDecoration.forEach {
-            it.onDraw(canvas, this)
         }
     }
 
@@ -695,5 +697,33 @@ class CourseLayout : NetLayout {
         // 第十二节课
         const val LESSON_12_TOP = 13
         const val LESSON_12_BOTTOM = 13
+
+        fun isContainNoon(lp: CourseLayoutParams): Boolean {
+            return lp.startRow <= NOON_TOP && lp.endRow >= NOON_BOTTOM
+        }
+
+        fun isContainNoonNow(view: View, course: CourseLayout): Boolean {
+            val topNoon = course.getRowsHeight(0, NOON_TOP - 1)
+            val bottomNoon =
+                topNoon + course.getRowsHeight(NOON_TOP, NOON_BOTTOM)
+            val lp = view.layoutParams as CourseLayoutParams
+            val top = lp.constraintTop + view.translationY
+            val bottom = lp.constraintBottom + view.translationY
+            return top < topNoon && bottom > bottomNoon
+        }
+
+        fun isContainDusk(lp: CourseLayoutParams): Boolean {
+            return lp.startRow <= DUSK_TOP && lp.endRow >= DUSK_BOTTOM
+        }
+
+        fun isContainDuskNow(view: View, course: CourseLayout): Boolean {
+            val topDusk = course.getRowsHeight(0, DUSK_TOP - 1)
+            val bottomDusk =
+                topDusk + course.getRowsHeight(DUSK_TOP, DUSK_BOTTOM)
+            val lp = view.layoutParams as CourseLayoutParams
+            val top = lp.constraintTop + view.translationY
+            val bottom = lp.constraintBottom + view.translationY
+            return top < topDusk && bottom > bottomDusk
+        }
     }
 }

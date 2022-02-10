@@ -13,12 +13,12 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  */
 interface CourseDecoration {
     /**
-     * 与 View#onDraw() 功能一样
+     * 在所有子 View 的 onDraw() 前的回调，在这里面绘图可以绘制在子 View 下方
      */
     fun onDraw(canvas: Canvas, course: CourseLayout)
 
     /**
-     * 在所有子 View 且包含自身 ViewGroup 的 onDraw() 后的回调，在这里面绘图可以绘制在子 View 上方
+     * 在所有子 View 的 onDraw() 后的回调，在这里面绘图可以绘制在子 View 上方
      */
     fun onDrawOver(canvas: Canvas, course: CourseLayout)
 }

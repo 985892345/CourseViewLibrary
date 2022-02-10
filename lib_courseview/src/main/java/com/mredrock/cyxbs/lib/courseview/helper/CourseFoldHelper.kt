@@ -43,7 +43,7 @@ class CourseFoldHelper private constructor(
     // 认定是在滑动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
     private val mTouchSlop = ViewConfiguration.get(course.context).scaledTouchSlop
 
-    override fun isIntercept(event: MotionEvent, course: CourseLayout): Boolean {
+    override fun isAdvanceIntercept(event: MotionEvent, course: CourseLayout): Boolean {
         val x = event.x.toInt()
         val y = event.y.toInt()
         val noonState = course.getNoonRowState()

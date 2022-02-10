@@ -7,10 +7,7 @@ import android.widget.LinearLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseBeanInternal
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
-import com.mredrock.cyxbs.lib.courseview.helper.CourseCreateAffairHelper
-import com.mredrock.cyxbs.lib.courseview.helper.CourseFoldHelper
-import com.mredrock.cyxbs.lib.courseview.helper.CourseLongPressAffairHelper
-import com.mredrock.cyxbs.lib.courseview.helper.CourseTimelineHelper
+import com.mredrock.cyxbs.lib.courseview.helper.*
 import com.mredrock.cyxbs.lib.courseview.lesson.LessonView
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseLayoutContainer
