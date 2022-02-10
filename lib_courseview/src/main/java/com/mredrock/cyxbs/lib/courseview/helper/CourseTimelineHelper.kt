@@ -110,9 +110,6 @@ class CourseTimelineHelper private constructor(
         })
     }
 
-    override fun onDraw(canvas: Canvas, course: CourseLayout) {
-    }
-
     override fun onDrawOver(canvas: Canvas, course: CourseLayout) {
         if (mVisible) {
             val left = course.getColumnsWidth(0, CourseLayout.TIME_LINE_LEFT - 1)

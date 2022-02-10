@@ -9,7 +9,6 @@ import android.view.ViewConfiguration
 import android.view.animation.OvershootInterpolator
 import androidx.core.animation.addListener
 import androidx.core.view.ViewCompat
-import androidx.recyclerview.widget.LinearSmoothScroller
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.course.utils.CourseDecoration
@@ -146,7 +145,7 @@ class CourseLongPressMoveHelper(
             MotionEvent.ACTION_DOWN -> {
                 val child = course.findItemUnderByXY(x, y)
                 if (child == mSubstituteView || child == null) return false
-                if (openLongPress.invoke(child)) { // 询问子类哪种 View 可以移动
+                if (openLongPress.invoke(child)) { // 询问哪种 View 可以移动
                     mLongPressView = child
                     mIsInLongPress = false // 重置
                     mIsNeedFoldNoon = false // 重置
@@ -193,8 +192,13 @@ class CourseLongPressMoveHelper(
             }
             MotionEvent.ACTION_CANCEL -> {
                 if (mLongPressView == null) return false
-                // 走到这里说明：父布局拦截了事件且自身没有拦截事件
-                course.removeCallbacks(mLongPressRunnable)
+                // 走到这里说明：父布局或者前面的 onCourseTouchListener 拦截了事件
+                if (mIsInLongPress) {
+                    restoreAffairViewToOldLocation()
+                    recoverFoldState() // 恢复
+                } else {
+                    course.removeCallbacks(mLongPressRunnable)
+                }
                 mLongPressView = null // 重置
             }
         }
@@ -269,7 +273,7 @@ class CourseLongPressMoveHelper(
      */
     private fun translateView() {
         mLongPressView?.let { view ->
-            // 使用 CourseScrollView 来计算，才是绝对坐标系下的偏移量
+            // 使用 CourseScrollView 来计算绝对坐标系下的偏移量，而不是使用 course 自身的坐标系
             val dx = course.mCourseScrollView.let { it.mLastMoveX - it.mInitialX }
             view.translationX = dx.toFloat()
             view.y = course.let {
@@ -284,18 +288,16 @@ class CourseLongPressMoveHelper(
      * 判断当前平移 LongPressView 中是否需要自动展开中午或者傍晚时间段
      */
     private fun unfoldNoonOrDuskIfNecessary(view: View) {
-        val noonState = course.getNoonRowState()
-        val duskState = course.getDuskRowState()
         // 如果长按开始时或者当前包含了中午时间段
         if (mIsContainNoonLongPressStart || CourseLayout.isContainNoonNow(view, course)) {
-            when (noonState) {
+            when (course.getNoonRowState()) {
                 RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldNoonForce()
                 else -> {}
             }
         }
         // 如果长按开始时或者当前包含了傍晚时间段
         if (mIsContainDuskLongPressStart || CourseLayout.isContainDuskNow(view, course)) {
-            when (duskState) {
+            when (course.getDuskRowState()) {
                 RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldDuskForce()
                 else -> {}
             }
@@ -311,27 +313,13 @@ class CourseLongPressMoveHelper(
      * 如果你要测试的话，建议把 [CourseLayout.DEBUG] 属性给打开
      */
     private fun changeLocationIfNecessary() {
-        val noonState = course.getNoonRowState()
-        val duskState = course.getDuskRowState()
-        if (noonState == RowState.UNFOLD_ANIM
-            || noonState == RowState.FOLD_ANIM
-            || duskState == RowState.UNFOLD_ANIM
-            || duskState == RowState.FOLD_ANIM
-        ) {
-            /*
-            * 展开或者折叠的动画时间很短了，在这么短暂的时间内走到这里说明用户是很快就松手的，
-            * 一般不会出现这种情况，如果出现了，为防止出现判断问题，所以直接回到原位置
-            * */
-            restoreAffairViewToOldLocation()
-            return
-        }
         val view = mLongPressView
         if (view != null) {
             val layoutParams = view.layoutParams as CourseLayoutParams
             /*
             * 可能你会问为什么不直接用 View.left + View.translationX 或者直接 View.x
             * 原因如下：
-            * 虽然目前课表的每个 item 都是宽高都是 match，
+            * 虽然目前课表的每个 item 宽高都是 match，
             * 但 item 的移动都是限制在方格内的，不应该用 View 的位置来判断
             * */
             val l = layoutParams.constraintLeft + view.translationX.toInt()
@@ -354,7 +342,7 @@ class CourseLongPressMoveHelper(
 
             /*
             * 第一次修正：
-            * 根据与 View 内部最相邻的界限的距离，修正此时的位置
+            * 根据与 View 内部最相邻的格子约束线的距离，修正此时的位置（格子约束线：因为是网状布局嘛，所以会有一个一个的格子）
             * 如果不修正，那由边界高度值取得的行数和列数将比总行数和总列数大上一行和一列
             * */
             if (leftDistance > rightDistance) {
@@ -399,6 +387,11 @@ class CourseLongPressMoveHelper(
                 val r1 = lp.constraintRight
                 val t1 = lp.constraintTop
                 val b1 = lp.constraintBottom
+
+                /*
+                * 由于没有判断是否是 mLongPressView，只判断了 mSubstituteView，
+                * 所以当在 mLongPressView 没有添加进 overlay 时，是会直接回到原位置的
+                * */
 
                 // 如果完全包含或被包含则回到原位置
                 if (judgeIsContain(l, r, t, b, l1, r1, t1, b1)) {
@@ -584,6 +577,7 @@ class CourseLongPressMoveHelper(
             MoveAnimation(view.translationX, view.translationY, finalDx, finalDy, 200) { x, y ->
                 view.translationX = x
                 view.translationY = y
+                unfoldNoonOrDuskIfNecessary(view) // 存在移动后的 item 刚好需要展开时间段
             }.addEndListener {
                 view.translationX = 0F // 还原
                 view.translationY = 0F // 还原
@@ -608,27 +602,35 @@ class CourseLongPressMoveHelper(
     private fun restoreAffairViewToOldLocation() {
         val view = mLongPressView
         if (view != null) {
-            val dx = mSubstituteView.left - view.x
-            val dy = mSubstituteView.top - view.y
+            /*
+            * 这里先添加 View 而不是在结束时添加有如下原因：
+            * 1、调用这个方法时存在正处于展开或折叠动画的情况，这个时候最终位置是无法计算的
+            * 2、而把 View 先添加进去后就可以直接控制 translationY 来回到正确的位置，这样更方便处理
+            * */
+            val isInOverlay = view.parent !is CourseLayout
+            if (isInOverlay) {
+                view.translationX = view.x - mSubstituteView.left
+                view.translationY = view.y - mSubstituteView.top
+                course.overlay.remove(view)
+                course.addView(view)
+                course.removeView(mSubstituteView)
+            }
             // 自己拟合的一条由距离求出时间的函数，感觉比较适合动画效果 :)
             // y = 50 * x^0.25 + 90
-            val time = hypot(dx, dy).pow(0.25F) * 50 + 90
+            val time = hypot(view.translationX, view.translationY).pow(0.25F) * 50 + 90
             MoveAnimation(
-                view.x,
-                view.y,
-                mSubstituteView.left.toFloat(),
-                mSubstituteView.top.toFloat(),
+                view.translationX,
+                view.translationY,
+                0F,
+                0F,
                 time.toLong()
             ) { x, y ->
-                view.x = x
-                view.y = y
+                view.translationX = x
+                view.translationY = y
             }.addEndListener {
                 view.translationX = 0F // 还原
                 view.translationY = 0F // 还原
                 view.translationZ = 0F // 重置
-                course.overlay.remove(view)
-                course.addView(view)
-                course.removeView(mSubstituteView)
                 mIsNeedFoldNoon = mIsNoonFoldedLongPressStart && !mIsContainNoonLongPressStart
                 mIsNeedFoldDusk = mIsDuskFoldedLongPressStart && !mIsContainDuskLongPressStart
                 recoverFoldState()
@@ -680,6 +682,7 @@ class CourseLongPressMoveHelper(
             view?.let {
                 if (isAllowScrollAndCalculateVelocity(it)) {
                     course.mCourseScrollView.scrollBy(0, velocity)
+                    course.invalidate()
                     ViewCompat.postOnAnimation(course, this)
                 } else {
                     isInScrolling = false
@@ -721,13 +724,13 @@ class CourseLongPressMoveHelper(
             // 向上滚动，即手指移到底部，需要显示下面的内容
             val isNeedScrollUp =
                 bottomHeight > scroll.height - moveBoundary
-                        && course.mCourseScrollView.mDiffMoveY > 0
+                        && course.mCourseScrollView.let { it.mLastMoveY - it.mInitialY } > 0
                         && scroll.height + scroll.scrollY < scroll.getChildAt(0).height // 是否滑到底
 
             // 向下滚动，即手指移到顶部，需要显示上面的内容
             val isNeedScrollDown =
                 topHeight < moveBoundary
-                        && course.mCourseScrollView.mDiffMoveY < 0
+                        && course.mCourseScrollView.let { it.mLastMoveY - it.mInitialY } < 0
                         && scroll.scrollY > 0 // 是否滑到顶
             val isAllowScroll = isNeedScrollUp || isNeedScrollDown
             if (isAllowScroll) {
@@ -743,14 +746,11 @@ class CourseLongPressMoveHelper(
         }
     }
 
-    override fun onDraw(canvas: Canvas, course: CourseLayout) {
-    }
-
     override fun onDrawOver(canvas: Canvas, course: CourseLayout) {
         /*
         * 为什么在这里平移呢？
         * 1、一般情况下是直接在 onTouchEvent() 的 Move 中平移位置
-        * 2、但存在 onTouchEvent() 不回调的情况，而位置又因为 CourseScrollView 需要滑动而改变
+        * 2、但存在 onTouchEvent() 不回调的情况，而位置又因为 CourseScrollView 的滚动而改变
         * 3、所以为了减少不必要的判断，直接放在绘图的回调里是最方便的
         * */
         translateView()

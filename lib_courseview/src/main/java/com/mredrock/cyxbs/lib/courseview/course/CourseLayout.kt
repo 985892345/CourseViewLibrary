@@ -414,17 +414,30 @@ class CourseLayout : NetLayout {
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-        if (ev.action == MotionEvent.ACTION_DOWN) {
+        val action = ev.action
+        if (action == MotionEvent.ACTION_DOWN) {
             mAdvanceInterceptingOnTouchListener = null // 重置
             var isIntercept = false
-            mCourseTouchListener.forEach {
+            mCourseTouchListener.forEach { listener ->
                 if (mAdvanceInterceptingOnTouchListener == null) {
-                    if (it.isAdvanceIntercept(ev, this)) {
-                        mAdvanceInterceptingOnTouchListener = it
+                    if (listener.isAdvanceIntercept(ev, this)) {
+                        mAdvanceInterceptingOnTouchListener = listener
                         isIntercept = true
+                        val cancelEvent = ev.also { it.action = MotionEvent.ACTION_CANCEL }
+                        // 通知前面已经分发 Down 事件了的 listener 取消事件
+                        for (i in mCourseTouchListener.indices) {
+                            val l = mCourseTouchListener[i]
+                            if (l !== listener) {
+                                l.isAdvanceIntercept(cancelEvent, this)
+                            } else {
+                                break
+                            }
+                        }
+                        ev.action = action // 还原
                     }
                 } else {
-                    it.onCancelDownEvent(ev, this)
+                    // 通知后面没有收到 Down 事件的 listener，Down 事件被前面的 listener 拦截
+                    listener.onCancelDownEvent(ev, this)
                 }
             }
             return isIntercept
@@ -437,10 +450,19 @@ class CourseLayout : NetLayout {
             *      2、CourseLayout 自身拦截了事件
             *      ==> onInterceptTouchEvent() 不会再被调用，也就不会再走到这一步）
             * 2、事件一定被子 View 拦截
+            * 3、mAdvanceInterceptingOnTouchListener 也一定为 null
             * */
-            mCourseTouchListener.forEach {
-                if (it.isAdvanceIntercept(ev, this)) {
-                    mAdvanceInterceptingOnTouchListener = it
+            mCourseTouchListener.forEach { listener ->
+                if (listener.isAdvanceIntercept(ev, this)) {
+                    mAdvanceInterceptingOnTouchListener = listener
+                    val cancelEvent = ev.also { it.action = MotionEvent.ACTION_CANCEL }
+                    // 因为之前所有 listener 都通知了 Down 事件，所以需要全部都通知取消事件
+                    mCourseTouchListener.forEach {
+                        if (it !== listener) {
+                            it.isAdvanceIntercept(cancelEvent, this)
+                        }
+                    }
+                    ev.action = action // 恢复
                     return true
                 }
             }
@@ -454,7 +476,8 @@ class CourseLayout : NetLayout {
             mAdvanceInterceptingOnTouchListener!!.onTouchEvent(event, this)
             return true
         }
-        if (event.action == MotionEvent.ACTION_DOWN) {
+        val action = event.action
+        if (action == MotionEvent.ACTION_DOWN) {
             mInterceptingOnTouchListener = null // 重置
             // 分配自定义事件处理的监听
             mCourseTouchListener.forEach {
@@ -474,17 +497,22 @@ class CourseLayout : NetLayout {
             * 3、CourseLayout 自身拦截事件
             * 4、因为自身拦截事件，onInterceptTouchEvent() 不会再被调用
             * */
-            mCourseTouchListener.forEach {
-                if (it.isAdvanceIntercept(event, this)) {
-                    mAdvanceInterceptingOnTouchListener = it
-                    it.onTouchEvent(event, this)
-                    if (mInterceptingOnTouchListener !== it) {
+            mCourseTouchListener.forEach { listener ->
+                if (listener.isAdvanceIntercept(event, this)) {
+                    mAdvanceInterceptingOnTouchListener = listener
+                    listener.onTouchEvent(event, this)
+                    val cancelEvent = event.also { it.action = MotionEvent.ACTION_CANCEL }
+                    if (mInterceptingOnTouchListener !== listener) {
                         // 如果不是同一个就通知 mInterceptingOnTouchListener CANCEL 事件
-                        mInterceptingOnTouchListener?.onTouchEvent(
-                            event.apply { action = MotionEvent.ACTION_CANCEL },
-                            this
-                        )
+                        mInterceptingOnTouchListener?.onTouchEvent(cancelEvent, this)
                     }
+                    // 因为之前所有 listener 都通知了 Down 事件，所以需要全部都通知取消事件
+                    mCourseTouchListener.forEach {
+                        if (it !== listener) {
+                            it.isAdvanceIntercept(cancelEvent, this)
+                        }
+                    }
+                    event.action = action // 恢复
                     return true
                 }
             }
@@ -698,10 +726,16 @@ class CourseLayout : NetLayout {
         const val LESSON_12_TOP = 13
         const val LESSON_12_BOTTOM = 13
 
+        /**
+         * 静止状态下是否包含中午时间段
+         */
         fun isContainNoon(lp: CourseLayoutParams): Boolean {
             return lp.startRow <= NOON_TOP && lp.endRow >= NOON_BOTTOM
         }
 
+        /**
+         * 计算当前移动后是否包含中午时间段
+         */
         fun isContainNoonNow(view: View, course: CourseLayout): Boolean {
             val topNoon = course.getRowsHeight(0, NOON_TOP - 1)
             val bottomNoon =
@@ -709,13 +743,19 @@ class CourseLayout : NetLayout {
             val lp = view.layoutParams as CourseLayoutParams
             val top = lp.constraintTop + view.translationY
             val bottom = lp.constraintBottom + view.translationY
-            return top < topNoon && bottom > bottomNoon
+            return top < topNoon - 2 && bottom > bottomNoon + 2 // 因为是移动后，所以加个 2 来填充误差
         }
 
+        /**
+         * 静止状态下是否包含傍晚时间段
+         */
         fun isContainDusk(lp: CourseLayoutParams): Boolean {
             return lp.startRow <= DUSK_TOP && lp.endRow >= DUSK_BOTTOM
         }
 
+        /**
+         * 计算当前移动后是否包含傍晚时间段
+         */
         fun isContainDuskNow(view: View, course: CourseLayout): Boolean {
             val topDusk = course.getRowsHeight(0, DUSK_TOP - 1)
             val bottomDusk =
@@ -723,7 +763,7 @@ class CourseLayout : NetLayout {
             val lp = view.layoutParams as CourseLayoutParams
             val top = lp.constraintTop + view.translationY
             val bottom = lp.constraintBottom + view.translationY
-            return top < topDusk && bottom > bottomDusk
+            return top < topDusk - 2 && bottom > bottomDusk + 2 // 因为是移动后，所以加个 2 来填充误差
         }
     }
 }

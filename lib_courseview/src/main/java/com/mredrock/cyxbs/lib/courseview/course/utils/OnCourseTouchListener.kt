@@ -36,10 +36,13 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  *   l2.onCancelDownEvent                l3.onCancelDownEvent                    ↓
  *   l3.onCancelDownEvent                    ↓                                   ↓
  *       ↓                                   ↓                            mAdvanceInterceptingOnTouchListener = l3
+ *       ↓                                   ↓               通知前面分发了 Down 事件的 listener 取消事件: listener.isAdvanceIntercept(CANCEL)
  *       ↓                                   ↓
  *       ↓                             mAdvanceInterceptingOnTouchListener = l2
+ *       ↓                通知前面分发了 Down 事件的 listener 取消事件: listener.isAdvanceIntercept(CANCEL)
  *       ↓
  *   mAdvanceInterceptingOnTouchListener = l1
+ *   通知前面分发了 Down 事件的 listener 取消事件: listener.isAdvanceIntercept(CANCEL)
  *
  * 2、MOVE: 在某一个 listener 的 isAdvanceIntercept() 返回 true 后，
  *       ↓      将把该 listener 赋值给 mAdvanceInterceptingOnTouchListener
@@ -50,10 +53,13 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  *       ↓ true                              ↓ true                              ↓ true
  *       ↓                                   ↓                                   ↓
  *       ↓                                   ↓                            mAdvanceInterceptingOnTouchListener = l3
+ *       ↓                                   ↓            通知所有除自己外的 listener 取消事件: listener.isAdvanceIntercept(CANCEL)
  *       ↓                                   ↓
  *       ↓                             mAdvanceInterceptingOnTouchListener = l2
+ *       ↓             通知所有除自己外的 listener 取消事件: listener.isAdvanceIntercept(CANCEL)
  *       ↓
  *   mAdvanceInterceptingOnTouchListener = l1
+ *   通知所有除自己外的 listener 取消事件: listener.isAdvanceIntercept(CANCEL)
  *
  *
  *
@@ -98,12 +104,15 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  *       ↓                                   ↓                                   ↓
  *       ↓                                   ↓                     mAdvanceInterceptingOnTouchListener = l3
  *       ↓                                   ↓                     mInterceptingOnTouchListener?.onTouchEvent(CANCEL)
+ *       ↓                                   ↓          通知所有除自己外的 listener 取消事件: listener.isAdvanceIntercept(CANCEL)
  *       ↓                                   ↓
  *       ↓                     mAdvanceInterceptingOnTouchListener = l2
  *       ↓                     mInterceptingOnTouchListener?.onTouchEvent(CANCEL)
+ *       ↓          通知所有除自己外的 listener 取消事件: listener.isAdvanceIntercept(CANCEL)
  *       ↓
  *   mAdvanceInterceptingOnTouchListener = l1
  *   mInterceptingOnTouchListener?.onTouchEvent(CANCEL)
+ *   通知所有除自己外的 listener 取消事件: listener.isAdvanceIntercept(CANCEL)
  *
  *   整体与 View 的事件分发有些类似，在 Down 事件中找到拦截的 View，在 Move 事件中直接把事件传递给它
  * ```
