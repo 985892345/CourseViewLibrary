@@ -38,9 +38,10 @@ import kotlin.math.*
  * 3、支持子 View 设置 onClickListener，与它互相兼容
  *
  * 注意事项：
- * 1、该类只管理长按整体移动，请不要添加一些不属于该类的功能，想添加功能应该再写一个 OnCourseTouchListener
- * 2、该类侵入性很低，可以随便给 CourseLayout 下某个 View 添加长按移动功能
- * 3、尤其注意 isAdvanceIntercept() 和 onTouchEvent() 方法的处理，不然不能实现长按整体移动
+ * 1、对于长按的那个 View 在激活长按时是会被移除父布局的，在移动动画结束后会重新添加（如果不移除父布局就会造成很多因重新布局大小改变的问题）
+ * 2、该类只管理长按整体移动，请不要添加一些不属于该类的功能，想添加功能应该再写一个 OnCourseTouchListener
+ * 3、该类侵入性很低，可以随便给 CourseLayout 下某个 View 添加长按移动功能，但与当前只有 Noon 和 Dusk 时间段展开和折叠耦合
+ * 4、尤其注意 isAdvanceIntercept() 和 onTouchEvent() 方法的处理，不然不能实现长按整体移动
  *
  * 这个类的代码量有点小多，主要是长按松手时的逻辑判断和一些细节处理，虽然我不敢保证，应该是没什么很影响用户体验的 bug，
  * 整体设计也是考虑了很多，只要以后需求不涉及到长按整体移动，基本上是不用修改这个类的
@@ -66,13 +67,60 @@ class CourseLongPressMoveHelper(
     /**
      * 用于移动到半途中想强行停止移动
      *
-     * 该方法会直接回到原位置，并且展开状态也会回到原状态
+     * 该方法会直接结束动画
      */
     fun forceCancel() {
-        restoreAffairViewToOldLocation()
-        mScrollRunnable.cancel()
-        course.removeCallbacks(mLongPressRunnable)
-        mLongPressView = null
+        if (mLongPressState >= LongPressState.OVER) return
+        val animation = mMoveAnimation
+        if (animation == null) {
+            // 这里说明还没有抬手
+            val view = mLongPressView
+            if (view == null) {
+                // 这里说明长按没有被激活
+                course.removeCallbacks(mLongPressRunnable)
+            } else {
+                // 这里说明长按被激活了但还没抬手
+                mScrollRunnable.cancel()
+                course.overlay.remove(view)
+                course.addView(view)
+                course.removeView(mSubstituteView)
+                mLongPressView = null
+            }
+        } else {
+            // 这里说明已经抬手在进行最后的动画
+            animation.end()
+        }
+    }
+
+    /**
+     * 得到是否是替身 View
+     *
+     * 在长按激活后，按中的 View 会被移除父布局，然后被替身 View 代替
+     */
+    fun getIsSubstituteView(child: View?): Boolean {
+        return child === mSubstituteView
+    }
+
+    /**
+     * 得到当前长按整体移动的状态
+     */
+    fun getLongPressState(): LongPressState {
+        return mLongPressState
+    }
+
+    enum class LongPressState(private val i: Int) : Comparator<LongPressState> {
+        DOWN(0), // 成功长按到设置的 View 时
+        START(1), // 长按开始时
+        MOVE(2), // View 在移动中
+        UP(3), // 手指抬手时
+        CANCEL(3), // 事件被父布局或者前面的 onCourseTouchListener 拦截时
+        ANIM_RESTORE(4), // 正在执行回到原位置的动画中
+        ANIM_TRAVEL(4), // 正在执行移动到新位置的动画中
+        OVER(5); // 动画结束
+
+        override fun compare(o1: LongPressState, o2: LongPressState): Int {
+            return o1.i - o2.i
+        }
     }
 
     init {
@@ -90,9 +138,14 @@ class CourseLongPressMoveHelper(
     private var mIsContainDuskLongPressStart = false // 长按开始时自身是否包含傍晚时间段
 
     private var mLongPressView: View? = null // 长按的那个 View 的引用
+    private var mIsInOverlay = false // mLongPressView 是否处于 overlay 中
+
+    private var mLongPressState = LongPressState.OVER // 长按状态
+
+    private var mMoveAnimation: MoveAnimation? = null // 抬手后回到原位置或者移动到新位置的动画
 
     // Down 时触摸点到 LongPressView 顶部的距离
-    private var mTouchYWithViewTopDistance = 0
+    private var mDistanceDownToViewTop = 0
 
     // LongPressView 的替身 View，用于提前占位，防止点击穿透
     private val mSubstituteView by lazyUnlock {
@@ -102,7 +155,7 @@ class CourseLongPressMoveHelper(
     }
 
     // 替身 View 的 lp
-    private val mSubstituteLp = CourseLayoutParams(0, 0, 0, 0, CourseType.UNKNOWN)
+    private val mSubstituteLp = CourseLayoutParams(0, 0, 0, CourseType.UNKNOWN)
 
     // 认定是在滑动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
     private var mTouchSlop = ViewConfiguration.get(course.context).scaledTouchSlop
@@ -115,12 +168,11 @@ class CourseLongPressMoveHelper(
 
     // 长按时执行的 Runnable
     private val mLongPressRunnable = Runnable {
+        mLongPressState = LongPressState.START
         mIsInLongPress = true
         mLongPressView!!.translationZ = 6F // 给 LongPressView 加些阴影
         VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
         val lp = mLongPressView!!.layoutParams as CourseLayoutParams
-        // 回调监听
-        mOnMoveListener?.onLongPressStart(mLongPressView!!, lp)
         // 记录长按开始时的中午状态
         mIsNoonFoldedLongPressStart = when (course.getNoonRowState()) {
             RowState.FOLD, RowState.UNFOLD_ANIM -> true
@@ -136,6 +188,8 @@ class CourseLongPressMoveHelper(
         // 如果需要就自动展开中午和傍晚时间段
         unfoldNoonOrDuskIfNecessary(mLongPressView!!)
         putViewIntoOverlayIfCan() // 只能放在展开动画后
+        // 回调监听
+        mOnMoveListener?.onLongPressStart(mLongPressView!!, lp)
     }
 
     override fun isAdvanceIntercept(event: MotionEvent, course: CourseLayout): Boolean {
@@ -146,14 +200,16 @@ class CourseLongPressMoveHelper(
                 val child = course.findItemUnderByXY(x, y)
                 if (child == mSubstituteView || child == null) return false
                 if (openLongPress.invoke(child)) { // 询问哪种 View 可以移动
+                    mLongPressState = LongPressState.DOWN
                     mLongPressView = child
                     mIsInLongPress = false // 重置
                     mIsNeedFoldNoon = false // 重置
                     mIsNeedFoldDusk = false // 重置
+                    mIsInOverlay = false // 重置
                     course.postDelayed(mLongPressRunnable, mLongPressTimeout)
                     // 禁止外面的 ScrollView 拦截事件
                     course.parent.requestDisallowInterceptTouchEvent(true)
-                    mTouchYWithViewTopDistance = y - child.top
+                    mDistanceDownToViewTop = y - child.top
                 }
             }
             MotionEvent.ACTION_MOVE -> {
@@ -165,6 +221,7 @@ class CourseLongPressMoveHelper(
                         * LongPressView 的点击事件是在 UP 中触发，
                         * 1、如果超过 mTouchSlop，则直接取消拦截（后面会被 CourseScrollView 拦截）
                         * 2、如果在 mTouchSlop 范围内，且也处于长按状态，则直接拦截
+                        *
                         * 这里使用 mCourseScrollView 的原因：
                         * 1、存在因为时间段扩展而使偏移量也改变，所以只能使用绝对坐标系来计算真正的手指偏移量
                         * */
@@ -181,10 +238,10 @@ class CourseLongPressMoveHelper(
             }
             MotionEvent.ACTION_UP -> {
                 if (mLongPressView == null) return false
+                mLongPressState = LongPressState.UP
                 // 走到这里说明没有达到长按的要求：没有移动或者没到长按时间就松手，LongPressView 可以自己回调 onClickListener
                 if (mIsInLongPress) {
                     restoreAffairViewToOldLocation()
-                    recoverFoldState() // 恢复
                 } else {
                     course.removeCallbacks(mLongPressRunnable)
                 }
@@ -192,10 +249,10 @@ class CourseLongPressMoveHelper(
             }
             MotionEvent.ACTION_CANCEL -> {
                 if (mLongPressView == null) return false
+                mLongPressState = LongPressState.CANCEL
                 // 走到这里说明：父布局或者前面的 onCourseTouchListener 拦截了事件
                 if (mIsInLongPress) {
                     restoreAffairViewToOldLocation()
-                    recoverFoldState() // 恢复
                 } else {
                     course.removeCallbacks(mLongPressRunnable)
                 }
@@ -217,11 +274,13 @@ class CourseLongPressMoveHelper(
                 course.invalidate()
             }
             MotionEvent.ACTION_UP -> {
+                mLongPressState = LongPressState.UP
                 changeLocationIfNecessary()
                 mScrollRunnable.cancel()
                 mLongPressView = null // 重置
             }
             MotionEvent.ACTION_CANCEL -> {
+                mLongPressState = LongPressState.CANCEL
                 restoreAffairViewToOldLocation()
                 mScrollRunnable.cancel()
                 mLongPressView = null // 重置
@@ -239,7 +298,7 @@ class CourseLongPressMoveHelper(
         noonState: RowState = course.getNoonRowState(),
         duskState: RowState = course.getDuskRowState()
     ) {
-        if (mLongPressView?.parent is CourseLayout) { // 用于判断只调用一次
+        if (!mIsInOverlay) { // 用于判断只调用一次
             if ((noonState == RowState.FOLD || noonState == RowState.UNFOLD)
                 && (duskState == RowState.FOLD || duskState == RowState.UNFOLD)
             ) {
@@ -257,6 +316,7 @@ class CourseLongPressMoveHelper(
                 * 重新布局的影响
                 * */
                 mLongPressView?.let {
+                    mIsInOverlay = true
                     course.overlay.add(it)
                     val lp = it.layoutParams as CourseLayoutParams
                     mSubstituteLp.copy(lp)
@@ -273,11 +333,13 @@ class CourseLongPressMoveHelper(
      */
     private fun translateView() {
         mLongPressView?.let { view ->
+            mLongPressState = LongPressState.MOVE
             // 使用 CourseScrollView 来计算绝对坐标系下的偏移量，而不是使用 course 自身的坐标系
             val dx = course.mCourseScrollView.let { it.mLastMoveX - it.mInitialX }
             view.translationX = dx.toFloat()
             view.y = course.let {
-                it.mCourseScrollView.mLastMoveY - it.getDiffHeightWithScrollView() - mTouchYWithViewTopDistance
+                it.mCourseScrollView.mLastMoveY -
+                        it.getDistanceCourseLayoutToScrollView() - mDistanceDownToViewTop
             }.toFloat()
             // 判断是否展开中午或者傍晚时间段（在滑过中午或者傍晚时需要将他们自动展开）
             unfoldNoonOrDuskIfNecessary(view)
@@ -381,7 +443,7 @@ class CourseLongPressMoveHelper(
             * */
             for (i in 0 until course.childCount - 1) {
                 val child = course.getChildAt(i)
-                if (child == mSubstituteView) continue
+                if (isSkipForeachJudge(child)) continue
                 val lp = child.layoutParams as CourseLayoutParams
                 val l1 = lp.constraintLeft
                 val r1 = lp.constraintRight
@@ -390,7 +452,8 @@ class CourseLongPressMoveHelper(
 
                 /*
                 * 由于没有判断是否是 mLongPressView，只判断了 mSubstituteView，
-                * 所以当在 mLongPressView 没有添加进 overlay 时，是会直接回到原位置的
+                * 所以当在 mLongPressView 没有添加进 overlay 时，是会直接回到原位置的，
+                * 没有被添加进 overlay 说明要么处在动画中松手，要么没有长按就
                 * */
 
                 // 如果完全包含或被包含则回到原位置
@@ -511,15 +574,25 @@ class CourseLongPressMoveHelper(
                 bottomRow = minBottomRow
             }
 
-            var hasViewInNoon = false
-            var hasViewInDusk = false
+            // 如果最终的位置没有发生改变则直接回到原位置
+            if (topRow == mSubstituteLp.startRow
+                && bottomRow == mSubstituteLp.endRow
+                && leftColumn == mSubstituteLp.startColumn
+                && rightColumn == mSubstituteLp.endColumn
+            ) {
+                restoreAffairViewToOldLocation()
+                return
+            }
+
+            var hasViewInNoon = false // 是否有 View 处在中午时间段
+            var hasViewInDusk = false // 是否有 View 处在傍晚时间段
             /*
             * 第二次遍历：
             * 1、对于修正后最终位置再次遍历子 View，寻找是否与其他子 View 有交集，若有，则回到原位置
             * */
             for (i in 0 until course.childCount - 1) {
                 val child = course.getChildAt(i)
-                if (child == mSubstituteView) continue
+                if (isSkipForeachJudge(child)) continue
                 val lp = child.layoutParams as CourseLayoutParams
                 val a1 = lp.startRow in topRow..bottomRow
                 val a2 = lp.endRow in topRow..bottomRow
@@ -545,39 +618,80 @@ class CourseLongPressMoveHelper(
             mSubstituteLp.endRow = bottomRow
             mSubstituteLp.startColumn = leftColumn
             mSubstituteLp.endColumn = rightColumn
-            mSubstituteView.layoutParams = mSubstituteLp // 让替身提前去占位，防止点击穿透
+            // 让替身提前去占位，防止点击穿透，
+            // 但请注意：这个占位有些延迟，会在动画刚开始执行两次后才会重新布局
+            mSubstituteView.layoutParams = mSubstituteLp
 
             /*
+            * 判断是否需要折叠或展开时间段
             * 有以下几种情况需要折叠：
             * 1、刚开始中午时间段处于折叠，且开始时自身不包含中午时间段，长按移动后打开了中午时间段，最后松手时也不包含中午时间段
             * 2、刚开始自身包含中午时间段，长按松手后不包含中午时间段，且没有其他 View 在中午时间段
             *
             * 有个共同部分：最后松手时都不包含中午时间段
             * */
-
             if (!CourseLayout.isContainNoon(mSubstituteLp)) {
                 mIsNeedFoldNoon =
                     mIsNoonFoldedLongPressStart && !mIsContainNoonLongPressStart
                             || mIsContainNoonLongPressStart && !hasViewInNoon
+            } else {
+                when (course.getNoonRowState()) {
+                    RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldNoonForce()
+                    else -> {}
+                }
             }
 
             if (!CourseLayout.isContainDusk(mSubstituteLp)) {
                 mIsNeedFoldDusk =
                     mIsDuskFoldedLongPressStart && !mIsContainDuskLongPressStart
                             || mIsContainDuskLongPressStart && !hasViewInDusk
+            } else {
+                when (course.getDuskRowState()) {
+                    RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldDuskForce()
+                    else -> {}
+                }
             }
 
-            // 计算终点位置
-            val finalDx =
-                course.getColumnsWidth(0, leftColumn - 1) - layoutParams.constraintLeft.toFloat()
-            val finalDy =
-                course.getRowsHeight(0, topRow - 1) - layoutParams.constraintTop.toFloat()
+            recoverFoldState() // 恢复折叠状态（这里会与移动动画一起执行）
 
-            // 开启动画移动到最终位置
-            MoveAnimation(view.translationX, view.translationY, finalDx, finalDy, 200) { x, y ->
+            val dx = (l - course.getColumnsWidth(0, leftColumn - 1)).toFloat()
+            val dy = (t - course.getRowsHeight(0, topRow - 1)).toFloat()
+
+            // view 的 left 到约束格子线的距离
+            val dLeftToConstraintLeft = view.left - layoutParams.constraintLeft
+            // view 的 top 到约束格子线的距离
+            val dTopToConstrainTop = view.top - layoutParams.constraintTop
+
+            val translationZ = view.translationZ
+
+            mLongPressState = LongPressState.ANIM_TRAVEL
+
+            /*
+            * 开启动画移动到最终位置
+            * 为什么还要改变 view.left 和 view.top ?
+            * 原因如下：
+            * 1、存在此时正处于展开或折叠动画中，最终的位置是无法计算的，但可以使用 view.translationY + view.top
+            *    来计算展开动画每一帧此时对应的位置
+            *
+            * 为什么不直接用 mSubstituteView 的 left、top ?
+            * 原因如下：
+            * 1、虽然前面让 mSubstituteView 提前去占位了，但 onLayout 与动画的回调会有延迟，
+            *    在刚开始的公话回调中是得不到正确的 left、top 的
+            * 2、mSubstituteView 即使已经占好了位，也会出现 mSubstituteView 刚好处于正在展开的中午时间段上，
+            *    导致得到的值也会出现问题
+            * */
+            mMoveAnimation = MoveAnimation(dx, dy, 0F, 0F, 200) { x, y, fraction ->
                 view.translationX = x
                 view.translationY = y
-                unfoldNoonOrDuskIfNecessary(view) // 存在移动后的 item 刚好需要展开时间段
+                view.translationZ = translationZ * (1 - fraction)
+                val ll = course.getColumnsWidth(0, leftColumn - 1) + dLeftToConstraintLeft
+                val rr = ll + view.width
+                val tt = course.getRowsHeight(0, topRow - 1) + dTopToConstrainTop
+                val bb = tt + view.height
+                view.left = ll
+                view.right = rr
+                view.top = tt
+                view.bottom = bb
             }.addEndListener {
                 view.translationX = 0F // 还原
                 view.translationY = 0F // 还原
@@ -587,11 +701,15 @@ class CourseLongPressMoveHelper(
                 lp.endRow = bottomRow
                 lp.startColumn = leftColumn
                 lp.endColumn = rightColumn
-                course.overlay.remove(view)
-                course.addView(view)
-                course.removeView(mSubstituteView)
+                if (mIsInOverlay) {
+                    course.overlay.remove(view)
+                    course.addView(view)
+                    course.removeView(mSubstituteView)
+                } else {
+                    view.layoutParams = lp
+                }
                 mOnMoveListener?.onMoveToNewLocation(view, lp)
-                recoverFoldState()
+                mLongPressState = LongPressState.OVER
             }.start()
         }
     }
@@ -602,38 +720,43 @@ class CourseLongPressMoveHelper(
     private fun restoreAffairViewToOldLocation() {
         val view = mLongPressView
         if (view != null) {
-            /*
-            * 这里先添加 View 而不是在结束时添加有如下原因：
-            * 1、调用这个方法时存在正处于展开或折叠动画的情况，这个时候最终位置是无法计算的
-            * 2、而把 View 先添加进去后就可以直接控制 translationY 来回到正确的位置，这样更方便处理
-            * */
-            val isInOverlay = view.parent !is CourseLayout
-            if (isInOverlay) {
-                view.translationX = view.x - mSubstituteView.left
-                view.translationY = view.y - mSubstituteView.top
-                course.overlay.remove(view)
-                course.addView(view)
-                course.removeView(mSubstituteView)
-            }
+            mIsNeedFoldNoon = mIsNoonFoldedLongPressStart && !mIsContainNoonLongPressStart
+            mIsNeedFoldDusk = mIsDuskFoldedLongPressStart && !mIsContainDuskLongPressStart
+            recoverFoldState()
+
+            val translationZ = view.translationZ
+
+            mLongPressState = LongPressState.ANIM_RESTORE
+
             // 自己拟合的一条由距离求出时间的函数，感觉比较适合动画效果 :)
             // y = 50 * x^0.25 + 90
             val time = hypot(view.translationX, view.translationY).pow(0.25F) * 50 + 90
-            MoveAnimation(
+            mMoveAnimation = MoveAnimation(
                 view.translationX,
                 view.translationY,
                 0F,
                 0F,
                 time.toLong()
-            ) { x, y ->
+            ) { x, y, fraction ->
                 view.translationX = x
                 view.translationY = y
+                view.translationZ = translationZ * (1 - fraction)
+                if (mIsInOverlay) {
+                    view.left = mSubstituteView.left
+                    view.top = mSubstituteView.top
+                    view.right = mSubstituteView.right
+                    view.bottom = mSubstituteView.bottom
+                }
             }.addEndListener {
                 view.translationX = 0F // 还原
                 view.translationY = 0F // 还原
                 view.translationZ = 0F // 重置
-                mIsNeedFoldNoon = mIsNoonFoldedLongPressStart && !mIsContainNoonLongPressStart
-                mIsNeedFoldDusk = mIsDuskFoldedLongPressStart && !mIsContainDuskLongPressStart
-                recoverFoldState()
+                if (mIsInOverlay) {
+                    course.overlay.remove(view)
+                    course.addView(view)
+                    course.removeView(mSubstituteView)
+                }
+                mLongPressState = LongPressState.OVER
             }.start()
         }
     }
@@ -717,7 +840,7 @@ class CourseLongPressMoveHelper(
          */
         private fun isAllowScrollAndCalculateVelocity(view: View): Boolean {
             val scroll = course.mCourseScrollView
-            val diffHeight = course.getDiffHeightWithScrollView()
+            val diffHeight = course.getDistanceCourseLayoutToScrollView()
             val topHeight = (view.y + diffHeight).toInt()
             val bottomHeight = topHeight + view.height
             val moveBoundary = 50 // 移动的边界值
@@ -756,13 +879,23 @@ class CourseLongPressMoveHelper(
         translateView()
     }
 
+    /**
+     * 是否跳过遍历判断
+     *
+     * 我把 UP 时对 LongPressView 与其他 View 能够相交的判断移动了出来，如果以后需要添加的可以直接下载这里，
+     * 比如以后添加一个只有装饰作用的 View 在所有 View 的底部，就得写在这个地方
+     */
+    private fun isSkipForeachJudge(child: View): Boolean {
+        return getIsSubstituteView(child) || child === mLongPressView
+    }
+
     private class MoveAnimation(
         private val startX: Float,
         private val startY: Float,
         private val endX: Float,
         private val endY: Float,
         private val time: Long,
-        private val onChange: (x: Float, y: Float) -> Unit
+        private val onChange: (x: Float, y: Float, fraction: Float) -> Unit
     ) {
         private val animator = ValueAnimator.ofFloat(0F, 1F)
         fun start(): MoveAnimation {
@@ -771,7 +904,7 @@ class CourseLongPressMoveHelper(
                     val now = animatedValue as Float
                     val x = startX - (startX - endX) * now
                     val y = startY - (startY - endY) * now
-                    onChange.invoke(x, y)
+                    onChange.invoke(x, y, it.animatedFraction)
                 }
                 duration = time
                 interpolator = OvershootInterpolator(0.6F) // 个人认为 0.6F 的回弹比较合适
@@ -783,6 +916,10 @@ class CourseLongPressMoveHelper(
         fun addEndListener(onEnd: () -> Unit): MoveAnimation {
             animator.addListener(onEnd = { onEnd.invoke() })
             return this
+        }
+
+        fun end() {
+            animator.end()
         }
     }
 

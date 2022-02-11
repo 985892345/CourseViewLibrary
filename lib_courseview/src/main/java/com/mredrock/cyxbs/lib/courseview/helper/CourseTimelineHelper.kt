@@ -66,7 +66,7 @@ class CourseTimelineHelper private constructor(
     }
 
     private val mCalendar = Calendar.getInstance() // 用于装换时间
-    private val mCircleRadius = 3.dp2pxF() // 小圆半径
+    private val mCircleRadius = 3.dp2pxF // 小圆半径
     private var mVisible = true // 是否显示
 
     // 画笔
@@ -74,7 +74,7 @@ class CourseTimelineHelper private constructor(
         color = 0xFF2A4E84.toInt()
         isAntiAlias = true
         style = Paint.Style.FILL
-        strokeWidth = 1.dp2pxF()
+        strokeWidth = 1.dp2pxF
     }
 
     // 用于每隔一段时间就刷新的 Runnable

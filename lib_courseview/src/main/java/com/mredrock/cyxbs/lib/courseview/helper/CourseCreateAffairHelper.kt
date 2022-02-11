@@ -1,9 +1,12 @@
 package com.mredrock.cyxbs.lib.courseview.helper
 
+import android.animation.ValueAnimator
 import android.graphics.drawable.GradientDrawable
 import android.os.*
 import android.view.*
+import android.view.animation.AlphaAnimation
 import android.widget.ImageView
+import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import com.mredrock.cyxbs.lib.courseview.R
@@ -16,6 +19,7 @@ import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
 import com.mredrock.cyxbs.lib.courseview.course.utils.OnSaveBundleListener
 import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
+import com.mredrock.cyxbs.lib.courseview.helper.CourseLongPressMoveHelper.LongPressState.*
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.VibratorUtil
@@ -93,6 +97,13 @@ class CourseCreateAffairHelper private constructor(
     // 长按时执行的 Runnable
     private val mLongPressRunnable = Runnable {
         mIsInLongPress = true
+        when (mLongPressMoveHelper.getLongPressState()) {
+            ANIM_TRAVEL, ANIM_RESTORE -> {
+                // 如果长按都开始但还处于整体移动的动画中，那没有办法了，只能强制取消动画了
+                mLongPressMoveHelper.forceCancel()
+            }
+            else -> {}
+        }
         showTouchAffairView()
         VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
         // 记录长按开始时的中午状态
@@ -151,18 +162,22 @@ class CourseCreateAffairHelper private constructor(
      */
     private fun showTouchAffairView() {
         val lp = mTouchAffairView.layoutParams as CourseLayoutParams
+        lp.startRow = mTopRow
+        lp.endRow = mBottomRow
+        lp.startColumn = mInitialColumn
+        lp.endColumn = mInitialColumn
+        // 添加 mTouchAffairView
+        if (mTouchAffairView.parent != null) {
+            if (mTouchAffairView.parent is CourseLayout) {
+                mTouchAffairView.layoutParams = lp
+            } else {
+                throw RuntimeException("为什么 mTouchAffairView 的父布局不是 CourseLayout?")
+            }
+        } else {
+            course.addView(mTouchAffairView, lp)
+        }
         // 回调监听
         mOnTouchAffairListener?.onCreateTouchAffair(mTouchAffairView, lp)
-        // 添加 mTouchAffairView
-        course.addCourse(
-            mTouchAffairView,
-            lp.apply {
-                startRow = mTopRow
-                endRow = mBottomRow
-                startColumn = mInitialColumn
-                endColumn = mInitialColumn
-            }
-        )
     }
 
     override fun onCancelDownEvent(event: MotionEvent, course: CourseLayout) {
@@ -170,10 +185,59 @@ class CourseCreateAffairHelper private constructor(
         val x = event.x.toInt()
         val y = event.y.toInt()
         val touchView = course.findItemUnderByXY(x, y)
-        if (touchView !== mTouchAffairView) {
+        removeLastTouchAffairViewWhenNextDown(touchView)
+    }
+
+    private var mAlphaValueAnimation: ValueAnimator? = null
+
+    private fun removeLastTouchAffairViewWhenNextDown(touchView: View?) {
+        mTouchAffairView.animation?.cancel() // 取消之前设置的补间动画
+        if (touchView !== mTouchAffairView && !mLongPressMoveHelper.getIsSubstituteView(touchView)) {
             // 此时说明点击的是其他地方，不是 mTouchAffairView，则 remove 掉 mTouchAffairView
-            if (mTouchAffairView.parent != null) { // 减少遍历
-                course.removeView(mTouchAffairView)
+            when (mLongPressMoveHelper.getLongPressState()) {
+                ANIM_TRAVEL, ANIM_RESTORE -> {
+                    // 此时说明正在执行整体移动的动画，这里的移除就添加属性动画
+                    if (mAlphaValueAnimation == null) {
+                        mAlphaValueAnimation = ValueAnimator.ofFloat(1F, 0F).apply {
+                            addUpdateListener {
+                                mTouchAffairView.alpha = it.animatedValue as Float
+                                if (mLongPressMoveHelper.getLongPressState() == OVER) {
+                                    course.removeView(touchView)
+                                }
+                            }
+                            doOnEnd {
+                                mAlphaValueAnimation = null
+                                when (mLongPressMoveHelper.getLongPressState()) {
+                                    ANIM_TRAVEL, ANIM_RESTORE -> {
+                                        // 如果都结束了
+                                        mLongPressMoveHelper.forceCancel()
+                                        course.removeView(touchView)
+                                    }
+                                    else -> {}
+                                }
+                            }
+                            duration = 200
+                            start()
+                        }
+                    }
+                }
+                else -> {
+                    // 此时说明没有进行整体移动的动画，
+                    // 又因为 mLongPressMoveHelper 是后面才开始接收到事件，所以这里就正常移除
+                    if (mTouchAffairView.parent != null) { // 先判断是否已经被删除
+                        mTouchAffairView.startAnimation(
+                            AlphaAnimation(1F, 0F).apply {
+                                duration = 200
+                            }
+                        )
+                        /*
+                        * 用补监动画的原因是：
+                        * 在子 View 被删除时如果存在补间动画，ViewGroup 会把暂时它放进一个 list 延后删除
+                        * 但它实际上在 getChildAt() 中是被删除了的
+                        * */
+                        course.removeView(mTouchAffairView)
+                    }
+                }
             }
         }
     }
@@ -189,12 +253,7 @@ class CourseCreateAffairHelper private constructor(
             val x = event.x.toInt()
             val y = event.y.toInt()
             val touchView = course.findItemUnderByXY(x, y)
-            if (touchView !== mTouchAffairView) {
-                // 此时说明点击的是其他地方，不是 mTouchAffairView，则 remove 掉 mTouchAffairView
-                if (mTouchAffairView.parent != null) { // 减少遍历
-                    course.removeView(mTouchAffairView)
-                }
-            }
+            removeLastTouchAffairViewWhenNextDown(touchView)
             if (touchView == null) {
                 /*
                 * 如果为 null，直接拦截
@@ -319,8 +378,10 @@ class CourseCreateAffairHelper private constructor(
 
     /**
      * 该方法作用：
-     *
      * 1、根据 [y] 值来计算当前 [mTouchAffairView] 的位置并刷新布局
+     *
+     * 其实这里也可以用 CourseScrollView 的绝对距离来计算
+     * @param y 到 [course] 顶部的距离
      */
     private fun changeTouchAffairView(y: Int) {
         mTouchRow = course.getRow(y) // 当前触摸的行数
@@ -412,7 +473,7 @@ class CourseCreateAffairHelper private constructor(
          */
         private fun isAllowScrollAndCalculateVelocity(): Boolean {
             val scroll = course.mCourseScrollView
-            val nowHeight = touchY + course.getDiffHeightWithScrollView()
+            val nowHeight = touchY + course.getDistanceCourseLayoutToScrollView()
             val moveBoundary = 100 // 移动的边界值
             // 向上滚动，即手指移到底部，需要显示下面的内容
             val isNeedScrollUp =
@@ -496,7 +557,7 @@ class CourseCreateAffairHelper private constructor(
         // 但回调 onRestoreInstanceState() 时还没有开始布局，得不到 top 值，所以需要用 post 在布局后设置
         course.post {
             course.mCourseScrollView.scrollY =
-                mTouchAffairView.top + course.getDiffHeightWithScrollView() - 60
+                mTouchAffairView.top + course.getDistanceCourseLayoutToScrollView() - 60
         }
     }
 

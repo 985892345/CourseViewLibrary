@@ -35,7 +35,7 @@ class AffairDrawable(context: Context) : Drawable() {
         val width = mClipBounds.width()
         val height = mClipBounds.height()
         val drawEdge = max(width, height) * sqrt(2F)
-        val space = 8.dp2px()
+        val space = 8.dp2px
         val num = (drawEdge / (space * 2)).toInt()
         canvas.save()
         canvas.translate(width / 2F, height / 2F)

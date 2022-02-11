@@ -289,7 +289,7 @@ class CourseLayout : NetLayout {
      *   |-- 得到的值 --| (注意：此时值为负)
      * ```
      */
-    fun getDiffHeightWithScrollView(): Int {
+    fun getDistanceCourseLayoutToScrollView(): Int {
         var dHeight = top // 与 mCourseScrollView 去掉 scrollY 后的高度差，即屏幕上显示的高度差
         var parent = parent
         while (parent is ViewGroup) { // 这个循环用于计算 dHeight
@@ -741,8 +741,8 @@ class CourseLayout : NetLayout {
             val bottomNoon =
                 topNoon + course.getRowsHeight(NOON_TOP, NOON_BOTTOM)
             val lp = view.layoutParams as CourseLayoutParams
-            val top = lp.constraintTop + view.translationY
-            val bottom = lp.constraintBottom + view.translationY
+            val top = course.getRowsHeight(0, lp.startRow - 1) + view.translationY
+            val bottom = top + course.getRowsHeight(lp.startRow, lp.endRow)
             return top < topNoon - 2 && bottom > bottomNoon + 2 // 因为是移动后，所以加个 2 来填充误差
         }
 
@@ -761,8 +761,8 @@ class CourseLayout : NetLayout {
             val bottomDusk =
                 topDusk + course.getRowsHeight(DUSK_TOP, DUSK_BOTTOM)
             val lp = view.layoutParams as CourseLayoutParams
-            val top = lp.constraintTop + view.translationY
-            val bottom = lp.constraintBottom + view.translationY
+            val top = course.getRowsHeight(0, lp.startRow - 1) + view.translationY
+            val bottom = top + course.getRowsHeight(lp.startRow, lp.endRow)
             return top < topDusk - 2 && bottom > bottomDusk + 2 // 因为是移动后，所以加个 2 来填充误差
         }
     }

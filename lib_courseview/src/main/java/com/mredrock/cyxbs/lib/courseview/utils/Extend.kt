@@ -12,13 +12,18 @@ import kotlin.math.roundToInt
  * @date 2022/2/6 15:45
  */
 
-internal fun Int.dp2px(): Int = this.dp2pxF().roundToInt()
 
-internal fun Int.dp2pxF(): Float = Resources.getSystem().displayMetrics.density * this
+internal val Int.dp2px: Int
+    get() = this.dp2pxF.roundToInt()
 
-internal fun Float.dp2px(): Int = this.dp2pxF().roundToInt()
+internal val Int.dp2pxF: Float
+    get() = Resources.getSystem().displayMetrics.density * this
 
-internal fun Float.dp2pxF(): Float = Resources.getSystem().displayMetrics.density * this
+internal val Float.dp2px: Int
+    get() = this.dp2pxF.roundToInt()
+
+internal val Float.dp2pxF: Float
+    get() = Resources.getSystem().displayMetrics.density * this
 
 internal fun Int.color(context: Context): Int = ContextCompat.getColor(context, this)
 

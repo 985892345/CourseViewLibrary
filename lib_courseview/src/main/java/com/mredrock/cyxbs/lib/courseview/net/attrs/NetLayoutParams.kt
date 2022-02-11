@@ -123,21 +123,29 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
 
     /**
      * 子 View 受到约束的 left，即 [startColumn] 对应的开始距离
+     *
+     * **NOTE:** 这个值依赖于依赖于 onLayout()，会有短时间内的失效性
      */
     var constraintLeft = 0
         internal set
     /**
      * 子 View 受到约束的 right，即 [endColumn] 对应的结束距离
+     *
+     * **NOTE:** 这个值依赖于依赖于 onLayout()，会有短时间内的失效性
      */
     var constraintRight = 0
         internal set
     /**
      * 子 View 受到约束的 top，即 [startRow] 对应的开始距离
+     *
+     * **NOTE:** 这个值依赖于依赖于 onLayout()，会有短时间内的失效性
      */
     var constraintTop = 0
         internal set
     /**
      * 子 View 受到约束的 bottom，即 [endRow] 对应的结束距离
+     *
+     * **NOTE:** 这个值依赖于依赖于 onLayout()，会有短时间内的失效性
      */
     var constraintBottom = 0
         internal set
