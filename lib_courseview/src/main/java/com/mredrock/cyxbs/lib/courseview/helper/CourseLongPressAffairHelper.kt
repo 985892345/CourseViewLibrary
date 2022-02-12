@@ -1,6 +1,7 @@
 package com.mredrock.cyxbs.lib.courseview.helper
 
 import android.view.MotionEvent
+import android.view.View
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
@@ -10,10 +11,11 @@ import com.mredrock.cyxbs.lib.courseview.utils.CourseType
  * ```
  * 该类作用：
  * 1、实现长按事务的整体移动功能
+ * 2、
  *
  * 注意事项：
- * 1、该类的实现基本依靠 CourseLongPressMoveHelper
- * 2、那个构造器的第二个参数不要自己传入，主要是为了使用接口代理的 by 关键字
+ * 1、该类的长按整体移动的实现基本依靠 CourseLongPressEntityMoveHelper，
+ *    用帮助类的形式引入长按移动功能，主要是为了以后需求的扩展
  * ```
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
@@ -21,18 +23,35 @@ import com.mredrock.cyxbs.lib.courseview.utils.CourseType
  */
 class CourseLongPressAffairHelper(
     course: CourseLayout,
-    private val entityMoveHelper: ILongPressEntityMove = CourseLongPressEntityMoveHelper(course) {
+) : OnCourseTouchListener, ILongPressEntityMove {
+
+    override fun setEntityMoveListener(l: ILongPressEntityMove.OnEntityMoveListener) {
+        mEntityMoveHelper.setEntityMoveListener(l)
+    }
+
+    override fun forceEnd() {
+        mEntityMoveHelper.forceEnd()
+    }
+
+    override fun isSubstituteView(child: View?): Boolean {
+        return mEntityMoveHelper.isSubstituteView(child)
+    }
+
+    override fun getLongPressState(): ILongPressEntityMove.LongPressState {
+        return mEntityMoveHelper.getLongPressState()
+    }
+
+    private val mEntityMoveHelper: ILongPressEntityMove = CourseLongPressEntityMoveHelper(course) {
         val lp = it.layoutParams as CourseLayoutParams
         lp.type == CourseType.AFFAIR
     }
-) : OnCourseTouchListener, ILongPressEntityMove by entityMoveHelper {
 
     override fun isAdvanceIntercept(event: MotionEvent, course: CourseLayout): Boolean {
-        return entityMoveHelper.isAdvanceIntercept(event, course)
+        return mEntityMoveHelper.isAdvanceIntercept(event, course)
     }
 
     override fun onTouchEvent(event: MotionEvent, course: CourseLayout) {
-        entityMoveHelper.onTouchEvent(event, course)
+        mEntityMoveHelper.onTouchEvent(event, course)
     }
 
     companion object {

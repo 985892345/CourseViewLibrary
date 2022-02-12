@@ -1,13 +1,13 @@
 package com.mredrock.cyxbs.lib.courseview.helper
 
 import android.animation.ValueAnimator
+import android.content.Context
 import android.graphics.drawable.GradientDrawable
 import android.os.*
 import android.view.*
 import android.widget.ImageView
 import androidx.core.animation.doOnCancel
 import androidx.core.animation.doOnEnd
-import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
@@ -24,6 +24,8 @@ import com.mredrock.cyxbs.lib.courseview.helper.ILongPressEntityMove.LongPressSt
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.VibratorUtil
+import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
+import com.mredrock.cyxbs.lib.courseview.utils.lazyUnlock
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -41,7 +43,7 @@ import kotlin.math.min
  *
  * 注意事项：
  * 1、该类只管理创建事务，请不要添加一些不属于该类的功能，想添加功能应该再写一个 OnCourseTouchListener
- * 2、长按整体移动的实现基本依靠 AbstractCourseLongPressMoveHelper
+ * 2、长按整体移动的实现基本依靠 CourseLongPressEntityMoveHelper
  * ```
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
@@ -49,7 +51,7 @@ import kotlin.math.min
  */
 class CourseCreateAffairHelper private constructor(
     private val course: CourseLayout
-) : OnCourseTouchListener, OnSaveBundleListener {
+) : OnCourseTouchListener, OnSaveBundleListener, ViewExtend {
 
     /**
      * 设置触摸空白区域生成的用于添加事务的 View 的点击监听
@@ -78,6 +80,7 @@ class CourseCreateAffairHelper private constructor(
         mOnTouchAffairListener = l
     }
 
+    override val context: Context = course.context
     private var mInitialX = 0 // Down 时的初始 X 值
     private var mInitialY = 0 // Down 时的初始 Y 值
     private var mLastMoveX = 0 // Move 时的移动 X 值
@@ -135,20 +138,47 @@ class CourseCreateAffairHelper private constructor(
      * 1、稍稍耗性能，每次修改 layoutParams 都会重新布局，比不上在 onDraw() 里面绘图（但绘图需要计算，比较麻烦）
      * ```
      */
-    private val mTouchAffairView by lazy(LazyThreadSafetyMode.NONE) {
-        val radius = course.context.resources.getDimension(R.dimen.course_course_item_radius)
-        ImageView(course.context).apply {
+    private val mTouchAffairView by lazyUnlock {
+        val radius = R.dimen.course_course_item_radius.dimens()
+        ImageView(context).apply {
             scaleType = ImageView.ScaleType.CENTER_INSIDE
             background = GradientDrawable().apply {
                 // 设置圆角
                 cornerRadii =
                     floatArrayOf(radius, radius, radius, radius, radius, radius, radius, radius)
                 // 背景颜色
-                setColor(ContextCompat.getColor(course.context, R.color.course_affair_color))
+                setColor(R.color.course_affair_color.color())
             }
             // 设置 ImageView 的前景图片
             setImageResource(R.drawable.course_ic_add_circle_white)
             layoutParams = CourseLayoutParams(0,0, 0, CourseType.AFFAIR_TOUCH)
+        }
+    }
+
+    private val mTouchAffairView2 by lazyUnlock {
+        val imageView = ImageView(context).apply {
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            background = GradientDrawable().apply {
+                val radius = R.dimen.course_course_item_radius.dimens()
+                // 设置圆角
+                cornerRadii =
+                    floatArrayOf(radius, radius, radius, radius, radius, radius, radius, radius)
+                // 背景颜色
+                setColor(R.color.course_affair_color.color())
+            }
+            // 设置 ImageView 的前景图片
+            setImageResource(R.drawable.course_ic_add_circle_white)
+            layoutParams = CourseLayoutParams(0,0, 0, CourseType.AFFAIR_TOUCH)
+        }
+
+        object : ViewGroup(context) {
+            fun drawImageView() {
+
+            }
+            override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {}
+        }.apply {
+            // 添加到 overlay 中重新布局不会对它产生影响
+            overlay.add(imageView)
         }
     }
 
@@ -275,12 +305,13 @@ class CourseCreateAffairHelper private constructor(
                 mUpperRow = 0 // 重置
                 mLowerRow = course.getRowCount() - 1 // 重置
 
-                calculateUpperLowerRow() // 计算上下限
-
                 mIsInLongPress = false // 重置
                 course.postDelayed(mLongPressRunnable, mLongPressTimeout)
                 // 禁止外面的 ScrollView 拦截事件
                 course.parent.requestDisallowInterceptTouchEvent(true)
+
+                // 计算上下限，并且会再次判断是否能生成 mTouchAffair，所以只能放在最后
+                calculateUpperLowerRow()
             }
             MotionEvent.ACTION_MOVE -> {
                 if (mIsInLongPress) { // 处于长按状态
@@ -335,7 +366,7 @@ class CourseCreateAffairHelper private constructor(
                     && abs(y - mLastMoveY) <= mTouchSlop
                 ) {
                     // 这里说明移动的距离小于 mTouchSlop，但还是得把点击的事务给绘制上，但是只有一格
-                    if (mTouchAffairView.parent == null) { // 防止之前已经被添加
+                    if (mAlphaValueAnimator == null && mTouchAffairView.parent == null) { // 防止之前已经被添加
                         showTouchAffairView()
                     }
                 }
@@ -356,10 +387,17 @@ class CourseCreateAffairHelper private constructor(
             val child = course.getChildAt(i)
             val lp = child.layoutParams as CourseLayoutParams
             if (mInitialColumn in lp.startColumn..lp.endColumn) {
-                if (lp.endRow < mInitialRow) {
-                    mUpperRow = max(mUpperRow, lp.endRow + 1)
-                } else if (lp.startRow > mInitialRow) {
-                    mLowerRow = min(mLowerRow, lp.startRow - 1)
+                when {
+                    mInitialRow > lp.endRow -> mUpperRow = max(mUpperRow, lp.endRow + 1)
+                    mInitialRow < lp.startRow -> mLowerRow = min(mLowerRow, lp.startRow - 1)
+                    else -> {
+                        /*
+                        * 这一步按理说是永远不会出现的，但在测试中一位学弟还真的触发了，怀疑是 getRow() 中精度的问题
+                        * 虽然概率很低很低，但以防万一，直接在这里结束 mLongPressRunnable，允许父布局拦截事件即可解决
+                        * */
+                        course.removeCallbacks(mLongPressRunnable)
+                        course.parent.requestDisallowInterceptTouchEvent(false)
+                    }
                 }
             }
         }

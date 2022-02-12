@@ -22,4 +22,6 @@ interface ViewExtend {
     fun Float.dp2pxF(): Float = context.resources.displayMetrics.density * this
 
     fun Int.color(): Int = ContextCompat.getColor(context, this)
+
+    fun Int.dimens(): Float = context.resources.getDimension(this)
 }

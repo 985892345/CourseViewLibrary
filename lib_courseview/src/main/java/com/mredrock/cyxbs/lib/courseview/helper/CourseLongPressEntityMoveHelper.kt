@@ -142,6 +142,8 @@ class CourseLongPressEntityMoveHelper(
 
             /**
              * 设置紧接着下一次布局后的回调
+             *
+             * 因为动画的回调提前于布局的回调，所以在有些情况下需要得到重新布局后的高度值才能开启动画
              */
             fun setOnNextLayoutCallback(call: (View) -> Unit) {
                 mOnNextLayoutCallback = call
@@ -599,7 +601,9 @@ class CourseLongPressEntityMoveHelper(
                     restoreAffairViewToOldLocation()
                     return
                 }
+                // 判断中午和傍晚时间段是否存在 View
                 when (lp.type) {
+                    // 目前只知道时间轴上的那几个类型不算
                     CourseType.TIME, CourseType.ARROW_NOON, CourseType.ARROW_DUSK -> {}
                     else -> {
                         if (!hasViewInNoon && CourseLayout.isContainNoon(lp)) {
@@ -633,6 +637,7 @@ class CourseLongPressEntityMoveHelper(
                     mIsNoonFoldedLongPressStart && !mIsContainNoonLongPressStart
                             || mIsContainNoonLongPressStart && !hasViewInNoon
             } else {
+                // 要移去的位置包含中午时间段，就自动展开
                 when (course.getNoonRowState()) {
                     RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldNoonForce()
                     else -> {}
@@ -644,6 +649,7 @@ class CourseLongPressEntityMoveHelper(
                     mIsDuskFoldedLongPressStart && !mIsContainDuskLongPressStart
                             || mIsContainDuskLongPressStart && !hasViewInDusk
             } else {
+                // 要移去的位置包含傍晚时间段，就自动展开
                 when (course.getDuskRowState()) {
                     RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldDuskForce()
                     else -> {}

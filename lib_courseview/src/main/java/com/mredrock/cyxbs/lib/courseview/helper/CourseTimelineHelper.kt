@@ -84,7 +84,7 @@ class CourseTimelineHelper private constructor(
     private val mRefreshRunnable = object : Runnable {
         override fun run() {
             course.invalidate()
-            course.postDelayed(this, 1000 * 60) // 一分钟刷新一次，但记得要取消，防止内存泄漏
+            course.postDelayed(this, 1000 * 20) // 20 秒刷新一次，但记得要取消，防止内存泄漏
         }
 
         fun start() {

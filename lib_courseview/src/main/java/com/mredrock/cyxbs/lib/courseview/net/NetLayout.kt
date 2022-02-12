@@ -18,6 +18,7 @@ import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import kotlin.collections.ArrayList
 import kotlin.collections.LinkedHashMap
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 /**
  * 一个网状的 ViewGroup
@@ -137,7 +138,7 @@ open class NetLayout : ViewGroup {
             return getColumnCount() - 1
         }
         val a = x / width.toFloat()
-        var column = (a * mNetAttrs.columnCount).toInt()
+        var column = (a * getColumnCount()).roundToInt()
         var x1 = getColumnsWidth(0, column - 1)
         var x2 = x1 + getColumnsWidth(column, column)
         while (x < x1) {
@@ -163,7 +164,7 @@ open class NetLayout : ViewGroup {
             return getRowCount() - 1
         }
         val a = y / height.toFloat()
-        var row = (a * mNetAttrs.rowCount).toInt()
+        var row = (a * getRowCount()).roundToInt()
         var y1 = getRowsHeight(0, row - 1)
         var y2 = y1 + getRowsHeight(row, row)
         while (y < y1) {
