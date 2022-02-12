@@ -27,9 +27,10 @@ open class CourseLayoutParams : NetLayoutParams, CourseBeanInternal, Serializabl
         }
     }
 
-    fun <T : CourseLayoutParams> copy(other: T) {
+    fun <T : CourseLayoutParams> copy(other: T): CourseLayoutParams {
         super.copy(other)
         type = other.type
+        return this
     }
 
     override var day: Int

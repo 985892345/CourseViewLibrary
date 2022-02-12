@@ -15,10 +15,10 @@ interface CourseDecoration {
     /**
      * 在所有子 View 的 onDraw() 前的回调，在这里面绘图可以绘制在子 View 下方
      */
-    fun onDraw(canvas: Canvas, course: CourseLayout) { }
+    fun onDrawBelow(canvas: Canvas, course: CourseLayout) { }
 
     /**
      * 在所有子 View 的 onDraw() 后的回调，在这里面绘图可以绘制在子 View 上方
      */
-    fun onDrawOver(canvas: Canvas, course: CourseLayout) { }
+    fun onDrawAbove(canvas: Canvas, course: CourseLayout) { }
 }

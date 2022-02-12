@@ -523,11 +523,11 @@ class CourseLayout : NetLayout {
 
     override fun dispatchDraw(canvas: Canvas) {
         mCourseDecoration.forEach {
-            it.onDraw(canvas, this)
+            it.onDrawBelow(canvas, this)
         }
         super.dispatchDraw(canvas)
         mCourseDecoration.forEach {
-            it.onDrawOver(canvas, this)
+            it.onDrawAbove(canvas, this)
         }
     }
 

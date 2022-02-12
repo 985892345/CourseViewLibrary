@@ -13,33 +13,26 @@ import com.mredrock.cyxbs.lib.courseview.utils.CourseType
  *
  * 注意事项：
  * 1、该类的实现基本依靠 CourseLongPressMoveHelper
+ * 2、那个构造器的第二个参数不要自己传入，主要是为了使用接口代理的 by 关键字
  * ```
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/10 13:09
  */
 class CourseLongPressAffairHelper(
-    course: CourseLayout
-) : OnCourseTouchListener {
-
-    /**
-     * 设置长按移动监听
-     */
-    fun setMoveListener(l: CourseLongPressMoveHelper.OnMoveListener) {
-        mLongPressMoveHelper.setMoveListener(l)
-    }
-
-    private val mLongPressMoveHelper = CourseLongPressMoveHelper(course) {
+    course: CourseLayout,
+    private val entityMoveHelper: ILongPressEntityMove = CourseLongPressEntityMoveHelper(course) {
         val lp = it.layoutParams as CourseLayoutParams
         lp.type == CourseType.AFFAIR
     }
+) : OnCourseTouchListener, ILongPressEntityMove by entityMoveHelper {
 
     override fun isAdvanceIntercept(event: MotionEvent, course: CourseLayout): Boolean {
-        return mLongPressMoveHelper.isAdvanceIntercept(event, course)
+        return entityMoveHelper.isAdvanceIntercept(event, course)
     }
 
     override fun onTouchEvent(event: MotionEvent, course: CourseLayout) {
-        mLongPressMoveHelper.onTouchEvent(event, course)
+        entityMoveHelper.onTouchEvent(event, course)
     }
 
     companion object {

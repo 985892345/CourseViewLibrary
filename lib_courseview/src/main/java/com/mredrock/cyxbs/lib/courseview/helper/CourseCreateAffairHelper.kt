@@ -4,8 +4,8 @@ import android.animation.ValueAnimator
 import android.graphics.drawable.GradientDrawable
 import android.os.*
 import android.view.*
-import android.view.animation.AlphaAnimation
 import android.widget.ImageView
+import androidx.core.animation.doOnCancel
 import androidx.core.animation.doOnEnd
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -19,7 +19,8 @@ import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
 import com.mredrock.cyxbs.lib.courseview.course.utils.OnSaveBundleListener
 import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
-import com.mredrock.cyxbs.lib.courseview.helper.CourseLongPressMoveHelper.LongPressState.*
+import com.mredrock.cyxbs.lib.courseview.helper.ILongPressEntityMove.LongPressState.ANIM_RESTORE
+import com.mredrock.cyxbs.lib.courseview.helper.ILongPressEntityMove.LongPressState.ANIM_TRAVEL
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.VibratorUtil
@@ -64,10 +65,10 @@ class CourseCreateAffairHelper private constructor(
     }
 
     /**
-     * 设置长按移动监听
+     * 设置长按整体移动监听，不是长按生成事务的监听
      */
-    fun setMoveListener(l: CourseLongPressMoveHelper.OnMoveListener) {
-        mLongPressMoveHelper.setMoveListener(l)
+    fun setEntiretyMoveListener(l: ILongPressEntityMove.OnEntityMoveListener) {
+        mEntityMoveHelper.setEntityMoveListener(l)
     }
 
     /**
@@ -97,13 +98,7 @@ class CourseCreateAffairHelper private constructor(
     // 长按时执行的 Runnable
     private val mLongPressRunnable = Runnable {
         mIsInLongPress = true
-        when (mLongPressMoveHelper.getLongPressState()) {
-            ANIM_TRAVEL, ANIM_RESTORE -> {
-                // 如果长按都开始但还处于整体移动的动画中，那没有办法了，只能强制取消动画了
-                mLongPressMoveHelper.forceCancel()
-            }
-            else -> {}
-        }
+        mAlphaValueAnimator?.cancel() // 取消之前 mTouchAffairView 可能存在的动画
         showTouchAffairView()
         VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
         // 记录长按开始时的中午状态
@@ -188,68 +183,57 @@ class CourseCreateAffairHelper private constructor(
         removeLastTouchAffairViewWhenNextDown(touchView)
     }
 
-    private var mAlphaValueAnimation: ValueAnimator? = null
+    // 点击了其他地方让 mTouchAffairView 消失的动画
+    private var mAlphaValueAnimator: ValueAnimator? = null
 
+    /**
+     * 判断下一次 Down 时点击的 View 是否需要让之前显示的 mTouchAffairView 消失，
+     * 如果又处于长按整体移动的动画，则也会在合适的时间取消长按整体移动的动画
+     */
     private fun removeLastTouchAffairViewWhenNextDown(touchView: View?) {
-        mTouchAffairView.animation?.cancel() // 取消之前设置的补间动画
-        if (touchView !== mTouchAffairView && !mLongPressMoveHelper.getIsSubstituteView(touchView)) {
+        if (mTouchAffairView.parent != null
+            && touchView !== mTouchAffairView
+            && !mEntityMoveHelper.isSubstituteView(touchView) // 注意这里要包括长按整体移动的替身 View
+        ) {
             // 此时说明点击的是其他地方，不是 mTouchAffairView，则 remove 掉 mTouchAffairView
-            when (mLongPressMoveHelper.getLongPressState()) {
-                ANIM_TRAVEL, ANIM_RESTORE -> {
-                    // 此时说明正在执行整体移动的动画，这里的移除就添加属性动画
-                    if (mAlphaValueAnimation == null) {
-                        mAlphaValueAnimation = ValueAnimator.ofFloat(1F, 0F).apply {
-                            addUpdateListener {
-                                mTouchAffairView.alpha = it.animatedValue as Float
-                                if (mLongPressMoveHelper.getLongPressState() == OVER) {
-                                    course.removeView(touchView)
-                                }
-                            }
-                            doOnEnd {
-                                mAlphaValueAnimation = null
-                                when (mLongPressMoveHelper.getLongPressState()) {
-                                    ANIM_TRAVEL, ANIM_RESTORE -> {
-                                        // 如果都结束了
-                                        mLongPressMoveHelper.forceCancel()
-                                        course.removeView(touchView)
-                                    }
-                                    else -> {}
-                                }
-                            }
-                            duration = 200
-                            start()
+            if (mAlphaValueAnimator == null) {
+                mAlphaValueAnimator = ValueAnimator.ofFloat(1F, 0F).apply {
+                    addUpdateListener { mTouchAffairView.alpha = it.animatedValue as Float }
+                    doOnEnd {
+                        mAlphaValueAnimator = null
+                        when (mEntityMoveHelper.getLongPressState()) {
+                            // 如果都结束了长按移动的动画还没结束，就只能强制取消长按移动动画了
+                            ANIM_TRAVEL, ANIM_RESTORE -> mEntityMoveHelper.forceEnd()
+                            else -> {}
                         }
+                        course.removeView(mTouchAffairView) // 结束时把 View 给删掉
+                        mTouchAffairView.alpha = 1F
                     }
-                }
-                else -> {
-                    // 此时说明没有进行整体移动的动画，
-                    // 又因为 mLongPressMoveHelper 是后面才开始接收到事件，所以这里就正常移除
-                    if (mTouchAffairView.parent != null) { // 先判断是否已经被删除
-                        mTouchAffairView.startAnimation(
-                            AlphaAnimation(1F, 0F).apply {
-                                duration = 200
-                            }
-                        )
-                        /*
-                        * 用补监动画的原因是：
-                        * 在子 View 被删除时如果存在补间动画，ViewGroup 会把暂时它放进一个 list 延后删除
-                        * 但它实际上在 getChildAt() 中是被删除了的
-                        * */
-                        course.removeView(mTouchAffairView)
+                    doOnCancel {
+                        mAlphaValueAnimator = null
+                        when (mEntityMoveHelper.getLongPressState()) {
+                            // 如果该动画被取消时长按移动的动画还没结束，就只能强制取消长按移动动画了
+                            ANIM_TRAVEL, ANIM_RESTORE -> mEntityMoveHelper.forceEnd()
+                            else -> {}
+                        }
+                        // 被取消说明立马就得使用 mTouchAffairView，所以可以不用删除掉
+                        mTouchAffairView.alpha = 1F
                     }
+                    start()
                 }
             }
         }
     }
 
-    private var mIsInLongPressMove = false
-    private var mLongPressMoveHelper = CourseLongPressMoveHelper(course) {
-        it === mTouchAffairView
+    private var mIsInEntityMove = false // 是否该长按整体移动拦截事件
+    // 长按整体移动的帮助类
+    private var mEntityMoveHelper = CourseLongPressEntityMoveHelper(course) {
+        it === mTouchAffairView // 只有是 mTouchAffairView 才能开启长按整体移动
     }
 
     override fun isAdvanceIntercept(event: MotionEvent, course: CourseLayout): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
-            mIsInLongPressMove = false
+            mIsInEntityMove = false // 重置
             val x = event.x.toInt()
             val y = event.y.toInt()
             val touchView = course.findItemUnderByXY(x, y)
@@ -265,14 +249,14 @@ class CourseCreateAffairHelper private constructor(
             /*
             * 如果 Down 事件没有拦截，就全权交给整体移动的帮助类处理
             * */
-            mIsInLongPressMove = true
+            mIsInEntityMove = true
         }
-        return mLongPressMoveHelper.isAdvanceIntercept(event, course)
+        return mEntityMoveHelper.isAdvanceIntercept(event, course)
     }
 
     override fun onTouchEvent(event: MotionEvent, course: CourseLayout) {
-        if (mIsInLongPressMove) {
-            mLongPressMoveHelper.onTouchEvent(event, course)
+        if (mIsInEntityMove) {
+            mEntityMoveHelper.onTouchEvent(event, course)
             return
         }
         val x = event.x.toInt()
@@ -285,8 +269,8 @@ class CourseCreateAffairHelper private constructor(
                 mLastMoveY = y
                 mInitialRow = course.getRow(y)
                 mInitialColumn = course.getColumn(x)
-                mTopRow = mInitialRow
-                mBottomRow = mInitialRow
+                mTopRow = mInitialRow // 重置
+                mBottomRow = mInitialRow // 重置
 
                 mUpperRow = 0 // 重置
                 mLowerRow = course.getRowCount() - 1 // 重置
@@ -313,6 +297,11 @@ class CourseCreateAffairHelper private constructor(
                         *    这种情况下就得让 mScrollRunnable 加上 ScrollView 将偏移的值来
                         *    调用 changeTouchAffairView()，不然就会出现滚轴滚动，
                         *    但 AffairView 没有一起移动（横屏时尤其明显）
+                        *
+                        * 其实这里也可以像长按整体移动的设计一样直接 invalidate()，然后全部在 onDrawAbove() 中处理
+                        * 没有这样做的原因：
+                        * 1、直接 invalidate() 会重绘全部区域，会有轻微的性能消耗
+                        * 2、长按整体移动的复杂程度比长按创建事务要高，更适合直接 invalidate()
                         * */
                         changeTouchAffairView(y)
                     }

@@ -1,9 +1,9 @@
 package com.mredrock.cyxbs.lib.courseview.utils
 
 import android.content.Context
-import android.content.res.Resources
 import androidx.core.content.ContextCompat
 import kotlin.math.roundToInt
+
 
 /**
  * ...
@@ -12,18 +12,13 @@ import kotlin.math.roundToInt
  * @date 2022/2/6 15:45
  */
 
+internal fun Int.dp2px(context: Context): Int = this.dp2pxF(context).roundToInt()
 
-internal val Int.dp2px: Int
-    get() = this.dp2pxF.roundToInt()
+internal fun Int.dp2pxF(context: Context): Float = context.resources.displayMetrics.density * this
 
-internal val Int.dp2pxF: Float
-    get() = Resources.getSystem().displayMetrics.density * this
+internal fun Float.dp2px(context: Context): Int = this.dp2pxF(context).roundToInt()
 
-internal val Float.dp2px: Int
-    get() = this.dp2pxF.roundToInt()
-
-internal val Float.dp2pxF: Float
-    get() = Resources.getSystem().displayMetrics.density * this
+internal fun Float.dp2pxF(context: Context): Float = context.resources.displayMetrics.density * this
 
 internal fun Int.color(context: Context): Int = ContextCompat.getColor(context, this)
 

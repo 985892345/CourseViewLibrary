@@ -1,5 +1,6 @@
 package com.mredrock.cyxbs.lib.courseview.helper
 
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.view.View
@@ -33,7 +34,7 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.LESSON_9_
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_BOTTOM
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_TOP
 import com.mredrock.cyxbs.lib.courseview.course.utils.CourseDecoration
-import com.mredrock.cyxbs.lib.courseview.utils.dp2pxF
+import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
 import java.util.*
 
 /**
@@ -54,7 +55,7 @@ import java.util.*
  */
 class CourseTimelineHelper private constructor(
     private val course: CourseLayout
-) : CourseDecoration {
+) : CourseDecoration, ViewExtend {
 
     fun setVisible(boolean: Boolean) {
         mVisible = boolean
@@ -65,8 +66,10 @@ class CourseTimelineHelper private constructor(
         }
     }
 
+    override val context: Context = course.context
+
     private val mCalendar = Calendar.getInstance() // 用于装换时间
-    private val mCircleRadius = 3.dp2pxF // 小圆半径
+    private val mCircleRadius = 3.dp2pxF() // 小圆半径
     private var mVisible = true // 是否显示
 
     // 画笔
@@ -74,7 +77,7 @@ class CourseTimelineHelper private constructor(
         color = 0xFF2A4E84.toInt()
         isAntiAlias = true
         style = Paint.Style.FILL
-        strokeWidth = 1.dp2pxF
+        strokeWidth = 1.dp2pxF()
     }
 
     // 用于每隔一段时间就刷新的 Runnable
@@ -110,7 +113,7 @@ class CourseTimelineHelper private constructor(
         })
     }
 
-    override fun onDrawOver(canvas: Canvas, course: CourseLayout) {
+    override fun onDrawAbove(canvas: Canvas, course: CourseLayout) {
         if (mVisible) {
             val left = course.getColumnsWidth(0, CourseLayout.TIME_LINE_LEFT - 1)
             val width =

@@ -150,7 +150,7 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
     var constraintBottom = 0
         internal set
 
-    fun <T: NetLayoutParams> copy(other: T) {
+    fun <T: NetLayoutParams> copy(other: T): NetLayoutParams {
         width = other.width
         height = other.height
         leftMargin = other.leftMargin
@@ -166,6 +166,7 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
         constraintRight = other.constraintRight
         constraintTop = other.constraintTop
         constraintBottom = other.constraintBottom
+        return this
     }
 
     override fun toString(): String {

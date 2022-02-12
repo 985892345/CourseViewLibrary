@@ -4,8 +4,7 @@ import android.content.Context
 import android.graphics.*
 import android.graphics.drawable.Drawable
 import com.mredrock.cyxbs.lib.courseview.R
-import com.mredrock.cyxbs.lib.courseview.utils.color
-import com.mredrock.cyxbs.lib.courseview.utils.dp2px
+import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
 import kotlin.math.max
 import kotlin.math.sqrt
 
@@ -20,11 +19,11 @@ import kotlin.math.sqrt
  * @data 2022/2/7 16:40
  * @describe 因需求变更，我开始重构课表，将学长之前写的该自定义 View 改为了一张 Drawable
  */
-class AffairDrawable(context: Context) : Drawable() {
+class AffairDrawable(override val context: Context) : Drawable(), ViewExtend {
 
-    private val mBgColor = R.color.white.color(context)
+    private val mBgColor = R.color.white.color()
     private val mPaint = Paint().apply {
-        color = R.color.common_transaction_background_stripe_color.color(context)
+        color = R.color.common_transaction_background_stripe_color.color()
     }
     private val mRectF = RectF()
     private val mClipBounds = Rect()
@@ -35,7 +34,7 @@ class AffairDrawable(context: Context) : Drawable() {
         val width = mClipBounds.width()
         val height = mClipBounds.height()
         val drawEdge = max(width, height) * sqrt(2F)
-        val space = 8.dp2px
+        val space = 8.dp2px()
         val num = (drawEdge / (space * 2)).toInt()
         canvas.save()
         canvas.translate(width / 2F, height / 2F)
