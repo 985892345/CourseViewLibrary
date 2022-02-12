@@ -7,7 +7,9 @@ import android.graphics.drawable.GradientDrawable
 import android.os.*
 import android.util.Log
 import android.view.*
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.AlphaAnimation
+import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
 import androidx.core.animation.doOnCancel
 import androidx.core.animation.doOnEnd
@@ -177,7 +179,7 @@ class CourseCreateAffairHelper private constructor(
         object : ViewGroup(context) {
 
             init {
-                addView(imageView)
+                overlay.add(imageView)
                 layoutParams = CourseLayoutParams(0,0, 0, CourseType.AFFAIR_TOUCH)
             }
 
@@ -215,44 +217,37 @@ class CourseCreateAffairHelper private constructor(
                     lp.endRow = bottomRow
                     layoutParams = lp // 设置属性，刷新布局
                 }
+                var t = 0
+                var b = height
+                when (mTouchRow) {
+                    in (mInitialRow + 1)..mLowerRow -> b = y - top
+                    in mUpperRow until mInitialRow -> t = y - top
+                }
+                imageView.left = 0
+                imageView.right = width
+                imageView.top = t
+                imageView.bottom = b
             }
 
             fun expandImageView() {
                 if (imageView.top == 0 && imageView.bottom == height) return
                 if (mExpandValueAnimator == null) {
-                    val isTopOrBottom = imageView.top == 0
+                    val isTopOrBottom = imageView.top != 0
                     val start = if (isTopOrBottom) imageView.top else imageView.bottom
                     val end = if (isTopOrBottom) 0 else height
                     mExpandValueAnimator = ValueAnimator.ofInt(start, end).apply {
                         addUpdateListener {
                             if (isTopOrBottom) imageView.top = animatedValue as Int
                             else imageView.bottom = animatedValue as Int
-                            invalidate()
                         }
                         doOnEnd {
                             mExpandValueAnimator = null
                         }
+                        interpolator = DecelerateInterpolator()
                         duration = 160 // 小于长按需要的时间
                         start()
                     }
                 }
-            }
-
-
-            override fun dispatchDraw(canvas: Canvas) {
-                if (mExpandValueAnimator == null) {
-                    val y = course.let {
-                        it.mCourseScrollView.mLastMoveY - it.getDistanceCourseLayoutToScrollView() - top
-                    }
-                    var t = 0
-                    var b = height
-                    when (mTouchRow) {
-                        in (mInitialRow + 1)..mLowerRow -> b = y
-                        in mUpperRow until mInitialRow -> t = y
-                    }
-                    imageView.layout(0, t, width, b)
-                }
-                super.dispatchDraw(canvas)
             }
             override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {}
         }
