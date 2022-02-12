@@ -213,10 +213,11 @@ class CourseLongPressEntityMoveHelper(
                     mIsNeedFoldNoon = false // 重置
                     mIsNeedFoldDusk = false // 重置
                     mIsInOverlay = false // 重置
+                    mDistanceDownToViewTop = y - child.top
+
                     course.postDelayed(mLongPressRunnable, mLongPressTimeout)
                     // 禁止外面的 ScrollView 拦截事件
                     course.parent.requestDisallowInterceptTouchEvent(true)
-                    mDistanceDownToViewTop = y - child.top
                 }
             }
             MotionEvent.ACTION_MOVE -> {
