@@ -138,16 +138,20 @@ open class NetLayout : ViewGroup {
             return getColumnCount() - 1
         }
         val a = x / width.toFloat()
-        var column = (a * getColumnCount()).roundToInt()
-        var x1 = getColumnsWidth(0, column - 1)
-        var x2 = x1 + getColumnsWidth(column, column)
-        while (x < x1) {
-            column--
-            x1 -= getColumnsWidth(column, column)
-        }
-        while (x > x2) {
-            column++
-            x2 += getColumnsWidth(column, column)
+        var column = (a * getColumnCount()).toInt()
+        try {
+            var x1 = getColumnsWidth(0, column - 1)
+            var x2 = x1 + getColumnsWidth(column, column)
+            while (x < x1) {
+                column--
+                x1 -= getColumnsWidth(column, column)
+            }
+            while (x > x2) {
+                column++
+                x2 += getColumnsWidth(column, column)
+            }
+        } catch (e: IllegalArgumentException) {
+            throw IllegalArgumentException("此时 x = $x 值得到的 column = $column 有问题，问题如下：${e.message}")
         }
         return column
     }
@@ -164,16 +168,20 @@ open class NetLayout : ViewGroup {
             return getRowCount() - 1
         }
         val a = y / height.toFloat()
-        var row = (a * getRowCount()).roundToInt()
-        var y1 = getRowsHeight(0, row - 1)
-        var y2 = y1 + getRowsHeight(row, row)
-        while (y < y1) {
-            row--
-            y1 -= getRowsHeight(row, row)
-        }
-        while (y > y2) {
-            row++
-            y2 += getRowsHeight(row, row)
+        var row = (a * getRowCount()).toInt()
+        try {
+            var y1 = getRowsHeight(0, row - 1)
+            var y2 = y1 + getRowsHeight(row, row)
+            while (y < y1) {
+                row--
+                y1 -= getRowsHeight(row, row)
+            }
+            while (y > y2) {
+                row++
+                y2 += getRowsHeight(row, row)
+            }
+        } catch (e: IllegalArgumentException) {
+            throw IllegalArgumentException("此时 y = $y 值得到的 row = $row 有问题，问题如下：${e.message}")
         }
         return row
     }
@@ -223,7 +231,7 @@ open class NetLayout : ViewGroup {
         }
         if (end >= mNetAttrs.rowCount || end < -1) {
             throw IllegalArgumentException(
-                "end = $end 不能大于 ${mNetAttrs.rowCount} 且小于 -1！")
+                "end = $end 不能大于或等于 ${mNetAttrs.rowCount} 且小于 -1！")
         }
         if (height == 0) return -1
         if (start == mNetAttrs.rowCount) return height

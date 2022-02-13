@@ -441,7 +441,7 @@ class CourseLongPressEntityMoveHelper(
             * 1、判断行或列是否完全包含或被包含，如果完全包含或被包含则回到原位置
             * 2、计算与其他 View 相交时该取得的边界最大最小值
             * */
-            for (i in 0 until course.childCount - 1) {
+            for (i in 0 until course.childCount) {
                 val child = course.getChildAt(i)
                 if (isSkipForeachJudge(child)) continue
                 val lp = child.layoutParams as CourseLayoutParams
@@ -590,7 +590,7 @@ class CourseLongPressEntityMoveHelper(
             * 第二次遍历：
             * 1、对于修正后最终位置再次遍历子 View，寻找是否与其他子 View 有交集，若有，则回到原位置
             * */
-            for (i in 0 until course.childCount - 1) {
+            for (i in 0 until course.childCount) {
                 val child = course.getChildAt(i)
                 if (isSkipForeachJudge(child)) continue
                 val lp = child.layoutParams as CourseLayoutParams

@@ -1,6 +1,8 @@
 package com.mredrock.cyxbs.lib.courseview.utils
 
 import android.content.Context
+import android.graphics.drawable.Drawable
+import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.content.ContextCompat
 import kotlin.math.roundToInt
 
@@ -24,4 +26,8 @@ interface ViewExtend {
     fun Int.color(): Int = ContextCompat.getColor(context, this)
 
     fun Int.dimens(): Float = context.resources.getDimension(this)
+
+    fun Int.string(): String = context.resources.getString(this)
+
+    fun Int.drawable(): Drawable? = AppCompatResources.getDrawable(context, this)
 }
