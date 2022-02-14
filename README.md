@@ -38,7 +38,8 @@ dependencyResolutionManagement {
 }
 ```
 
-### In Module build  
+### In Module build 
+[![](https://jitpack.io/v/985892345/CourseViewLibrary.svg)](https://jitpack.io/#985892345/CourseViewLibrary)
 
 ```groovy
 dependencies {
