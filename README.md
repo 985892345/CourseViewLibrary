@@ -80,19 +80,19 @@ fun addMyCourse()
 > 补充中。。。
 
 - layout
-  - [NetLayout](https://github.com/985892345/CourseViewLibrary/md/layout/NetLayout.md)
-  - [CourseLayout](https://github.com/985892345/CourseViewLibrary/md/layout/CourseLayout.md)
-  - [LessonView](https://github.com/985892345/CourseViewLibrary/md/layout/LessonView.md)
-  - [CourseScrollView](https://github.com/985892345/CourseViewLibrary/md/layout/CourseScrollView.md)
+  - [NetLayout](https://github.com/985892345/CourseViewLibrary/blob/main/md/layout/NetLayout.md)
+  - [CourseLayout](https://github.com/985892345/CourseViewLibrary/blob/main/md/layout/CourseLayout.md)
+  - [LessonView](https://github.com/985892345/CourseViewLibrary/blob/main/md/layout/LessonView.md)
+  - [CourseScrollView](https://github.com/985892345/CourseViewLibrary/blob/main/md/layout/CourseScrollView.md)
 - helper
-  - [CourseTimelineHelper](https://github.com/985892345/CourseViewLibrary/md/helper/CourseTimelineHelper.md)
-  - [CourseCreateAffairHelper](https://github.com/985892345/CourseViewLibrary/md/helper/CourseCreateAffairHelper.md)
-  - [CourseFoldHelper](https://github.com/985892345/CourseViewLibrary/md/helper/CourseFoldHelper.md)
-  - [CourseLongPressAffairHelper](https://github.com/985892345/CourseViewLibrary/md/helper/CourseLongPressAffairHelper.md)
-  - [CourseLongPressEntityMoveHelper](https://github.com/985892345/CourseViewLibrary/md/helper/CourseLongPressEntityMoveHelper.md)
+  - [CourseTimelineHelper](https://github.com/985892345/CourseViewLibrary/blob/main/md/helper/CourseTimelineHelper.md)
+  - [CourseCreateAffairHelper](https://github.com/985892345/CourseViewLibrary/blob/main/md/helper/CourseCreateAffairHelper.md)
+  - [CourseFoldHelper](https://github.com/985892345/CourseViewLibrary/blob/main/md/helper/CourseFoldHelper.md)
+  - [CourseLongPressAffairHelper](https://github.com/985892345/CourseViewLibrary/blob/main/md/helper/CourseLongPressAffairHelper.md)
+  - [CourseLongPressEntityMoveHelper](https://github.com/985892345/CourseViewLibrary/blob/main/md/helper/CourseLongPressEntityMoveHelper.md)
 
 
 
 ## 心得体会
 
-[一些心得体会](https://github.com/985892345/CourseViewLibrary/md/Some-Feelings.md)
+[一些心得体会](https://github.com/985892345/CourseViewLibrary/blob/main/md/Some-Feelings.md)
