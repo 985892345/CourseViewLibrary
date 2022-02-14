@@ -7,11 +7,11 @@ import android.graphics.drawable.GradientDrawable
 import android.os.*
 import android.view.*
 import android.view.animation.AlphaAnimation
+import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
 import androidx.core.animation.doOnCancel
 import androidx.core.animation.doOnEnd
 import androidx.core.view.ViewCompat
-import androidx.core.view.children
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.DUSK_BOTTOM
@@ -140,207 +140,6 @@ class CourseCreateAffairHelper private constructor(
         }
     }
 
-    /**
-     * 用于添加事务的 View，注意：并不是最终显示事务的那个 View，该 View 只是在长按后生成的带有加号的 View
-     * ```
-     * 可能你会觉得很奇葩，先写了一个自定义 ViewGroup，再把一个 ImageView 加到这个 ViewGroup 里面
-     * 原因如下：
-     * 1、在长按上下滑动时是一格一格的增加的，这里我又添加了一个增加时的生长动画，
-     *    为了方便处理，所以在外面再包了一层 ViewGroup
-     *
-     * 里面直接使用 ImageView 的原因：
-     * 1、显示更方便，主要设置图片的 scaleType 这些，比直接在 canvas 上画图更简便
-     * ```
-     */
-    private val mTouchAffairView by lazyUnlock {
-        val imageView = ImageView(context).apply {
-            scaleType = ImageView.ScaleType.CENTER_INSIDE
-            background = GradientDrawable().apply {
-                val radius = R.dimen.course_course_item_radius.dimens()
-                // 设置圆角
-                cornerRadii =
-                    floatArrayOf(radius, radius, radius, radius, radius, radius, radius, radius)
-                // 背景颜色
-                setColor(R.color.course_affair_color.color())
-            }
-            // 设置 ImageView 的前景图片
-            setImageResource(R.drawable.course_ic_add_circle_white)
-        }
-
-        object : ViewGroup(context) {
-
-            init {
-                addView(imageView)
-                course.clipChildren = false // 请求父布局不要裁剪
-                layoutParams = CourseLayoutParams(0,0, 0, CourseType.AFFAIR_TOUCH)
-            }
-
-            // 扩展动画
-            private var mExpandValueAnimator: ValueAnimator? = null
-            // 下一次布局的回调
-            private var mOnNextLayoutCallback: ((View) -> Unit)? = null
-
-            /**
-             * 显示 mTouchAffairView（用于添加事务的 View）
-             */
-            fun show() {
-                val lp = layoutParams as CourseLayoutParams
-                lp.startRow = mTopRow
-                lp.endRow = mBottomRow
-                lp.startColumn = mInitialColumn
-                lp.endColumn = mInitialColumn
-                // 添加 mTouchAffairView
-                if (parent != null) {
-                    if (parent is CourseLayout) {
-                        layoutParams = lp
-                        mOnNextLayoutCallback = {
-                            // 这个时候才能得到确定的宽和高
-                            imageView.layout(0, 0, width, height)
-                        }
-                    } else {
-                        throw RuntimeException("为什么 mTouchAffairView 的父布局不是 CourseLayout?")
-                    }
-                } else {
-                    course.addView(this, lp)
-                    mOnNextLayoutCallback = {
-                        // 这个时候才能得到确定的宽和高
-                        imageView.layout(0, 0, width, height)
-                    }
-                }
-                // 添加一个入场动画
-                startAnimation(
-                    AlphaAnimation(0F, 1F).apply {
-                        duration = 200
-                    }
-                )
-                // 回调监听
-                mOnTouchAffairListener?.onCreateTouchAffair(this, lp)
-            }
-
-            /**
-             * 该方法作用：
-             * 1、计算当前 [mTouchAffairView] 的位置并刷新布局
-             * 2、启动一个生长的动画
-             */
-            fun refresh() {
-                val y = course.let {
-                    it.mCourseScrollView.mLastMoveY - it.getDistanceCourseLayoutToScrollView()
-                }
-                mTouchRow = course.getRow(y) // 当前触摸的行数
-                var topRow: Int
-                var bottomRow: Int
-                // 根据当前触摸的行数与初始行数比较，得到 topRow、bottomRow
-                if (mTouchRow > mInitialRow) {
-                    topRow = mInitialRow
-                    bottomRow = mTouchRow
-                } else {
-                    topRow = mTouchRow
-                    bottomRow = mInitialRow
-                }
-                // 判断是否展开中午或者傍晚时间段（在滑过中午或者傍晚时需要将他们自动展开）
-                unfoldNoonOrDuskIfNecessary(mTouchRow)
-                if (topRow < mUpperRow) topRow = mUpperRow // 根据上限再次修正 topRow
-                if (bottomRow > mLowerRow) bottomRow = mLowerRow // 根据下限再次修正 bottomRow
-                if (topRow != mTopRow || bottomRow != mBottomRow) { // 避免不必要的刷新
-                    val oldTopRow = mTopRow
-                    val oldBottomRow = mBottomRow
-                    mTopRow = topRow
-                    mBottomRow = bottomRow
-                    val lp = layoutParams as CourseLayoutParams
-                    lp.startRow = topRow
-                    lp.endRow = bottomRow
-                    layoutParams = lp // 设置属性，刷新布局
-                    mOnNextLayoutCallback = {
-                        // 在已经布局完毕后再调用动画，不然得到的高度值是有问题的
-                        startExpandValueAnimator(oldTopRow, oldBottomRow, topRow, bottomRow)
-                    }
-                }
-            }
-
-            /**
-             * 启动生长动画
-             */
-            private fun startExpandValueAnimator(
-                oldTopRow: Int,
-                oldBottomRow: Int,
-                topRow: Int,
-                bottomRow: Int
-            ) {
-                mExpandValueAnimator?.cancel() // 取消之前的动画
-                mExpandValueAnimator = ValueAnimator.ofFloat(0F, 1F).apply {
-                    addUpdateListener {
-                        val now = animatedValue as Float
-                        val oldTop = course.getRowsHeight(0, oldTopRow - 1)
-                        val newTop = course.getRowsHeight(0, topRow - 1)
-                        val nowTop = ((oldTop - newTop) * (1 - now)).toInt()
-                        val oldBottom = course.getRowsHeight(0, oldBottomRow)
-                        val newBottom = course.getRowsHeight(0, bottomRow)
-                        val nowBottom = ((newBottom - oldBottom) * now).toInt() + oldBottom - newTop
-                        imageView.layout(0, nowTop, width, nowBottom) // 手动调用布局
-                    }
-                    duration = 120
-                    start()
-                }
-            }
-
-            /**
-             * 这里并没有直接给 imageView 布局，而是在前面手动调用 layout
-             */
-            override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-                mOnNextLayoutCallback?.invoke(this)
-                mOnNextLayoutCallback = null
-            }
-        }
-    }
-
-    override fun onCancelDownEvent(event: MotionEvent, course: CourseLayout) {
-        // 这里是被前一个 onCourseTouchListener 拦截 Down 事件的时候
-        val x = event.x.toInt()
-        val y = event.y.toInt()
-        val touchView = course.findItemUnderByXY(x, y)
-        removeLastTouchAffairViewWhenNextDown(touchView)
-    }
-
-    /**
-     * 判断下一次 Down 时点击的 View 是否需要让之前显示的 mTouchAffairView 消失，
-     * 如果又处于长按整体移动的动画，则也会在合适的时间取消长按整体移动的动画
-     */
-    private fun removeLastTouchAffairViewWhenNextDown(touchView: View?) {
-        if (mTouchAffairView.parent != null
-            && touchView !== mTouchAffairView
-            && !mEntityMoveHelper.isSubstituteView(touchView) // 注意这里要包括长按整体移动的替身 View
-        ) {
-            recoverFoldState(true)
-            // 此时说明点击的是其他地方，不是 mTouchAffairView，则 remove 掉 mTouchAffairView
-            if (mAlphaValueAnimator == null) {
-                mAlphaValueAnimator = ValueAnimator.ofFloat(1F, 0F).apply {
-                    addUpdateListener { mTouchAffairView.alpha = it.animatedValue as Float }
-                    doOnEnd {
-                        mAlphaValueAnimator = null
-                        when (mEntityMoveHelper.getLongPressState()) {
-                            // 如果都结束了长按移动的动画还没结束，就只能强制取消长按移动动画了
-                            ANIM_TRAVEL, ANIM_RESTORE -> mEntityMoveHelper.forceEnd()
-                            else -> {}
-                        }
-                        course.removeView(mTouchAffairView) // 结束时把 View 给删掉
-                        mTouchAffairView.alpha = 1F
-                    }
-                    doOnCancel {
-                        mAlphaValueAnimator = null
-                        when (mEntityMoveHelper.getLongPressState()) {
-                            // 如果该动画被取消时长按移动的动画还没结束，就只能强制取消长按移动动画了
-                            ANIM_TRAVEL, ANIM_RESTORE -> mEntityMoveHelper.forceEnd()
-                            else -> {}
-                        }
-                        // 被取消说明立马就得使用 mTouchAffairView，所以可以不用删除掉
-                        mTouchAffairView.alpha = 1F
-                    }
-                    start()
-                }
-            }
-        }
-    }
-
     override fun isAdvanceIntercept(event: MotionEvent, course: CourseLayout): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
             mIsInEntityMove = false // 重置
@@ -449,6 +248,14 @@ class CourseCreateAffairHelper private constructor(
         }
     }
 
+    override fun onCancelDownEvent(event: MotionEvent, course: CourseLayout) {
+        // 这里是被前一个 onCourseTouchListener 拦截 Down 事件的时候
+        val x = event.x.toInt()
+        val y = event.y.toInt()
+        val touchView = course.findItemUnderByXY(x, y)
+        removeLastTouchAffairViewWhenNextDown(touchView)
+    }
+
     /**
      * 计算 [mUpperRow] 和 [mLowerRow]
      */
@@ -468,6 +275,198 @@ class CourseCreateAffairHelper private constructor(
                         course.removeCallbacks(mLongPressRunnable)
                         course.parent.requestDisallowInterceptTouchEvent(false)
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * 用于添加事务的 View，注意：并不是最终显示事务的那个 View，该 View 只是在长按后生成的带有加号的 View
+     * ```
+     * 可能你会觉得很奇葩，先写了一个自定义 ViewGroup，再把一个 ImageView 加到这个 ViewGroup 里面
+     * 原因如下：
+     * 1、在长按上下滑动时是一格一格的增加的，这里我又添加了一个增加时的生长动画，
+     *    为了方便处理，所以在外面再包了一层 ViewGroup。如果只用 ImageView，就会很难处理
+     *
+     * 里面直接使用 ImageView 的原因：
+     * 1、显示更方便，主要设置图片的 scaleType 这些，比直接在 canvas 上画图更简便
+     * ```
+     */
+    private val mTouchAffairView by lazyUnlock {
+        val imageView = ImageView(context).apply {
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+            background = GradientDrawable().apply {
+                val radius = R.dimen.course_course_item_radius.dimens()
+                // 设置圆角
+                cornerRadii =
+                    floatArrayOf(radius, radius, radius, radius, radius, radius, radius, radius)
+                // 背景颜色
+                setColor(R.color.course_affair_color.color())
+            }
+            // 设置 ImageView 的前景图片
+            setImageResource(R.drawable.course_ic_add_circle_white)
+        }
+
+        object : ViewGroup(context) {
+
+            init {
+                addView(imageView)
+                course.clipChildren = false // 请求父布局不要裁剪
+                layoutParams = CourseLayoutParams(0,0, 0, CourseType.AFFAIR_TOUCH)
+            }
+
+            // 扩展动画
+            private var mExpandValueAnimator: ValueAnimator? = null
+            // 下一次布局的回调
+            private var mOnNextLayoutCallback: ((View) -> Unit)? = null
+
+            /**
+             * 显示 mTouchAffairView（用于添加事务的 View）
+             */
+            fun show() {
+                val lp = layoutParams as CourseLayoutParams
+                lp.startRow = mTopRow
+                lp.endRow = mBottomRow
+                lp.startColumn = mInitialColumn
+                lp.endColumn = mInitialColumn
+                // 添加 mTouchAffairView
+                if (parent != null) {
+                    if (parent is CourseLayout) {
+                        layoutParams = lp
+                    } else {
+                        throw RuntimeException("为什么 mTouchAffairView 的父布局不是 CourseLayout?")
+                    }
+                } else {
+                    course.addView(this, lp)
+                }
+                // 添加一个入场动画
+                startAnimation(
+                    AlphaAnimation(0F, 1F).apply {
+                        duration = 200
+                    }
+                )
+                // 回调监听
+                mOnTouchAffairListener?.onCreateTouchAffair(this, lp)
+            }
+
+            /**
+             * 该方法作用：
+             * 1、计算当前 [mTouchAffairView] 的位置并刷新布局
+             * 2、启动一个生长的动画
+             */
+            fun refresh() {
+                val y = course.let {
+                    it.mCourseScrollView.mLastMoveY - it.getDistanceCourseLayoutToScrollView()
+                }
+                mTouchRow = course.getRow(y) // 当前触摸的行数
+                var topRow: Int
+                var bottomRow: Int
+                // 根据当前触摸的行数与初始行数比较，得到 topRow、bottomRow
+                if (mTouchRow > mInitialRow) {
+                    topRow = mInitialRow
+                    bottomRow = mTouchRow
+                } else {
+                    topRow = mTouchRow
+                    bottomRow = mInitialRow
+                }
+                // 判断是否展开中午或者傍晚时间段（在滑过中午或者傍晚时需要将他们自动展开）
+                unfoldNoonOrDuskIfNecessary(mTouchRow)
+                if (topRow < mUpperRow) topRow = mUpperRow // 根据上限再次修正 topRow
+                if (bottomRow > mLowerRow) bottomRow = mLowerRow // 根据下限再次修正 bottomRow
+                if (topRow != mTopRow || bottomRow != mBottomRow) { // 避免不必要的刷新
+                    val oldTopRow = mTopRow
+                    val oldBottomRow = mBottomRow
+                    mTopRow = topRow
+                    mBottomRow = bottomRow
+                    val lp = layoutParams as CourseLayoutParams
+                    lp.startRow = topRow
+                    lp.endRow = bottomRow
+                    layoutParams = lp // 设置属性，刷新布局
+                    mOnNextLayoutCallback = {
+                        // 在已经布局完毕后再调用动画，不然得到的高度值是有问题的
+                        startExpandValueAnimator(oldTopRow, oldBottomRow, topRow, bottomRow)
+                    }
+                }
+            }
+
+            /**
+             * 启动生长动画
+             */
+            private fun startExpandValueAnimator(
+                oldTopRow: Int,
+                oldBottomRow: Int,
+                topRow: Int,
+                bottomRow: Int
+            ) {
+                mExpandValueAnimator?.cancel() // 取消之前的动画
+                mExpandValueAnimator = ValueAnimator.ofFloat(0F, 1F).apply {
+                    addUpdateListener {
+                        val now = animatedValue as Float
+                        val oldTop = course.getRowsHeight(0, oldTopRow - 1)
+                        val newTop = course.getRowsHeight(0, topRow - 1)
+                        val nowTop = ((oldTop - newTop) * (1 - now)).toInt()
+                        val oldBottom = course.getRowsHeight(0, oldBottomRow)
+                        val newBottom = course.getRowsHeight(0, bottomRow)
+                        val nowBottom = ((newBottom - oldBottom) * now).toInt() + oldBottom - newTop
+                        imageView.layout(0, nowTop, width, nowBottom) // 手动调用布局
+                    }
+                    doOnEnd {
+                        mExpandValueAnimator = null
+                    }
+                    interpolator = DecelerateInterpolator()
+                    duration = 120
+                    start()
+                }
+            }
+
+            /**
+             * 这里并没有直接给 imageView 布局，而是在前面手动调用 layout
+             */
+            override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+                mOnNextLayoutCallback?.invoke(this)
+                mOnNextLayoutCallback = null
+                if (mExpandValueAnimator == null) {
+                    imageView.layout(0, 0, r - l, b - t)
+                }
+            }
+        }
+    }
+
+    /**
+     * 判断下一次 Down 时点击的 View 是否需要让之前显示的 mTouchAffairView 消失，
+     * 如果又处于长按整体移动的动画，则也会在合适的时间取消长按整体移动的动画
+     */
+    private fun removeLastTouchAffairViewWhenNextDown(touchView: View?) {
+        if (mTouchAffairView.parent != null
+            && touchView !== mTouchAffairView
+            && !mEntityMoveHelper.isSubstituteView(touchView) // 注意这里要包括长按整体移动的替身 View
+        ) {
+            recoverFoldState(true)
+            // 此时说明点击的是其他地方，不是 mTouchAffairView，则 remove 掉 mTouchAffairView
+            if (mAlphaValueAnimator == null) {
+                mAlphaValueAnimator = ValueAnimator.ofFloat(1F, 0F).apply {
+                    addUpdateListener { mTouchAffairView.alpha = it.animatedValue as Float }
+                    doOnEnd {
+                        mAlphaValueAnimator = null
+                        when (mEntityMoveHelper.getLongPressState()) {
+                            // 如果都结束了长按移动的动画还没结束，就只能强制取消长按移动动画了
+                            ANIM_TRAVEL, ANIM_RESTORE -> mEntityMoveHelper.forceEnd()
+                            else -> {}
+                        }
+                        course.removeView(mTouchAffairView) // 结束时把 View 给删掉
+                        mTouchAffairView.alpha = 1F
+                    }
+                    doOnCancel {
+                        mAlphaValueAnimator = null
+                        when (mEntityMoveHelper.getLongPressState()) {
+                            // 如果该动画被取消时长按移动的动画还没结束，就只能强制取消长按移动动画了
+                            ANIM_TRAVEL, ANIM_RESTORE -> mEntityMoveHelper.forceEnd()
+                            else -> {}
+                        }
+                        // 被取消说明立马就得使用 mTouchAffairView，所以可以不用删除掉
+                        mTouchAffairView.alpha = 1F
+                    }
+                    start()
                 }
             }
         }
@@ -591,6 +590,7 @@ class CourseCreateAffairHelper private constructor(
         for (i in 0 until course.childCount) {
             // 判断中午和傍晚时间段是否存在 View
             val child = course.getChildAt(i)
+            if (child === mTouchAffairView) continue
             val lp = child.layoutParams as CourseLayoutParams
             when (lp.type) {
                 // 目前只知道时间轴上的那几个类型不算
