@@ -9,6 +9,7 @@ import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.net.callback.OnWeightChangeListener
 import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutAttrs
@@ -59,6 +60,11 @@ import kotlin.math.roundToInt
  * @date 2022/1/17
  */
 open class NetLayout : ViewGroup {
+
+    /**
+     * 打开测试功能，会绘制方格
+     */
+    var DEBUG = false
 
     /**
      * 添加一个子 View
@@ -209,7 +215,7 @@ open class NetLayout : ViewGroup {
         }
         if (width == 0) return -1
         if (start == mNetAttrs.columnCount) return width
-        return getColumnsWidthInternal(start, end, width)
+        return getColumnsWidthInternal(start, end, width).roundToInt()
     }
 
     /**
@@ -235,7 +241,7 @@ open class NetLayout : ViewGroup {
         }
         if (height == 0) return -1
         if (start == mNetAttrs.rowCount) return height
-        return getRowsHeightInternal(start, end, height)
+        return getRowsHeightInternal(start, end, height).roundToInt()
     }
 
     /**
@@ -488,7 +494,7 @@ open class NetLayout : ViewGroup {
                         childWithParentColumnMultiple == 0F -> 0
                         child.measuredWidth == 0 -> 0
                         else -> ((child.measuredWidth + lp.leftMargin + lp.rightMargin) /
-                                childWithParentColumnMultiple).toInt()
+                                childWithParentColumnMultiple).roundToInt()
                     }
                 )
                 maxHeight = max(
@@ -497,7 +503,7 @@ open class NetLayout : ViewGroup {
                         childWithParentRowMultiple == 0F -> 0
                         child.measuredHeight == 0 -> 0
                         else -> ((child.measuredHeight + lp.topMargin + lp.bottomMargin) /
-                                childWithParentRowMultiple).toInt()
+                                childWithParentRowMultiple).roundToInt()
                     }
                 )
                 childState = combineMeasuredStates(childState, child.measuredState)
@@ -517,10 +523,10 @@ open class NetLayout : ViewGroup {
         // 如果此时你高度又设置了 wrap，然后调用 setRowWeight()，本意是扩大控件高度，
         // 但会受到你设置的 minHeight 限制，所以需要在既设置 wrap 又设置了 minHeight 的情况下扩大你设置的 minHeight
         val minWidth = if (widthIsWrap) {
-            (suggestedMinimumWidth * (parentColumnWeight / getInitialSelfColumnWeight())).toInt()
+            (suggestedMinimumWidth * (parentColumnWeight / getInitialSelfColumnWeight())).roundToInt()
         } else suggestedMinimumWidth
         val minHeight = if (heightIsWrap) {
-            (suggestedMinimumHeight * (parentRowWeight / getInitialSelfRowWeight())).toInt()
+            (suggestedMinimumHeight * (parentRowWeight / getInitialSelfRowWeight())).roundToInt()
         } else suggestedMinimumHeight
         maxWidth = max(maxWidth, minWidth)
         maxHeight = max(maxHeight, minHeight)
@@ -654,7 +660,7 @@ open class NetLayout : ViewGroup {
         val lp = child.layoutParams.net()
         val parentWidth = MeasureSpec.getSize(parentWidthMeasureSpec) - paddingLeft - paddingRight
         val wMode = MeasureSpec.getMode(parentWidthMeasureSpec)
-        val childWidth = (childWidthRatio * (parentWidth)).toInt()
+        val childWidth = (childWidthRatio * parentWidth).toInt()
         val childWidthMeasureSpec = getChildMeasureSpec(
             MeasureSpec.makeMeasureSpec(childWidth, wMode),
             lp.leftMargin + lp.rightMargin, lp.width
@@ -662,7 +668,7 @@ open class NetLayout : ViewGroup {
 
         val parentHeight = MeasureSpec.getSize(parentHeightMeasureSpec) - paddingTop - paddingBottom
         val hMode = MeasureSpec.getMode(parentHeightMeasureSpec)
-        val childHeight = (childHeightRatio * (parentHeight)).toInt()
+        val childHeight = (childHeightRatio * parentHeight).toInt()
         val childHeightMeasureSpec = getChildMeasureSpec(
             MeasureSpec.makeMeasureSpec(childHeight, hMode),
             lp.topMargin + lp.bottomMargin, lp.height
@@ -686,12 +692,18 @@ open class NetLayout : ViewGroup {
                 val lp = child.layoutParams.net()
                 if (!lp.isComplete()) continue
 
-                val parentLeft = paddingLeft +
+                // 使用 roundToInt() 解决改变比重时的轻微抖动问题
+                val ll = paddingLeft +
                         getColumnsWidthInternal(0, lp.startColumn - 1, totalColumnWidth)
-                val parentRight = parentLeft + (lp.oldChildWidthRatio * totalColumnWidth).toInt()
-                val parentTop = paddingTop +
+                val rr = ll + getColumnsWidthInternal(lp.startColumn, lp.endColumn, totalColumnWidth)
+                val parentLeft = ll.roundToInt()
+                val parentRight = rr.roundToInt()
+
+                val tt = paddingTop +
                         getRowsHeightInternal(0, lp.startRow - 1, totalRowHeight)
-                val parentBottom = parentTop + (lp.oldChildHeightRatio * totalRowHeight).toInt()
+                val bb = tt + getRowsHeightInternal(lp.startRow, lp.endRow, totalRowHeight)
+                val parentTop = tt.roundToInt()
+                val parentBottom = bb.roundToInt()
 
                 lp.constraintLeft = parentLeft
                 lp.constraintRight = parentRight
@@ -733,25 +745,18 @@ open class NetLayout : ViewGroup {
         }
     }
 
-    private fun getColumnsWidthInternal(start: Int, end: Int, totalColumnWidth: Int): Int {
-        if (end < start) return 0
+    private fun getColumnsWidthInternal(start: Int, end: Int, totalColumnWidth: Int): Float {
+        if (end < start) return 0F
         val childColumnWeight = getColumnsWeightInternal(start, end)
         val parentColumnWeight = getSelfColumnsWeight()
-        return (childColumnWeight / parentColumnWeight * totalColumnWidth).toInt()
+        return childColumnWeight / parentColumnWeight * totalColumnWidth
     }
 
-    private fun getRowsHeightInternal(start: Int, end: Int, totalRowHeight: Int): Int {
-        if (end < start) return 0
+    private fun getRowsHeightInternal(start: Int, end: Int, totalRowHeight: Int): Float {
+        if (end < start) return 0F
         val childRowWeight = getRowsWeightInternal(start, end)
         val parentRowWeight = getSelfRowsWeight()
-        return (childRowWeight / parentRowWeight * totalRowHeight).toInt()
-    }
-
-    var DEBUG = false
-    private val DEBUG_LINE_PAINT = Paint().apply {
-        color = Color.BLACK
-        style = Paint.Style.STROKE
-        strokeWidth = 2F
+        return childRowWeight / parentRowWeight * totalRowHeight
     }
 
     override fun dispatchDraw(canvas: Canvas) {
@@ -825,4 +830,12 @@ open class NetLayout : ViewGroup {
     }
 
     protected fun LayoutParams.net(): NetLayoutParams = this as NetLayoutParams
+
+    companion object {
+        private val DEBUG_LINE_PAINT = Paint().apply {
+            color = Color.BLACK
+            style = Paint.Style.STROKE
+            strokeWidth = 2F
+        }
+    }
 }
