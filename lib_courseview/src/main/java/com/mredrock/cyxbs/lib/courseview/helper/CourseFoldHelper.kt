@@ -9,7 +9,7 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_BOTT
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_TOP
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.TIME_LINE_LEFT
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.TIME_LINE_RIGHT
-import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
+import com.mredrock.cyxbs.lib.courseview.course.touch.OnItemTouchListener
 import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
 import kotlin.math.abs
 
@@ -31,7 +31,7 @@ import kotlin.math.abs
  */
 class CourseFoldHelper private constructor(
     private val course: CourseLayout
-) : OnCourseTouchListener {
+) : OnItemTouchListener {
 
     private var mInitialX = 0 // Down 时的初始 X 值
     private var mInitialY = 0 // Down 时的初始 Y 值

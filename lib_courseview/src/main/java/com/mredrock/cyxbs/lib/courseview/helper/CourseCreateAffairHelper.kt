@@ -19,8 +19,8 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.DUSK_TOP
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_BOTTOM
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_TOP
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
-import com.mredrock.cyxbs.lib.courseview.course.utils.CourseDecoration
-import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
+import com.mredrock.cyxbs.lib.courseview.course.draw.ItemDecoration
+import com.mredrock.cyxbs.lib.courseview.course.touch.OnItemTouchListener
 import com.mredrock.cyxbs.lib.courseview.course.utils.OnSaveBundleListener
 import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
 import com.mredrock.cyxbs.lib.courseview.helper.ILongPressEntityMove.LongPressState.ANIM_RESTORE
@@ -55,7 +55,7 @@ import kotlin.math.min
  */
 class CourseCreateAffairHelper private constructor(
     private val course: CourseLayout
-) : OnCourseTouchListener, CourseDecoration, OnSaveBundleListener, ViewExtend {
+) : OnItemTouchListener, ItemDecoration, OnSaveBundleListener, ViewExtend {
 
     /**
      * 设置触摸空白区域生成的用于添加事务的 View 的点击监听
@@ -356,7 +356,7 @@ class CourseCreateAffairHelper private constructor(
              */
             fun refresh() {
                 val y = course.let {
-                    it.mCourseScrollView.mLastMoveY - it.getDistanceCourseLayoutToScrollView()
+                    it.mCourseScrollView.mLastMoveY - it.getDistanceToScrollView()
                 }
                 mTouchRow = course.getRow(y) // 当前触摸的行数
                 var topRow: Int
@@ -652,7 +652,7 @@ class CourseCreateAffairHelper private constructor(
         // 但回调 onRestoreInstanceState() 时还没有开始布局，得不到 top 值，所以需要用 post 在布局后设置
         course.post {
             course.mCourseScrollView.scrollY =
-                mTouchAffairView.top + course.getDistanceCourseLayoutToScrollView() - 60
+                mTouchAffairView.top + course.getDistanceToScrollView() - 60
         }
     }
 

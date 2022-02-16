@@ -33,7 +33,7 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.LESSON_9_
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.LESSON_9_TOP
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_BOTTOM
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_TOP
-import com.mredrock.cyxbs.lib.courseview.course.utils.CourseDecoration
+import com.mredrock.cyxbs.lib.courseview.course.draw.ItemDecoration
 import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
 import java.util.*
 
@@ -55,7 +55,7 @@ import java.util.*
  */
 class CourseTimelineHelper private constructor(
     private val course: CourseLayout
-) : CourseDecoration, ViewExtend {
+) : ItemDecoration, ViewExtend {
 
     fun setVisible(boolean: Boolean) {
         mVisible = boolean

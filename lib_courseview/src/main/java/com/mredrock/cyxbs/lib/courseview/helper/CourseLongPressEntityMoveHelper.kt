@@ -10,8 +10,8 @@ import androidx.core.animation.addListener
 import androidx.core.view.ViewCompat
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
-import com.mredrock.cyxbs.lib.courseview.course.utils.CourseDecoration
-import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
+import com.mredrock.cyxbs.lib.courseview.course.draw.ItemDecoration
+import com.mredrock.cyxbs.lib.courseview.course.touch.OnItemTouchListener
 import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
 import com.mredrock.cyxbs.lib.courseview.helper.ILongPressEntityMove.LongPressState.*
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
@@ -55,7 +55,7 @@ import kotlin.math.*
 class CourseLongPressEntityMoveHelper(
     private val course: CourseLayout,
     private val openLongPress: (child: View) -> Boolean
-) : OnCourseTouchListener, CourseDecoration, ILongPressEntityMove {
+) : OnItemTouchListener, ItemDecoration, ILongPressEntityMove {
 
     /**
      * 设置长按移动监听
@@ -340,7 +340,7 @@ class CourseLongPressEntityMoveHelper(
         view.translationX = dx.toFloat()
         view.y = course.let {
             it.mCourseScrollView.mLastMoveY -
-                    it.getDistanceCourseLayoutToScrollView() - mDistanceDownToViewTop
+                    it.getDistanceToScrollView() - mDistanceDownToViewTop
         }.toFloat()
         // 判断是否展开中午或者傍晚时间段（在滑过中午或者傍晚时需要将他们自动展开）
         unfoldNoonOrDuskIfNecessary(view)
@@ -875,7 +875,7 @@ class CourseLongPressEntityMoveHelper(
          */
         private fun isAllowScrollAndCalculateVelocity(view: View): Boolean {
             val scroll = course.mCourseScrollView
-            val diffHeight = course.getDistanceCourseLayoutToScrollView()
+            val diffHeight = course.getDistanceToScrollView()
             val topHeight = (view.y + diffHeight).toInt()
             val bottomHeight = topHeight + view.height
             val moveBoundary = 50 // 移动的边界值

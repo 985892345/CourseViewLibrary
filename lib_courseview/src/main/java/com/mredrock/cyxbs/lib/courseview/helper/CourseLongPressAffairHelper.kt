@@ -4,7 +4,7 @@ import android.view.MotionEvent
 import android.view.View
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
-import com.mredrock.cyxbs.lib.courseview.course.utils.OnCourseTouchListener
+import com.mredrock.cyxbs.lib.courseview.course.touch.OnItemTouchListener
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 
 /**
@@ -23,7 +23,7 @@ import com.mredrock.cyxbs.lib.courseview.utils.CourseType
  */
 class CourseLongPressAffairHelper(
     course: CourseLayout,
-) : OnCourseTouchListener, ILongPressEntityMove {
+) : OnItemTouchListener, ILongPressEntityMove {
 
     override fun setEntityMoveListener(l: ILongPressEntityMove.OnEntityMoveListener) {
         mEntityMoveHelper.setEntityMoveListener(l)

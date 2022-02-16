@@ -16,9 +16,14 @@ import androidx.core.animation.addListener
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
+import com.mredrock.cyxbs.lib.courseview.course.draw.ItemDecoration
+import com.mredrock.cyxbs.lib.courseview.course.touch.OnItemTouchListener
+import com.mredrock.cyxbs.lib.courseview.course.touch.TouchDispatcher
 import com.mredrock.cyxbs.lib.courseview.course.utils.*
+import com.mredrock.cyxbs.lib.courseview.helper.entitymove.IAbsoluteCoordinates
 import com.mredrock.cyxbs.lib.courseview.net.NetLayout
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
+import com.mredrock.cyxbs.lib.courseview.scroll.ICourseScrollView
 
 /**
  * ```
@@ -58,7 +63,7 @@ import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
  * @email 2767465918@qq.com
  * @date 2022/1/20
  */
-class CourseLayout : NetLayout {
+class CourseLayout : NetLayout, IAbsoluteCoordinates {
 
     /**
      * 添加课程
@@ -70,20 +75,20 @@ class CourseLayout : NetLayout {
     /**
      * 仿照 RV 的 ItemDecoration 设计。用于自定义绘制一些东西
      */
-    fun addCourseDecoration(decor: CourseDecoration, index: Int = mCourseDecoration.size) {
+    fun addCourseDecoration(decor: ItemDecoration<CourseLayout>, index: Int = mCourseDecoration.size) {
         mCourseDecoration.add(index, decor)
     }
 
     /**
      * 仿照 RV 的 OnItemTouchListener 设计。用于处理滑动事件，
-     * 这样以后要扩展不是直接在这个 [CourseLayout] 里面添加代码，而是添加一个 [OnCourseTouchListener] 来增加新的功能
+     * 这样以后要扩展不是直接在这个 [CourseLayout] 里面添加代码，而是添加一个 [OnItemTouchListener] 来增加新的功能
      */
-    fun addCourseTouchListener(l: OnCourseTouchListener, index: Int = mCourseTouchListener.size) {
-        mCourseTouchListener.add(index, l)
+    fun addCourseTouchListener(l: OnItemTouchListener<CourseLayout>, index: Int = mTouchDispatchHelper.size) {
+        mTouchDispatchHelper.addCourseTouchListener(l, index)
     }
 
     /**
-     * 用于在 [CourseDecoration] 和 [OnCourseTouchListener] 中，[CourseLayout] 即将被摧毁时保存一些必要的信息
+     * 用于在 [ItemDecoration] 和 [OnItemTouchListener] 中，[CourseLayout] 即将被摧毁时保存一些必要的信息
      */
     fun addSaveBundleListener(l: OnSaveBundleListener) {
         mSaveBundleListeners.add(l)
@@ -259,8 +264,10 @@ class CourseLayout : NetLayout {
      *
      * 因为在长按选择事务时，滑到屏幕显示边缘区域时需要调用 [CourseScrollView] 进行滚动，
      * 所以只能采用这种强耦合的方式
+     *
+     * 这里使用 private 修饰，禁止其他帮助类得到它的实例，想获取的话应该使用接口来进行隔离，降低耦合
      */
-    val mCourseScrollView: CourseScrollView by lazy(LazyThreadSafetyMode.NONE) {
+    private val mCourseScrollView: CourseScrollView by lazy(LazyThreadSafetyMode.NONE) {
         var scrollView: CourseScrollView? = null
         var parent = parent
         while (parent is ViewGroup) {
@@ -276,8 +283,14 @@ class CourseLayout : NetLayout {
         scrollView
     }
 
+    val scrollView: ICourseScrollView = mCourseScrollView
+
+    override fun getAbsolutePointer(pointerId: Int): IAbsoluteCoordinates.IAbsolutePointer {
+        return mCourseScrollView.getAbsolutePointer(pointerId)
+    }
+
     /**
-     * 得到自身与 [mCourseScrollView] 之间相差的高度，是眼睛能看见的高度差
+     * 得到自身与 [scrollView] 之间相差的高度，是眼睛能看见的高度差
      * ```
      * 如：
      *                 |---------- CourseScrollView ----------|
@@ -289,12 +302,12 @@ class CourseLayout : NetLayout {
      *   |-- 得到的值 --| (注意：此时值为负)
      * ```
      */
-    fun getDistanceCourseLayoutToScrollView(): Int {
+    fun getDistanceToScrollView(): Int {
         var dHeight = top // 与 mCourseScrollView 去掉 scrollY 后的高度差，即屏幕上显示的高度差
         var parent = parent
         while (parent is ViewGroup) { // 这个循环用于计算 dHeight
             dHeight -= parent.scrollY
-            if (parent === mCourseScrollView) { // 找到 mCourseScrollView 就结束
+            if (parent === scrollView) { // 找到 scrollView 就结束
                 break
             }
             dHeight += parent.top
@@ -306,13 +319,9 @@ class CourseLayout : NetLayout {
     private val mCourseAttrs: CourseLayoutAttrs
 
     // 自定义绘图的监听
-    private val mCourseDecoration = ArrayList<CourseDecoration>(5)
-    // 自定义事件处理的监听
-    private val mCourseTouchListener = ArrayList<OnCourseTouchListener>(5)
-    // 自定义事件处理中拦截的监听者
-    private var mInterceptingOnTouchListener: OnCourseTouchListener? = null
-    // 自定义事件处理中提前拦截的监听者
-    private var mAdvanceInterceptingOnTouchListener: OnCourseTouchListener? = null
+    private val mCourseDecoration = ArrayList<ItemDecoration<CourseLayout>>(5)
+    // 自定义事件分发帮助类
+    private val mTouchDispatchHelper = TouchDispatcher<CourseLayout>()
     // 在 View 被摧毁时需要保存必要信息的监听
     private val mSaveBundleListeners = ArrayList<OnSaveBundleListener>(3)
 
@@ -407,118 +416,17 @@ class CourseLayout : NetLayout {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        mCourseTouchListener.forEach {
-            it.onDispatchTouchEvent(ev, this)
-        }
+        mTouchDispatchHelper.dispatchTouchEvent(ev, this)
         return super.dispatchTouchEvent(ev)
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-        val action = ev.action
-        if (action == MotionEvent.ACTION_DOWN) {
-            mAdvanceInterceptingOnTouchListener = null // 重置
-            var isIntercept = false
-            mCourseTouchListener.forEach { listener ->
-                if (mAdvanceInterceptingOnTouchListener == null) {
-                    if (listener.isAdvanceIntercept(ev, this)) {
-                        mAdvanceInterceptingOnTouchListener = listener
-                        isIntercept = true
-                        val cancelEvent = ev.also { it.action = MotionEvent.ACTION_CANCEL }
-                        // 通知前面已经分发 Down 事件了的 listener 取消事件
-                        for (i in mCourseTouchListener.indices) {
-                            val l = mCourseTouchListener[i]
-                            if (l !== listener) {
-                                l.isAdvanceIntercept(cancelEvent, this)
-                            } else {
-                                break
-                            }
-                        }
-                        ev.action = action // 还原
-                    }
-                } else {
-                    // 通知后面没有收到 Down 事件的 listener，Down 事件被前面的 listener 拦截
-                    listener.onCancelDownEvent(ev, this)
-                }
-            }
-            return isIntercept
-        } else {
-            /*
-            * 走到这一步说明：
-            * 1、mInterceptingOnTouchListener 一定为 null
-            *   （如果 mInterceptingOnTouchListener 不为 null，则说明：
-            *      1、没有子 View 拦截事件；
-            *      2、CourseLayout 自身拦截了事件
-            *      ==> onInterceptTouchEvent() 不会再被调用，也就不会再走到这一步）
-            * 2、事件一定被子 View 拦截
-            * 3、mAdvanceInterceptingOnTouchListener 也一定为 null
-            * */
-            mCourseTouchListener.forEach { listener ->
-                if (listener.isAdvanceIntercept(ev, this)) {
-                    mAdvanceInterceptingOnTouchListener = listener
-                    val cancelEvent = ev.also { it.action = MotionEvent.ACTION_CANCEL }
-                    // 因为之前所有 listener 都通知了 Down 事件，所以需要全部都通知取消事件
-                    mCourseTouchListener.forEach {
-                        if (it !== listener) {
-                            it.isAdvanceIntercept(cancelEvent, this)
-                        }
-                    }
-                    ev.action = action // 恢复
-                    return true
-                }
-            }
-        }
-        return false
+        return mTouchDispatchHelper.onInterceptTouchEvent(ev, this)
     }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (mAdvanceInterceptingOnTouchListener != null) {
-            mAdvanceInterceptingOnTouchListener!!.onTouchEvent(event, this)
-            return true
-        }
-        val action = event.action
-        if (action == MotionEvent.ACTION_DOWN) {
-            mInterceptingOnTouchListener = null // 重置
-            // 分配自定义事件处理的监听
-            mCourseTouchListener.forEach {
-                if (mInterceptingOnTouchListener == null) {
-                    if (it.isIntercept(event, this)) {
-                        mInterceptingOnTouchListener = it
-                    }
-                } else {
-                    it.onCancelDownEvent(event, this)
-                }
-            }
-        } else {
-            /*
-            * 走到这里说明：
-            * 1、Down 事件中没有提前拦截的 listener，即 mAdvanceInterceptingOnTouchListener 为 null
-            * 2、Down 事件中没有任何子 View 拦截
-            * 3、CourseLayout 自身拦截事件
-            * 4、因为自身拦截事件，onInterceptTouchEvent() 不会再被调用
-            * */
-            mCourseTouchListener.forEach { listener ->
-                if (listener.isAdvanceIntercept(event, this)) {
-                    mAdvanceInterceptingOnTouchListener = listener
-                    listener.onTouchEvent(event, this)
-                    val cancelEvent = event.also { it.action = MotionEvent.ACTION_CANCEL }
-                    if (mInterceptingOnTouchListener !== listener) {
-                        // 如果不是同一个就通知 mInterceptingOnTouchListener CANCEL 事件
-                        mInterceptingOnTouchListener?.onTouchEvent(cancelEvent, this)
-                    }
-                    // 因为之前所有 listener 都通知了 Down 事件，所以需要全部都通知取消事件
-                    mCourseTouchListener.forEach {
-                        if (it !== listener) {
-                            it.isAdvanceIntercept(cancelEvent, this)
-                        }
-                    }
-                    event.action = action // 恢复
-                    return true
-                }
-            }
-        }
-        mInterceptingOnTouchListener?.onTouchEvent(event, this)
-        return true
+        return mTouchDispatchHelper.onTouchEvent(event, this)
     }
 
     override fun dispatchDraw(canvas: Canvas) {
