@@ -13,7 +13,7 @@
 
 ## 导入方法
 
-### In Project build
+### In Project gradle
 
 ```groovy
 // In build.gradle
@@ -38,7 +38,7 @@ dependencyResolutionManagement {
 }
 ```
 
-### In Module build 
+### In Module gradle 
 [![](https://jitpack.io/v/985892345/CourseViewLibrary.svg)](https://jitpack.io/#985892345/CourseViewLibrary)
 
 ```groovy
