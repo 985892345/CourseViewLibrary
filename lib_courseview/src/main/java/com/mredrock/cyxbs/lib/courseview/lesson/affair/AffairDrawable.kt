@@ -19,7 +19,7 @@ import kotlin.math.sqrt
  * @data 2022/2/7 16:40
  * @describe 因需求变更，我开始重构课表，将学长之前写的该自定义 View 改为了一张 Drawable
  */
-class AffairDrawable(override val context: Context) : Drawable(), ViewExtend {
+class AffairDrawable(private val context: Context) : Drawable(), ViewExtend {
 
     private val mBgColor = R.color.white.color()
     private val mPaint = Paint().apply {
@@ -62,4 +62,7 @@ class AffairDrawable(override val context: Context) : Drawable(), ViewExtend {
     }
     override fun setColorFilter(colorFilter: ColorFilter?) {}
     override fun getOpacity(): Int = PixelFormat.OPAQUE
+    override fun getContext(): Context {
+        return context
+    }
 }

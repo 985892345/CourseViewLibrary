@@ -13,21 +13,22 @@ import kotlin.math.roundToInt
  * @date 2022/2/12 15:51
  */
 interface ViewExtend {
-    val context: Context
+
+    fun getContext(): Context
 
     fun Int.dp2px(): Int = this.dp2pxF().roundToInt()
 
-    fun Int.dp2pxF(): Float = context.resources.displayMetrics.density * this
+    fun Int.dp2pxF(): Float = getContext().resources.displayMetrics.density * this
 
     fun Float.dp2px(): Int = this.dp2pxF().roundToInt()
 
-    fun Float.dp2pxF(): Float = context.resources.displayMetrics.density * this
+    fun Float.dp2pxF(): Float = getContext().resources.displayMetrics.density * this
 
-    fun Int.color(): Int = ContextCompat.getColor(context, this)
+    fun Int.color(): Int = ContextCompat.getColor(getContext(), this)
 
-    fun Int.dimens(): Float = context.resources.getDimension(this)
+    fun Int.dimens(): Float = getContext().resources.getDimension(this)
 
-    fun Int.string(): String = context.resources.getString(this)
+    fun Int.string(): String = getContext().resources.getString(this)
 
-    fun Int.drawable(): Drawable? = AppCompatResources.getDrawable(context, this)
+    fun Int.drawable(): Drawable? = AppCompatResources.getDrawable(getContext(), this)
 }

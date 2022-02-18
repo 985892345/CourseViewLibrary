@@ -16,6 +16,7 @@ enum class CourseType(val i: Int) {
     AFFAIR_TOUCH(4), // 带有加号的那个 View
     ARROW_NOON(5), // 中午时间段的那个箭头
     ARROW_DUSK(6), // 傍晚时间段的那个箭头
+    SUBSTITUTE(7), // 长按事务后生成的替身
     UNKNOWN(114514); // 未知
 
     companion object {

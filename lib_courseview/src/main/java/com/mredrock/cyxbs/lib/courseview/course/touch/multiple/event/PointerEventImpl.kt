@@ -1,4 +1,4 @@
-package com.mredrock.cyxbs.lib.courseview.course.touch.multiple
+package com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event
 
 import android.view.MotionEvent
 
@@ -32,7 +32,14 @@ fun MotionEvent.toPointerEvent(
     pointerIndex: Int,
     pointerId: Int
 ) : IPointerEvent = PointerEventImpl.also {
-    it.event = this
-    it.pointerIndex = pointerIndex
-    it.pointerId = pointerId
+    PointerEventImpl.event = this
+    PointerEventImpl.pointerIndex = pointerIndex
+    PointerEventImpl.pointerId = pointerId
+}
+
+inline fun IPointerEvent.pretendEvent(action: Int, func: (IPointerEvent) -> Unit) {
+    val originalAction = action
+    PointerEventImpl.event.action = action
+    func.invoke(event.toPointerEvent(pointerIndex, pointerId))
+    PointerEventImpl.event.action = originalAction
 }

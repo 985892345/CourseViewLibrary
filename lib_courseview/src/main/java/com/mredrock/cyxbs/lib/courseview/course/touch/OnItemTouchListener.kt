@@ -121,7 +121,7 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  * @email 2767465918@qq.com
  * @date 2022/1/27
  */
-interface OnItemTouchListener<T: ViewGroup> {
+interface OnItemTouchListener<V: ViewGroup> {
 
     /**
      * 是否拦截事件。
@@ -135,7 +135,7 @@ interface OnItemTouchListener<T: ViewGroup> {
      * 注：只能接收到子 View 不拦截时的 Down 事件
      * ```
      */
-    fun isIntercept(event: MotionEvent, view: T): Boolean = false
+    fun isIntercept(event: MotionEvent, view: V): Boolean = false
 
     /**
      * 是否提前拦截事件。
@@ -148,7 +148,7 @@ interface OnItemTouchListener<T: ViewGroup> {
      * 注：可以接收到子 View 拦截前的 Down、Move、Cancel 等全部事件
      * ```
      */
-    fun isAdvanceIntercept(event: MotionEvent, view: T): Boolean = false
+    fun isAdvanceIntercept(event: MotionEvent, view: V): Boolean = false
 
     /**
      * 处理事件
@@ -156,7 +156,7 @@ interface OnItemTouchListener<T: ViewGroup> {
      * 注：可以接收到 Down、Move、Cancel 等全部事件
      * ```
      */
-    fun onTouchEvent(event: MotionEvent, view: T)
+    fun onTouchEvent(event: MotionEvent, view: V)
 
     /**
      * Down 事件中，被顺序在前面的 OnCourseTouchListener 拦截时回调
@@ -164,7 +164,7 @@ interface OnItemTouchListener<T: ViewGroup> {
      * 注：只能接收到 Down 事件
      * ```
      */
-    fun onCancelDownEvent(event: MotionEvent, view: T) { }
+    fun onCancelDownEvent(event: MotionEvent, view: V) { }
 
     /**
      * 在 CourseLayout 的 dispatchTouchEvent() 中调用，即事件分发下来时就回调，
@@ -173,5 +173,5 @@ interface OnItemTouchListener<T: ViewGroup> {
      * 注：可以接收到 Down、Move、Cancel 等全部事件
      * ```
      */
-    fun onDispatchTouchEvent(event: MotionEvent, view: T) { }
+    fun onDispatchTouchEvent(event: MotionEvent, view: V) { }
 }

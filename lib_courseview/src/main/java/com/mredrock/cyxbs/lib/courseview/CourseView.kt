@@ -7,7 +7,11 @@ import android.widget.LinearLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseBeanInternal
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
+import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.MultiTouchDispatcherHelper
 import com.mredrock.cyxbs.lib.courseview.helper.*
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.createaffair.CreateAffairPointerDispatcher
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.entitymove.EntityMovePointerDispatcher
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.fold.FoldPointerDispatcher
 import com.mredrock.cyxbs.lib.courseview.lesson.LessonView
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseLayoutContainer
@@ -156,25 +160,32 @@ class CourseView(
 
     private fun initCourse() {
         addView(mCourse.scrollView)
-        CourseFoldHelper.attach(mCourse.layout)
-        CourseCreateAffairHelper.attach(mCourse.layout).apply {
-            setTouchAffairViewClickListener {
-                mOnClickTouchAffairListener?.invoke(it, it.layoutParams as CourseLayoutParams)
-                removeTouchAffairView()
-                addCourse(
-                    it.layoutParams as CourseLayoutParams,
-                    "自习", "114514",
-                    LessonHelper.LessonType.AFFAIR
-                )
-            }
-        }
-        CourseLongPressAffairHelper.attach(mCourse.layout)
+//        CourseFoldHelper.attach(mCourse.layout)
+        val helper = MultiTouchDispatcherHelper<CourseLayout>()
+        helper.addPointerDispatcher(FoldPointerDispatcher(mCourse.layout))
+        helper.addPointerDispatcher(EntityMovePointerDispatcher(mCourse.layout))
+        helper.addPointerDispatcher(CreateAffairPointerDispatcher(mCourse.layout))
+        mCourse.layout.addCourseTouchListener(helper)
+
+
+//        CourseCreateAffairHelper.attach(mCourse.layout).apply {
+//            setTouchAffairViewClickListener {
+//                mOnClickTouchAffairListener?.invoke(it, it.layoutParams as CourseLayoutParams)
+//                removeTouchAffairView()
+//                addCourse(
+//                    it.layoutParams as CourseLayoutParams,
+//                    "自习", "114514",
+//                    LessonHelper.LessonType.AFFAIR
+//                )
+//            }
+//        }
+//        CourseLongPressAffairHelper.attach(mCourse.layout)
         CourseTimelineHelper.attach(mCourse.layout)
 
-        addMyCourse(0, 3, 2, "高等数学", "114514")
-        addMyCourse(3, 5, 2, "大学物理", "114514")
-        addMyCourse(5, 9, 4, "数据结构", "114514")
-        addMyCourse(1, 11, 2, "离散数学", "114514")
+        addMyAffair(0, 3, 2, "高等数学", "114514")
+        addMyAffair(3, 5, 2, "大学物理", "114514")
+        addMyAffair(5, 9, 4, "数据结构", "114514")
+        addMyAffair(1, 11, 2, "离散数学", "114514")
         addMyAffair(2, -1, 1, "自习", "114514")
     }
 }

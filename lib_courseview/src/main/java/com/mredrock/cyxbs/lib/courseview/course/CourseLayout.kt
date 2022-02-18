@@ -20,10 +20,10 @@ import com.mredrock.cyxbs.lib.courseview.course.draw.ItemDecoration
 import com.mredrock.cyxbs.lib.courseview.course.touch.OnItemTouchListener
 import com.mredrock.cyxbs.lib.courseview.course.touch.TouchDispatcher
 import com.mredrock.cyxbs.lib.courseview.course.utils.*
-import com.mredrock.cyxbs.lib.courseview.helper.entitymove.IAbsoluteCoordinates
 import com.mredrock.cyxbs.lib.courseview.net.NetLayout
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.scroll.ICourseScrollView
+import com.mredrock.cyxbs.lib.courseview.utils.lazyUnlock
 
 /**
  * ```
@@ -283,7 +283,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         scrollView
     }
 
-    val scrollView: ICourseScrollView = mCourseScrollView
+    val scrollView: ICourseScrollView by lazyUnlock { mCourseScrollView }
 
     override fun getAbsolutePointer(pointerId: Int): IAbsoluteCoordinates.IAbsolutePointer {
         return mCourseScrollView.getAbsolutePointer(pointerId)

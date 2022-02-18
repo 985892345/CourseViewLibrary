@@ -1,4 +1,4 @@
-package com.mredrock.cyxbs.lib.courseview.course.touch.multiple
+package com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event
 
 import android.view.MotionEvent
 

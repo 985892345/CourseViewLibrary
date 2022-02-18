@@ -31,7 +31,7 @@ import kotlin.math.abs
  */
 class CourseFoldHelper private constructor(
     private val course: CourseLayout
-) : OnItemTouchListener {
+) : OnItemTouchListener<CourseLayout> {
 
     private var mInitialX = 0 // Down 时的初始 X 值
     private var mInitialY = 0 // Down 时的初始 Y 值
@@ -48,12 +48,12 @@ class CourseFoldHelper private constructor(
      * 原因如下：
      * 1、isAdvanceIntercept() 会拦截子 View 的事件，这样做没有必要，可以让子 View 不拦截事件，然后分发到这里来拦截
      */
-    override fun isIntercept(event: MotionEvent, course: CourseLayout): Boolean {
+    override fun isIntercept(event: MotionEvent, view: CourseLayout): Boolean {
         if (event.action == MotionEvent.ACTION_DOWN) {
             val x = event.x.toInt()
             val y = event.y.toInt()
-            val noonState = course.getNoonRowState()
-            val duskState = course.getDuskRowState()
+            val noonState = view.getNoonRowState()
+            val duskState = view.getDuskRowState()
             // 如果 Down 事件时处于动画中
             if (noonState == RowState.FOLD_ANIM
                 || noonState == RowState.UNFOLD_ANIM
@@ -64,8 +64,8 @@ class CourseFoldHelper private constructor(
                 return true // 防止下一个 CourseTouchListener 处理正在动画时的触摸事件
             }
             // 左侧时间轴的显示范围
-            val timeLineLeft = course.getColumnsWidth(0, TIME_LINE_LEFT - 1)
-            val timeLineRight = timeLineLeft + course.getColumnsWidth(
+            val timeLineLeft = view.getColumnsWidth(0, TIME_LINE_LEFT - 1)
+            val timeLineRight = timeLineLeft + view.getColumnsWidth(
                 TIME_LINE_LEFT,
                 TIME_LINE_RIGHT
             )
@@ -74,8 +74,8 @@ class CourseFoldHelper private constructor(
             // 所以只能计算它的绝对区域
             if (x in timeLineLeft..timeLineRight) { // 如果 x 落在左侧时间轴上
                 // 中午那一行的显示范围
-                val noonTopHeight = course.getRowsHeight(0, NOON_TOP - 1)
-                val noonBottomHeight = noonTopHeight + course.getRowsHeight(
+                val noonTopHeight = view.getRowsHeight(0, NOON_TOP - 1)
+                val noonBottomHeight = noonTopHeight + view.getRowsHeight(
                     NOON_TOP,
                     NOON_BOTTOM
                 )
@@ -86,8 +86,8 @@ class CourseFoldHelper private constructor(
                     return true
                 } else {
                     // 傍晚那一行的显示范围
-                    val duskTopHeight = course.getRowsHeight(0, DUSK_TOP - 1)
-                    val duskBottomHeight = duskTopHeight + course.getRowsHeight(
+                    val duskTopHeight = view.getRowsHeight(0, DUSK_TOP - 1)
+                    val duskBottomHeight = duskTopHeight + view.getRowsHeight(
                         DUSK_TOP,
                         DUSK_BOTTOM
                     )
@@ -102,7 +102,7 @@ class CourseFoldHelper private constructor(
         return false
     }
 
-    override fun onTouchEvent(event: MotionEvent, course: CourseLayout) {
+    override fun onTouchEvent(event: MotionEvent, view: CourseLayout) {
         if (mClickWhich == DownWhich.OTHER) {
             return // 配合 isIntercept() 中的处理，目前正处于动画中，不做任何处理
         }

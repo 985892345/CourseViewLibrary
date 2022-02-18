@@ -10,4 +10,6 @@ interface ICourseScrollView {
     fun scrollBy(dy: Int)
     fun getScrollY(): Int
     fun setScrollY(y: Int)
+    fun getHeight(): Int
+    val innerHeight: Int
 }

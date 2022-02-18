@@ -1,4 +1,4 @@
-package com.mredrock.cyxbs.lib.courseview.helper.entitymove
+package com.mredrock.cyxbs.lib.courseview.course.utils
 
 /**
  * 绝对坐标系

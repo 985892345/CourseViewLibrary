@@ -55,7 +55,7 @@ import java.util.*
  */
 class CourseTimelineHelper private constructor(
     private val course: CourseLayout
-) : ItemDecoration, ViewExtend {
+) : ItemDecoration<CourseLayout>, ViewExtend {
 
     fun setVisible(boolean: Boolean) {
         mVisible = boolean
@@ -65,8 +65,6 @@ class CourseTimelineHelper private constructor(
             mRefreshRunnable.start()
         }
     }
-
-    override val context: Context = course.context
 
     private val mCalendar = Calendar.getInstance() // 用于装换时间
     private val mCircleRadius = 3.dp2pxF() // 小圆半径
@@ -424,6 +422,10 @@ class CourseTimelineHelper private constructor(
                 -999F // 跑到屏幕外不显示，但应该不会到这一分支
             }
         }
+    }
+
+    override fun getContext(): Context {
+        return course.context
     }
 
     companion object {

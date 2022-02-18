@@ -2,12 +2,13 @@ package com.mredrock.cyxbs.lib.courseview.scroll
 
 import android.content.Context
 import android.util.AttributeSet
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import androidx.core.widget.NestedScrollView
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
-import com.mredrock.cyxbs.lib.courseview.helper.entitymove.IAbsoluteCoordinates
+import com.mredrock.cyxbs.lib.courseview.course.utils.IAbsoluteCoordinates
 import kotlin.math.max
 
 /**
@@ -79,23 +80,9 @@ class CourseScrollView(
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
     }
 
-    var mInitialX = 0 // Down 时的初始 X 值
-        private set
-    var mInitialY = 0 // Down 时的初始 Y 值
-        private set
-    var mLastMoveX = 0 // Move 时的移动 X 值
-        private set
-    var mLastMoveY = 0 // Move 时的移动 Y 值
-        private set
-    var mDiffMoveX = 0 // 每次 Move 的偏移值
-        private set
-    var mDiffMoveY = 0 // 每次 Move 的偏移值
-        private set
-
     private val mPointerManger = AbsolutePointerImpl.PointerManger()
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        val actionIndex = ev.actionIndex
         when (ev.actionMasked) {
             MotionEvent.ACTION_DOWN,
             MotionEvent.ACTION_POINTER_DOWN -> {
@@ -107,7 +94,7 @@ class CourseScrollView(
             }
             MotionEvent.ACTION_MOVE -> {
                 for (index in 0 until ev.pointerCount) {
-                    val pointerId = ev.getPointerId(actionIndex)
+                    val pointerId = ev.getPointerId(index)
                     val pointer = mPointerManger.getPointer(pointerId)
                     val x = ev.getX(index).toInt()
                     val y = ev.getY(index).toInt()
@@ -117,19 +104,7 @@ class CourseScrollView(
                     pointer.lastMoveY = y
                 }
             }
-            MotionEvent.ACTION_POINTER_UP,
-            MotionEvent.ACTION_UP -> {
-                return super.dispatchTouchEvent(ev).apply {
-                    val index = ev.actionIndex
-                    val id = ev.getPointerId(index)
-                    mPointerManger.removePointer(id)
-                }
-            }
-            MotionEvent.ACTION_CANCEL -> {
-                return super.dispatchTouchEvent(ev).apply {
-                    mPointerManger.removeAll()
-                }
-            }
+            else -> {}
         }
         return super.dispatchTouchEvent(ev)
     }
@@ -141,4 +116,7 @@ class CourseScrollView(
     override fun scrollBy(dy: Int) {
         scrollBy(0, dy)
     }
+
+    override val innerHeight: Int
+        get() = getChildAt(0).height
 }

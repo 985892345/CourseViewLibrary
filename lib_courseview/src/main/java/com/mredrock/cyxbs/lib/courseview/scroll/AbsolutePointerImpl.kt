@@ -2,7 +2,7 @@ package com.mredrock.cyxbs.lib.courseview.scroll
 
 import android.util.SparseArray
 import androidx.core.util.forEach
-import com.mredrock.cyxbs.lib.courseview.helper.entitymove.IAbsoluteCoordinates
+import com.mredrock.cyxbs.lib.courseview.course.utils.IAbsoluteCoordinates
 
 /**
  * ...
@@ -20,10 +20,9 @@ class AbsolutePointerImpl private constructor() : IAbsoluteCoordinates.IAbsolute
 
     class PointerManger {
         private val mPointers = SparseArray<AbsolutePointerImpl>(3)
-        private val mDeletedPointers = ArrayDeque<AbsolutePointerImpl>(3)
 
         fun createPointer(pointerId: Int, initialX: Int, initialY: Int): AbsolutePointerImpl {
-            val pointer = mDeletedPointers.removeLastOrNull() ?: AbsolutePointerImpl()
+            val pointer = AbsolutePointerImpl()
             mPointers.put(pointerId, pointer)
             return pointer.apply {
                 this.initialX = initialX
@@ -37,21 +36,6 @@ class AbsolutePointerImpl private constructor() : IAbsoluteCoordinates.IAbsolute
 
         fun getPointer(pointerId: Int): AbsolutePointerImpl {
             return mPointers.get(pointerId)
-        }
-
-        fun removePointer(pointerId: Int) {
-            mDeletedPointers.addLast(
-                mPointers.get(pointerId).apply {
-                    mPointers.remove(pointerId)
-                }
-            )
-        }
-
-        fun removeAll() {
-            mPointers.forEach { id, pointer ->
-                mDeletedPointers.addLast(pointer)
-                mPointers.remove(id)
-            }
         }
     }
 }
