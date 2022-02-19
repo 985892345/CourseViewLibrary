@@ -15,12 +15,12 @@ import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
 import com.mredrock.cyxbs.lib.courseview.helper.multitouch.AbstractPointerDispatcher
 
 /**
- * ...
+ * 点击时间轴上箭头的事件分发者
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/18 22:21
  */
-class FoldPointerDispatcher(
+internal class FoldPointerDispatcher(
     val course: CourseLayout
 ) : AbstractPointerDispatcher<CourseLayout, FoldTouchHandler>() {
 
@@ -59,7 +59,7 @@ class FoldPointerDispatcher(
                     val clickRange = 16 // 点击的范围
                     // 如果 y 落在 Noon 的行数
                     if (y in (noonTopHeight - clickRange)..(noonBottomHeight + clickRange)) {
-                        val handler = mManger.getHandler()
+                        val handler = mHandlerPool.getHandler()
                         handler.start(DownWhich.NOON)
                         mHandlerById.put(event.pointerId, handler)
                         return true
@@ -72,7 +72,7 @@ class FoldPointerDispatcher(
                         )
                         // 如果 y 落在 Dusk 的行数
                         if (y in (duskTopHeight - clickRange)..(duskBottomHeight + clickRange)) {
-                            val handler = mManger.getHandler()
+                            val handler = mHandlerPool.getHandler()
                             handler.start(DownWhich.DUSK)
                             mHandlerById.put(event.pointerId, handler)
                             return true

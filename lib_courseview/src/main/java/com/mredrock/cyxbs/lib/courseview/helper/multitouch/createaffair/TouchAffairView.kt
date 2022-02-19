@@ -3,12 +3,15 @@ package com.mredrock.cyxbs.lib.courseview.helper.multitouch.createaffair
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.graphics.drawable.GradientDrawable
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AlphaAnimation
+import android.view.animation.Animation
 import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
 import androidx.core.animation.doOnEnd
+import androidx.core.animation.doOnStart
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
@@ -22,14 +25,27 @@ import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
  * @date 2022/2/18 20:32
  */
 @SuppressLint("ViewConstructor")
-class TouchAffairView(
+internal class TouchAffairView(
     val course: CourseLayout
 ) : ViewGroup(course.context), ViewExtend {
+
+    var isUsed = false // 是否被使用
+
+    fun isAlreadyShow(): Boolean {
+        return parent != null || animation != null
+    }
 
     /**
      * 显示 mTouchAffairView（用于添加事务的 View）
      */
     fun show(topRow: Int, bottomRow: Int, initialColumn: Int) {
+        if (visibility == GONE) {
+            /*
+            * 如果走到这分支，就说明刚才触发了长按整体移动再回来的动画
+            * 因为添加进了 overlay 而没有被成功 removeView 掉
+            * */
+            visibility = VISIBLE
+        }
         val lp = layoutParams as CourseLayoutParams
         lp.startRow = topRow
         lp.endRow = bottomRow
@@ -55,17 +71,37 @@ class TouchAffairView(
 
     fun remove() {
         if (parent != null) {
+            if (visibility == GONE) {
+                /*
+                * 如果走到这分支，就说明刚才触发了长按整体移动再回来的动画
+                * 因为添加进了 overlay 而没有被成功 removeView 掉
+                * */
+                course.removeView(this)
+                visibility = VISIBLE
+                isUsed = false
+                return
+            }
             startAnimation(
                 AlphaAnimation(1F, 0F).apply {
                     duration = 200
+                    setAnimationListener(object : Animation.AnimationListener {
+                        override fun onAnimationStart(animation: Animation) {}
+                        override fun onAnimationRepeat(animation: Animation) {}
+                        override fun onAnimationEnd(animation: Animation) {
+                            // 这里是因为长按整体移动的原因，会把它添加进 overlay，是不会被 removeView 掉的
+                            // 为降低耦合度，所以只能采用这种方式，在动画结束时在设置它的 visibility
+                            if (parent != course) {
+                                visibility = GONE
+                            }
+                        }
+                    })
                 }
             )
-            course.removeView(this)
+            if (parent === course) {
+                course.removeView(this)
+                isUsed = false
+            }
         }
-    }
-
-    fun isAdded(): Boolean {
-        return parent != null
     }
 
     fun isCanRefresh(): Boolean {
@@ -132,7 +168,7 @@ class TouchAffairView(
         topRow: Int,
         bottomRow: Int
     ) {
-        mExpandValueAnimator?.cancel() // 取消之前的动画
+        mExpandValueAnimator?.end() // 取消之前的动画
         mExpandValueAnimator = ValueAnimator.ofFloat(0F, 1F).apply {
             addUpdateListener {
                 val now = animatedValue as Float
@@ -144,8 +180,12 @@ class TouchAffairView(
                 val nowBottom = ((newBottom - oldBottom) * now).toInt() + oldBottom - newTop
                 mImageView.layout(0, nowTop, width, nowBottom) // 手动调用布局
             }
+            doOnStart {
+                course.clipChildren = false // 请求父布局不要裁剪
+            }
             doOnEnd {
                 mExpandValueAnimator = null
+                course.clipChildren = true // 及时关闭，减少不必要绘制
             }
             interpolator = DecelerateInterpolator()
             duration = 120
@@ -155,7 +195,6 @@ class TouchAffairView(
 
     init {
         addView(mImageView)
-        course.clipChildren = false // 请求父布局不要裁剪
         layoutParams = CourseLayoutParams(0,0, 0, CourseType.AFFAIR_TOUCH)
     }
 }

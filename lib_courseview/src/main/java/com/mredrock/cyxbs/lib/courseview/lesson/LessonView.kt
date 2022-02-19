@@ -24,13 +24,6 @@ class LessonView(
     attrs: AttributeSet?
 ) : FrameLayout(context, attrs) {
 
-    private var mInitialX = 0 // Down 时的初始 X 值
-    private var mInitialY = 0 // Down 时的初始 Y 值
-    private var mLastMoveX = 0 // Move 时的移动 X 值
-    private var mLastMoveY = 0 // Move 时的移动 Y 值
-
-    private val mTouchSlop = ViewConfiguration.get(context).scaledTouchSlop
-
     private val mRadius = context.resources.getDimension(R.dimen.course_course_item_radius)
     private val mPath = Path()
 
@@ -81,53 +74,5 @@ class LessonView(
                 alpha = x * x
             }
         }
-    }
-
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        val x = ev.x.toInt()
-        val y = ev.y.toInt()
-        when (ev.action) {
-            MotionEvent.ACTION_DOWN -> {
-                mInitialX = x
-                mInitialY = y
-                mLastMoveX = x
-                mLastMoveY = y
-                startAnim()
-            }
-            MotionEvent.ACTION_MOVE -> {
-                if (abs(x - mLastMoveX) > mTouchSlop
-                    || abs(y - mLastMoveY) > mTouchSlop
-                ) {
-                    recoverAnim()
-                }
-            }
-            MotionEvent.ACTION_UP -> {
-                recoverAnim()
-            }
-            MotionEvent.ACTION_CANCEL -> {
-                recoverAnim()
-            }
-        }
-        return super.dispatchTouchEvent(ev)
-    }
-
-    /**
-     * 实现按下后的 Q 弹动画
-     */
-    private fun startAnim() {
-        animate()
-            .scaleX(0.85F)
-            .scaleY(0.85F)
-            .setInterpolator { 1 - 1F / (1F + it).pow(6) }
-            .start()
-    }
-
-    private fun recoverAnim() {
-        animate().cancel()
-        animate()
-            .scaleX(1F)
-            .scaleY(1F)
-            .setInterpolator { 1 - 1F / (1F + it).pow(6) }
-            .start()
     }
 }

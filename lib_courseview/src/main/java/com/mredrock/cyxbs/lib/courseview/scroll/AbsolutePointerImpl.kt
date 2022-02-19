@@ -22,8 +22,9 @@ class AbsolutePointerImpl private constructor() : IAbsoluteCoordinates.IAbsolute
         private val mPointers = SparseArray<AbsolutePointerImpl>(3)
 
         fun createPointer(pointerId: Int, initialX: Int, initialY: Int): AbsolutePointerImpl {
-            val pointer = AbsolutePointerImpl()
-            mPointers.put(pointerId, pointer)
+            val pointer = mPointers[pointerId] ?: AbsolutePointerImpl().apply {
+                mPointers.put(pointerId, this)
+            }
             return pointer.apply {
                 this.initialX = initialX
                 this.initialY = initialY

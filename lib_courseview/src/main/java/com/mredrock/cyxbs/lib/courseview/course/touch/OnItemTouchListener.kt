@@ -159,7 +159,7 @@ interface OnItemTouchListener<V: ViewGroup> {
     fun onTouchEvent(event: MotionEvent, view: V)
 
     /**
-     * Down 事件中，被顺序在前面的 OnCourseTouchListener 拦截时回调
+     * Down 事件中，被顺序在前面的 [OnItemTouchListener] 拦截时回调
      * ```
      * 注：只能接收到 Down 事件
      * ```
@@ -168,7 +168,7 @@ interface OnItemTouchListener<V: ViewGroup> {
 
     /**
      * 在 CourseLayout 的 dispatchTouchEvent() 中调用，即事件分发下来时就回调，
-     * 每一个 OnCourseTouchListener 都可以收到
+     * 每一个 [OnItemTouchListener] 都可以收到
      * ```
      * 注：可以接收到 Down、Move、Cancel 等全部事件
      * ```

@@ -2,10 +2,10 @@ package com.mredrock.cyxbs.lib.courseview.course.touch
 
 import android.view.MotionEvent
 import android.view.ViewGroup
-import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 
 /**
- * ...
+ * 自定义事件分发者，参考 RV 的 ItemTouchListener 设计
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/15 14:55
@@ -32,7 +32,7 @@ class TouchDispatcher<T: ViewGroup> {
     }
 
     fun onInterceptTouchEvent(event: MotionEvent, view: T): Boolean {
-        val action = event.action
+        val action = event.actionMasked
         if (action == MotionEvent.ACTION_DOWN) {
             mAdvanceInterceptingOnTouchListener = null // 重置
             var isIntercept = false
@@ -93,7 +93,7 @@ class TouchDispatcher<T: ViewGroup> {
             mAdvanceInterceptingOnTouchListener!!.onTouchEvent(event, view)
             return true
         }
-        val action = event.action
+        val action = event.actionMasked
         if (action == MotionEvent.ACTION_DOWN) {
             mInterceptingOnTouchListener = null // 重置
             // 分配自定义事件处理的监听
@@ -117,7 +117,6 @@ class TouchDispatcher<T: ViewGroup> {
             mItemTouchListener.forEach { listener ->
                 if (listener.isAdvanceIntercept(event, view)) {
                     mAdvanceInterceptingOnTouchListener = listener
-                    listener.onTouchEvent(event, view)
                     val cancelEvent = event.also { it.action = MotionEvent.ACTION_CANCEL }
                     if (mInterceptingOnTouchListener !== listener) {
                         // 如果不是同一个就通知 mInterceptingOnTouchListener CANCEL 事件

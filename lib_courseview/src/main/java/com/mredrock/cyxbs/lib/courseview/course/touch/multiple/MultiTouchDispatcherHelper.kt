@@ -7,7 +7,8 @@ import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEve
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent.Action.*
 
 /**
- * ...
+ * 将事件分发给需要拦截的 [IPointerDispatcher]，他们决定了同一种类型的事件
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/16 20:44
@@ -18,15 +19,17 @@ class MultiTouchDispatcherHelper<V: ViewGroup> : AbstractMultiTouchDispatcher<V>
         mDispatchers.add(dispatcher)
     }
 
+    // 全部分发者
     private val mDispatchers = ArrayList<IPointerDispatcher<V>>(5)
-    private val mPrepareDispatchers = SparseArray<IPointerDispatcher<V>>(5)
+    // 延迟拦截当前手指事件的分发者
+    private val mDelayDispatchers = SparseArray<IPointerDispatcher<V>>(5)
 
     override fun getInterceptHandler(
         event: IPointerEvent,
         view: V
     ): IPointerTouchHandler<V>? {
-        if (event.event.action == MotionEvent.ACTION_DOWN) {
-            mPrepareDispatchers.clear()
+        if (event.event.actionMasked == MotionEvent.ACTION_DOWN) {
+            mDelayDispatchers.clear()
         }
         when (event.action) {
             DOWN, MOVE -> return findPointerTouchHandler(event, view)
@@ -35,12 +38,15 @@ class MultiTouchDispatcherHelper<V: ViewGroup> : AbstractMultiTouchDispatcher<V>
         return null
     }
 
+    /**
+     * 寻找当前手指所触摸的状态对应的 [IPointerDispatcher]
+     */
     private fun findPointerTouchHandler(event: IPointerEvent, view: V): IPointerTouchHandler<V>? {
-        val dispatcher = mPrepareDispatchers.get(event.pointerId, null)
+        val dispatcher = mDelayDispatchers.get(event.pointerId, null)
         if (dispatcher != null) {
             val handler = dispatcher.getInterceptHandler(event, view)
             if (handler != null) {
-                mPrepareDispatchers.remove(event.pointerId)
+                mDelayDispatchers.remove(event.pointerId)
                 return handler
             }
         } else {
@@ -50,7 +56,7 @@ class MultiTouchDispatcherHelper<V: ViewGroup> : AbstractMultiTouchDispatcher<V>
                     return if (handler != null) {
                         handler
                     } else {
-                        mPrepareDispatchers.put(event.pointerId, it)
+                        mDelayDispatchers.put(event.pointerId, it)
                         null
                     }
                 }
@@ -66,10 +72,11 @@ class MultiTouchDispatcherHelper<V: ViewGroup> : AbstractMultiTouchDispatcher<V>
         view: V
     ) {
         if (event.action == CANCEL) {
-            val dispatcher = mPrepareDispatchers.get(event.pointerId, null)
+            // 为 CANCEL 的时候，说明被前一个 OnItemTouchListener 拦截或者被外布局拦截
+            val dispatcher = mDelayDispatchers.get(event.pointerId, null)
             if (dispatcher != null) {
                 dispatcher.isPrepareToIntercept(event, view) // 通知之前准备拦截的 dispatcher 取消事件
-                mPrepareDispatchers.remove(event.pointerId)
+                mDelayDispatchers.remove(event.pointerId)
             }
         }
     }
@@ -78,10 +85,10 @@ class MultiTouchDispatcherHelper<V: ViewGroup> : AbstractMultiTouchDispatcher<V>
         event: IPointerEvent,
         view: V
     ) {
-        val dispatcher = mPrepareDispatchers.get(event.pointerId, null)
+        val dispatcher = mDelayDispatchers.get(event.pointerId, null)
         if (dispatcher != null) {
             dispatcher.isPrepareToIntercept(event, view) // 通知之前准备拦截的 dispatcher 取消事件
-            mPrepareDispatchers.remove(event.pointerId)
+            mDelayDispatchers.remove(event.pointerId)
         }
     }
 

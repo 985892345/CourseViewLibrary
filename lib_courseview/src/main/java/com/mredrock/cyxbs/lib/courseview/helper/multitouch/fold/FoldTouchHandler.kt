@@ -6,25 +6,25 @@ import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEve
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent.Action.*
 import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
 import com.mredrock.cyxbs.lib.courseview.helper.multitouch.AbstractTouchHandler
-import com.mredrock.cyxbs.lib.courseview.helper.multitouch.PointerState
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.PointerFlag
 import kotlin.math.abs
 
 /**
- * ...
+ * 点击时间轴上箭头的事件处理者
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/18 22:21
  */
-class FoldTouchHandler(
+internal class FoldTouchHandler(
     val course: CourseLayout
 ) : AbstractTouchHandler<CourseLayout>() {
 
     fun start(downWhich: DownWhich) {
-        state = PointerState.START
+        flag = PointerFlag.START
         mDownWhich = downWhich
     }
 
-    override var state: PointerState = PointerState.OVER
+    override var flag: PointerFlag = PointerFlag.OVER
 
     private var mDownWhich = DownWhich.OTHER
 
@@ -48,10 +48,10 @@ class FoldTouchHandler(
                         DownWhich.OTHER -> {} // 不做任何处理
                     }
                 }
-                state = PointerState.OVER
+                flag = PointerFlag.OVER
             }
             CANCEL -> {
-                state = PointerState.OVER
+                flag = PointerFlag.OVER
             }
             else -> {}
         }

@@ -142,6 +142,9 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
      * 带有动画的强制折叠中午时间段。会 cancel 掉之前的动画
      */
     fun foldNoonForce(onChanged: ((Float) -> Unit)? = null) {
+        if (getNoonRowState() == RowState.FOLD) {
+            return
+        }
         mNoonRowState = RowState.FOLD_ANIM
         val nowWeight = mNoonAnimation?.nowWeight ?: 0.99999F
         mNoonAnimation?.cancel()
@@ -169,6 +172,9 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
      * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
      */
     fun unfoldNoonForce(onChanged: ((Float) -> Unit)? = null) {
+        if (getNoonRowState() == RowState.UNFOLD) {
+            return
+        }
         mNoonRowState = RowState.UNFOLD_ANIM
         val nowWeight = mNoonAnimation?.nowWeight ?: 0.00001F
         mNoonAnimation?.cancel()
@@ -196,6 +202,9 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
      * 带有动画的强制折叠傍晚时间段。会 cancel 掉之前的动画
      */
     fun foldDuskForce(onChanged: ((Float) -> Unit)? = null) {
+        if (getDuskRowState() == RowState.FOLD) {
+            return
+        }
         mDuskRowState = RowState.FOLD_ANIM
         val nowWeight = mDuskAnimation?.nowWeight ?: 0.99999F
         mDuskAnimation?.cancel()
@@ -223,6 +232,9 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
      * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
      */
     fun unfoldDuskForce(onChanged: ((Float) -> Unit)? = null) {
+        if (getDuskRowState() == RowState.UNFOLD) {
+            return
+        }
         mDuskRowState = RowState.UNFOLD_ANIM
         val nowWeight = mDuskAnimation?.nowWeight ?: 0.00001F
         mDuskAnimation?.cancel()
@@ -244,16 +256,6 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         mDuskAnimation = null
         changeDuskWeight(1F)
         mDuskImageView.visibility = INVISIBLE
-    }
-
-    fun addNoonAnimationEndListener(onEnd: () -> Unit): Boolean {
-        mNoonAnimation?.addEndListener(onEnd)
-        return mNoonAnimation != null
-    }
-
-    fun addDuskAnimationEndListener(onEnd: () -> Unit): Boolean {
-        mDuskAnimation?.addEndListener(onEnd)
-        return mDuskAnimation != null
     }
 
     private var mNoonRowState = RowState.FOLD // 当前中午时间段的状态，主要用于上一层保险，不能光靠他来判断
@@ -642,36 +644,10 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         }
 
         /**
-         * 计算当前移动后是否包含中午时间段
-         */
-        fun isContainNoonNow(view: View, course: CourseLayout): Boolean {
-            val topNoon = course.getRowsHeight(0, NOON_TOP - 1)
-            val bottomNoon =
-                topNoon + course.getRowsHeight(NOON_TOP, NOON_BOTTOM)
-            val lp = view.layoutParams as CourseLayoutParams
-            val top = course.getRowsHeight(0, lp.startRow - 1) + view.translationY
-            val bottom = top + course.getRowsHeight(lp.startRow, lp.endRow)
-            return top < topNoon - 2 && bottom > bottomNoon + 2 // 因为是移动后，所以加个 2 来填充误差
-        }
-
-        /**
          * 静止状态下是否包含傍晚时间段
          */
         fun isContainDusk(lp: CourseLayoutParams): Boolean {
             return lp.startRow <= DUSK_TOP && lp.endRow >= DUSK_BOTTOM
-        }
-
-        /**
-         * 计算当前移动后是否包含傍晚时间段
-         */
-        fun isContainDuskNow(view: View, course: CourseLayout): Boolean {
-            val topDusk = course.getRowsHeight(0, DUSK_TOP - 1)
-            val bottomDusk =
-                topDusk + course.getRowsHeight(DUSK_TOP, DUSK_BOTTOM)
-            val lp = view.layoutParams as CourseLayoutParams
-            val top = course.getRowsHeight(0, lp.startRow - 1) + view.translationY
-            val bottom = top + course.getRowsHeight(lp.startRow, lp.endRow)
-            return top < topDusk - 2 && bottom > bottomDusk + 2 // 因为是移动后，所以加个 2 来填充误差
         }
     }
 }

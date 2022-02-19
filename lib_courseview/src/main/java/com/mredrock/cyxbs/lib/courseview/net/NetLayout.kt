@@ -88,6 +88,7 @@ open class NetLayout : ViewGroup {
     fun findItemUnderByXY(x: Int, y: Int): View? {
         for (i in childCount - 1 downTo 0) {
             val child = getChildAt(i)
+            if (child.visibility == GONE) continue
             val lp = child.layoutParams.net()
             val l = getColumnsWidth(0, lp.startColumn - 1)
             val r = l + getColumnsWidth(lp.startColumn, lp.endColumn)
@@ -110,6 +111,7 @@ open class NetLayout : ViewGroup {
     fun findItemUnderByRowColumn(row: Int, column: Int): View? {
         for (i in childCount - 1 downTo 0) {
             val child = getChildAt(i)
+            if (child.visibility == GONE) continue
             val lp = child.layoutParams.net()
             if (lp.contains(row, column)) {
                 return child

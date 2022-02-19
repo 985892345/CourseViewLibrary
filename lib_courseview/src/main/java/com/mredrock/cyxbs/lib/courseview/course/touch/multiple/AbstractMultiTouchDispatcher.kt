@@ -8,13 +8,16 @@ import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEve
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.toPointerEvent
 
 /**
- * ...
+ * 用于分离多指事件的抽离层
+ *
+ * 作用：
+ * 1、将多个手指的事件单独分离出来，实现像一个手指一样的操作
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/16 16:09
  */
-abstract class AbstractMultiTouchDispatcher
-<V : ViewGroup> : OnItemTouchListener<V> {
+abstract class AbstractMultiTouchDispatcher<V : ViewGroup> : OnItemTouchListener<V> {
 
     private val mHandlerById = SparseArray<IPointerTouchHandler<V>>(3)
 
@@ -29,6 +32,7 @@ abstract class AbstractMultiTouchDispatcher
                 if (handler != null) {
                     onRobEvent(pointerEvent, handler, view)
                     mHandlerById.put(id, handler)
+                    // 这里 return true 后以后的事件就直接回调 onTouchEvent()
                     return true
                 }
             }
@@ -164,13 +168,16 @@ abstract class AbstractMultiTouchDispatcher
 
     final override fun isIntercept(event: MotionEvent, view: V): Boolean = false
 
+    /**
+     * 询问当前手指谁来拦截
+     */
     protected abstract fun getInterceptHandler(
         event: IPointerEvent,
         view: V
     ): IPointerTouchHandler<V>?
 
     /**
-     * 当前 [event] 对应的事件被其他 [H] 或者是被前面的 [OnItemTouchListener] 抢夺
+     * 当前手指被其他 [IPointerTouchHandler] 或者是被前面的 [OnItemTouchListener] 抢夺
      */
     protected abstract fun onRobEvent(
         event: IPointerEvent,
@@ -178,6 +185,9 @@ abstract class AbstractMultiTouchDispatcher
         view: V
     )
 
+    /**
+     * 当前手指还没有被监听就抬起的回调
+     */
     protected abstract fun onNoListenerUpEvent(
         event: IPointerEvent,
         view: V

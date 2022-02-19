@@ -166,6 +166,7 @@ class CourseView(
         helper.addPointerDispatcher(EntityMovePointerDispatcher(mCourse.layout))
         helper.addPointerDispatcher(CreateAffairPointerDispatcher(mCourse.layout))
         mCourse.layout.addCourseTouchListener(helper)
+        mCourse.layout.addCourseTouchListener(CourseDownAnimHelper())
 
 
 //        CourseCreateAffairHelper.attach(mCourse.layout).apply {

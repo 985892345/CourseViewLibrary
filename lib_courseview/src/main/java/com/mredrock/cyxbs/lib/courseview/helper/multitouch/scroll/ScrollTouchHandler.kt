@@ -1,19 +1,18 @@
 package com.mredrock.cyxbs.lib.courseview.helper.multitouch.scroll
 
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
+import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.IPointerTouchHandler
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent
-import com.mredrock.cyxbs.lib.courseview.helper.multitouch.AbstractTouchHandler
-import com.mredrock.cyxbs.lib.courseview.helper.multitouch.PointerState
 
 /**
- * ...
+ * 用于手动滚动 CourseScrollView 的多指事件处理者
+ *
+ * 在事件被拦截后，需要该处理者来实现手动滚动
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/18 23:12
  */
-class ScrollTouchHandler private constructor() : AbstractTouchHandler<CourseLayout>() {
-
-    override var state: PointerState = PointerState.OVER
+internal class ScrollTouchHandler private constructor() : IPointerTouchHandler<CourseLayout> {
 
     override fun onPointerTouchEvent(event: IPointerEvent, view: CourseLayout) {
         when (event.action) {
@@ -23,7 +22,10 @@ class ScrollTouchHandler private constructor() : AbstractTouchHandler<CourseLayo
             }
             IPointerEvent.Action.UP,
             IPointerEvent.Action.CANCEL -> {
-                state = PointerState.OVER
+                /*
+                * 这里记得要把 UP 和 CANCEL 事件传给他
+                * */
+                sPointerId = -1 // 还原
             }
             else -> {}
         }
@@ -35,14 +37,15 @@ class ScrollTouchHandler private constructor() : AbstractTouchHandler<CourseLayo
         * */
         private val INSTANCE: ScrollTouchHandler = ScrollTouchHandler()
 
+        private var sPointerId: Int = -1
+
         /**
          * 获取 ScrollTouchHandler
          *
          * 会在已经被其他手指获取后返回 null，不然会出现多个手指对应同一个 ScrollTouchHandler 的情况
          */
-        fun get(): ScrollTouchHandler? {
-            return if (INSTANCE.state == PointerState.OVER) {
-                INSTANCE.state = PointerState.START
+        fun get(pointerId: Int): ScrollTouchHandler? {
+            return if (pointerId != sPointerId) {
                 INSTANCE
             } else {
                 null
