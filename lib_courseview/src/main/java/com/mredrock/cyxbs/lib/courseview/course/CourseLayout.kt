@@ -155,7 +155,6 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         }
         mNoonRowState = RowState.FOLD_ANIM
         mNoonImageView.animation?.cancel()
-        mNoonImageView.visibility = VISIBLE
         mNoonImageView.startAnimation(mImgShowAnimation)
         val nowWeight = mNoonAnimation?.nowWeight ?: 0.99999F
         mNoonAnimation = FoldAnimation(nowWeight) {
@@ -164,6 +163,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         }.addEndListener {
             mNoonAnimation = null
             mNoonRowState = RowState.FOLD
+            mNoonImageView.visibility = VISIBLE
         }.start()
     }
 
@@ -231,7 +231,6 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         }
         mDuskRowState = RowState.FOLD_ANIM
         mDuskImageView.animation?.cancel()
-        mDuskImageView.visibility = VISIBLE
         mDuskImageView.startAnimation(mImgShowAnimation)
         val nowWeight = mDuskAnimation?.nowWeight ?: 0.99999F
         mDuskAnimation = FoldAnimation(nowWeight) {
@@ -240,6 +239,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         }.addEndListener {
             mDuskAnimation = null
             mDuskRowState = RowState.FOLD
+            mDuskImageView.visibility = VISIBLE
         }.start()
     }
 
@@ -292,7 +292,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         mDuskRowState = RowState.UNFOLD
     }
 
-    private var mImgShowAnimation = AlphaAnimation(0F, 1F).apply { duration = 300 }
+    private var mImgShowAnimation = AlphaAnimation(0F, 1F).apply { duration = 360 }
     private var mImgHideAnimation = AlphaAnimation(1F, 0F).apply { duration = 300 }
     private var mNoonRowState = RowState.FOLD // 当前中午时间段的状态，主要用于上一层保险，不能光靠他来判断
     private var mDuskRowState = RowState.FOLD // 当前傍晚时间段的状态，主要用于上一层保险，不能光靠他来判断

@@ -2,17 +2,12 @@ package com.mredrock.cyxbs.lib.courseview.lesson
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Path
 import android.util.AttributeSet
-import android.view.MotionEvent
-import android.view.ViewConfiguration
-import android.widget.FrameLayout
 import androidx.cardview.widget.CardView
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
-import kotlin.math.abs
-import kotlin.math.pow
+import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
 
 /**
  * ...
@@ -20,13 +15,15 @@ import kotlin.math.pow
  * @email 2767465918@qq.com
  * @date 2022/2/7 14:44
  */
-class LessonView(
+open class LessonView(
     context: Context,
     attrs: AttributeSet?
-) : CardView(context, attrs) {
+) : CardView(context, attrs), ViewExtend {
 
     init {
         isClickable = true // 默认让 onTouchEvent 拦截事件
+        cardElevation = 0F
+        radius = R.dimen.course_course_item_radius.dimens()
     }
 
     override fun draw(canvas: Canvas) {

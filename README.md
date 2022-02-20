@@ -65,13 +65,13 @@ dependencies {
 
 | **return** | **method name**               |
 | :--------: | :---------------------------- |
-|    Unit    | [addMyCourse()](#addMyCourse) |
+|    Unit    | [addMyLesson()](#addMyLesson) |
 |            | 添加一节课                    |
 
-### addMyCourse
+### addMyLesson
 
 ```kotlin
-fun addMyCourse()
+fun addMyLesson()
 ```
 
 添加一节课

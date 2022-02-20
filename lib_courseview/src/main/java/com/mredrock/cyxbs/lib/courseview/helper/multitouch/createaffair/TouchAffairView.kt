@@ -16,6 +16,7 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
+import kotlin.math.roundToInt
 
 /**
  * 显示带有加号的那个 View
@@ -135,7 +136,7 @@ internal class TouchAffairView(
 
     /**
      * 该方法作用：
-     * 1、计算当前 [mTouchAffairView] 的位置并刷新布局
+     * 1、计算当前位置并刷新布局
      * 2、启动一个生长的动画
      */
     fun refresh(
@@ -154,35 +155,37 @@ internal class TouchAffairView(
         }
     }
 
-    // 内部 ImageView 的 margin 值，主要是为了阴影效果
-    private val mMargin = 1.2F.dp2px()
-
     // 扩展动画
     private var mExpandValueAnimator: ValueAnimator? = null
     // 下一次布局的回调
     private var mOnNextLayoutCallback: ((View) -> Unit)? = null
 
     /**
-     * 这里并没有直接给 imageView 布局，而是在前面手动调用 layout
+     * 在执行动画时不给 imageView 布局
      */
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         mOnNextLayoutCallback?.invoke(this)
         mOnNextLayoutCallback = null
         if (mExpandValueAnimator == null) {
-            mImageView.layout(mMargin, mMargin, r - l - mMargin, b - t - mMargin)
+            mImageView.layout(0, 0, r - l, b - t)
         }
+    }
+
+    /**
+     * 灰色圆角背景
+     */
+    private val mBackground = GradientDrawable().apply {
+        val radius = R.dimen.course_course_item_radius.dimens()
+        // 设置圆角
+        cornerRadii =
+            floatArrayOf(radius, radius, radius, radius, radius, radius, radius, radius)
+        // 背景颜色
+        setColor(R.color.course_affair_color.color())
     }
 
     private val mImageView = ImageView(context).apply {
         scaleType = ImageView.ScaleType.CENTER_INSIDE
-        background = GradientDrawable().apply {
-            val radius = R.dimen.course_course_item_radius.dimens()
-            // 设置圆角
-            cornerRadii =
-                floatArrayOf(radius, radius, radius, radius, radius, radius, radius, radius)
-            // 背景颜色
-            setColor(R.color.course_affair_color.color())
-        }
+        background = mBackground
         // 设置 ImageView 的前景图片
         setImageResource(R.drawable.course_ic_add_circle_white)
     }
@@ -202,24 +205,25 @@ internal class TouchAffairView(
                 val now = animatedValue as Float
                 val oldTop = course.getRowsHeight(0, oldTopRow - 1)
                 val newTop = course.getRowsHeight(0, topRow - 1)
-                val nowTop = ((oldTop - newTop) * (1 - now)).toInt()
+                val nowTop = ((oldTop - newTop) * (1 - now)).roundToInt()
                 val oldBottom = course.getRowsHeight(0, oldBottomRow)
                 val newBottom = course.getRowsHeight(0, bottomRow)
-                val nowBottom = ((newBottom - oldBottom) * now).toInt() + oldBottom - newTop
+                val nowBottom =
+                    ((newBottom - oldBottom) * now).roundToInt() + oldBottom - newTop - 2 * mMargin
                 // 手动调用布局
-                mImageView.layout(
-                    mMargin,
-                    nowTop + mMargin,
-                    width - mMargin,
-                    nowBottom - mMargin
-                )
+                mImageView.layout(0, nowTop, width, nowBottom)
             }
             doOnStart {
                 course.clipChildren = false // 请求父布局不要裁剪
+                background = null
+                mImageView.background = mBackground
             }
             doOnEnd {
                 mExpandValueAnimator = null
                 course.clipChildren = true // 及时关闭，减少不必要绘制
+                // 设置为 ImageView 的背景后，这样会使整体移动中改变 translationZ 后会有阴影效果
+                background = mImageView.background
+                mImageView.background = null
             }
             interpolator = DecelerateInterpolator()
             duration = 120
@@ -227,16 +231,19 @@ internal class TouchAffairView(
         }
     }
 
-    override fun setTranslationZ(translationZ: Float) {
-        mImageView.translationZ = translationZ
-    }
-
     override fun cloneLp(): CourseLayoutParams {
         return (layoutParams as CourseLayoutParams).clone()
     }
 
+    private val mMargin = 1.dp2pxF().roundToInt()
+
     init {
         addView(mImageView)
-        layoutParams = CourseLayoutParams(0,0, 0, CourseType.AFFAIR_TOUCH)
+        val lp = CourseLayoutParams(0,0, 0, CourseType.AFFAIR_TOUCH)
+        lp.leftMargin = mMargin
+        lp.rightMargin = mMargin
+        lp.topMargin = mMargin
+        lp.bottomMargin = mMargin
+        layoutParams = lp
     }
 }

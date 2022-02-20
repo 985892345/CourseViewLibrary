@@ -192,7 +192,7 @@ internal open class AffairMoveTouchHandler(
 
     private fun longPressStart() {
         course.parent.requestDisallowInterceptTouchEvent(true)
-        mLongPressView!!.translationZ = 4F // 让 LongPressView 绘制在其他 View 之上
+        mLongPressView!!.translationZ = 4F // 让 LongPressView 绘制在其他 View 之上，在增加一些阴影效果
         VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
         val lp = mLongPressView!!.layoutParams as CourseLayoutParams
         // 记录长按开始时的中午状态
