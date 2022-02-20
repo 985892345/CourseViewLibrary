@@ -8,6 +8,10 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseBeanInternal
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.helper.*
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.CourseMultiTouchHelper
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.createaffair.CreateAffairPointerDispatcher
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.entitymove.EntityMovePointerDispatcher
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.fold.FoldPointerDispatcher
 import com.mredrock.cyxbs.lib.courseview.lesson.LessonView
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseLayoutContainer
@@ -58,7 +62,7 @@ class CourseView(
     attrs: AttributeSet
 ) : LinearLayout(context, attrs) {
 
-    fun addMyCourse(
+    fun addMyLesson(
         day: Int,
         beginLesson: Int,
         period: Int,
@@ -96,7 +100,7 @@ class CourseView(
         )
     }
 
-    fun addLinkCourse(
+    fun addLinkLesson(
         day: Int,
         beginLesson: Int,
         period: Int,
@@ -115,7 +119,7 @@ class CourseView(
         )
     }
 
-    fun addCourse(
+    fun addAnyLesson(
         bean: CourseBeanInternal,
         title: String,
         content: String,
@@ -156,25 +160,29 @@ class CourseView(
 
     private fun initCourse() {
         addView(mCourse.scrollView)
-        CourseFoldHelper.attach(mCourse.layout)
-        CourseCreateAffairHelper.attach(mCourse.layout).apply {
-            setTouchAffairViewClickListener {
-                mOnClickTouchAffairListener?.invoke(it, it.layoutParams as CourseLayoutParams)
-                removeTouchAffairView()
-                addCourse(
-                    it.layoutParams as CourseLayoutParams,
-                    "自习", "114514",
-                    LessonHelper.LessonType.AFFAIR
-                )
-            }
-        }
-        CourseLongPressAffairHelper.attach(mCourse.layout)
         CourseTimelineHelper.attach(mCourse.layout)
+        CourseDownAnimHelper.attach(mCourse.layout)
+        CourseMultiTouchHelper.attach(mCourse.layout).apply {
+            addPointerDispatcher(FoldPointerDispatcher(mCourse.layout))
+            addPointerDispatcher(EntityMovePointerDispatcher(mCourse.layout))
+            addPointerDispatcher(
+                CreateAffairPointerDispatcher(mCourse.layout).apply {
+                    setOnClickListener {
+                        it.remove()
+                        addAnyLesson(it.cloneLp(), "自习", "233", LessonHelper.LessonType.AFFAIR)
+                    }
+                }
+            )
+        }
 
-        addMyCourse(0, 3, 2, "高等数学", "114514")
-        addMyCourse(3, 5, 2, "大学物理", "114514")
-        addMyCourse(5, 9, 4, "数据结构", "114514")
-        addMyCourse(1, 11, 2, "离散数学", "114514")
-        addMyAffair(2, -1, 1, "自习", "114514")
+        addMyLesson(0, 3, 2, "高等数学", "233")
+        addMyLesson(3, 5, 2, "大学物理", "233")
+        addMyLesson(5, 9, 4, "数据结构", "233")
+        addMyLesson(1, 11, 2, "离散数学", "233")
+        addMyAffair(2, -1, 1, "自习", "233")
+
+        addMyLesson(0, 5, 4, "顶部的课", "233")
+        addMyLesson(0, 5, 3, "中间的课", "233")
+        addMyLesson(0, 5, 2, "底部的课", "233")
     }
 }

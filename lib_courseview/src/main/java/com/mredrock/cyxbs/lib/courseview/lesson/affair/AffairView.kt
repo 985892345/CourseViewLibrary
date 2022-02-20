@@ -3,6 +3,7 @@ package com.mredrock.cyxbs.lib.courseview.lesson.affair
 import android.content.Context
 import android.graphics.*
 import android.graphics.drawable.Drawable
+import android.view.View
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
 import kotlin.math.max
@@ -17,9 +18,9 @@ import kotlin.math.sqrt
  *
  * @author 985892345
  * @data 2022/2/7 16:40
- * @describe 因需求变更，我开始重构课表，将学长之前写的该自定义 View 改为了一张 Drawable
+ * @describe 因需求变更，我开始重构课表，简单优化了一下之前学长写的逻辑
  */
-class AffairDrawable(override val context: Context) : Drawable(), ViewExtend {
+class AffairView(context: Context) : View(context), ViewExtend {
 
     private val mBgColor = R.color.white.color()
     private val mPaint = Paint().apply {
@@ -28,7 +29,7 @@ class AffairDrawable(override val context: Context) : Drawable(), ViewExtend {
     private val mRectF = RectF()
     private val mClipBounds = Rect()
 
-    override fun draw(canvas: Canvas) {
+    override fun onDraw(canvas: Canvas) {
         canvas.drawColor(mBgColor)
         canvas.getClipBounds(mClipBounds)
         val width = mClipBounds.width()
@@ -56,10 +57,4 @@ class AffairDrawable(override val context: Context) : Drawable(), ViewExtend {
         }
         canvas.restore()
     }
-
-    override fun setAlpha(alpha: Int) {
-        mPaint.alpha = alpha
-    }
-    override fun setColorFilter(colorFilter: ColorFilter?) {}
-    override fun getOpacity(): Int = PixelFormat.OPAQUE
 }

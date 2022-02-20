@@ -33,7 +33,7 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.LESSON_9_
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.LESSON_9_TOP
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_BOTTOM
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_TOP
-import com.mredrock.cyxbs.lib.courseview.course.utils.CourseDecoration
+import com.mredrock.cyxbs.lib.courseview.course.draw.ItemDecoration
 import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
 import java.util.*
 
@@ -55,8 +55,11 @@ import java.util.*
  */
 class CourseTimelineHelper private constructor(
     private val course: CourseLayout
-) : CourseDecoration, ViewExtend {
+) : ItemDecoration<CourseLayout>, ViewExtend {
 
+    /**
+     * 设置是否显示当前时间线
+     */
     fun setVisible(boolean: Boolean) {
         mVisible = boolean
         course.invalidate()
@@ -65,8 +68,6 @@ class CourseTimelineHelper private constructor(
             mRefreshRunnable.start()
         }
     }
-
-    override val context: Context = course.context
 
     private val mCalendar = Calendar.getInstance() // 用于装换时间
     private val mCircleRadius = 3.dp2pxF() // 小圆半径
@@ -113,11 +114,11 @@ class CourseTimelineHelper private constructor(
         })
     }
 
-    override fun onDrawAbove(canvas: Canvas, course: CourseLayout) {
+    override fun onDrawBelow(canvas: Canvas, view: CourseLayout) {
         if (mVisible) {
-            val left = course.getColumnsWidth(0, CourseLayout.TIME_LINE_LEFT - 1)
+            val left = view.getColumnsWidth(0, CourseLayout.TIME_LINE_LEFT - 1)
             val width =
-                course.getColumnsWidth(CourseLayout.TIME_LINE_LEFT, CourseLayout.TIME_LINE_RIGHT)
+                view.getColumnsWidth(CourseLayout.TIME_LINE_LEFT, CourseLayout.TIME_LINE_RIGHT)
             val right = left + width
             val lineHeight = getLineHeight()
             val cx = left + 28F
@@ -426,10 +427,17 @@ class CourseTimelineHelper private constructor(
         }
     }
 
+    override fun getContext(): Context {
+        return course.context
+    }
+
     companion object {
+        /**
+         * 采用这种方式更能明白该类的作用
+         */
         fun attach(course: CourseLayout): CourseTimelineHelper {
             return CourseTimelineHelper(course).apply {
-                course.addCourseDecoration(this)
+                course.addCourseDecoration(this) // 监听 course 的 onDraw() 回调
             }
         }
     }

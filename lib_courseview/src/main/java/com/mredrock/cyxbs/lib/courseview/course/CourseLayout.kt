@@ -8,17 +8,26 @@ import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
 import android.util.AttributeSet
+import android.util.Log
+import android.util.SparseArray
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AlphaAnimation
 import android.widget.ImageView
 import androidx.core.animation.addListener
+import androidx.core.util.forEach
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
+import com.mredrock.cyxbs.lib.courseview.course.draw.ItemDecoration
+import com.mredrock.cyxbs.lib.courseview.course.touch.OnItemTouchListener
+import com.mredrock.cyxbs.lib.courseview.course.touch.TouchDispatcher
 import com.mredrock.cyxbs.lib.courseview.course.utils.*
 import com.mredrock.cyxbs.lib.courseview.net.NetLayout
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
+import com.mredrock.cyxbs.lib.courseview.scroll.ICourseScrollView
+import com.mredrock.cyxbs.lib.courseview.utils.lazyUnlock
 
 /**
  * ```
@@ -58,7 +67,7 @@ import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
  * @email 2767465918@qq.com
  * @date 2022/1/20
  */
-class CourseLayout : NetLayout {
+class CourseLayout : NetLayout, IAbsoluteCoordinates {
 
     /**
      * 添加课程
@@ -70,23 +79,31 @@ class CourseLayout : NetLayout {
     /**
      * 仿照 RV 的 ItemDecoration 设计。用于自定义绘制一些东西
      */
-    fun addCourseDecoration(decor: CourseDecoration, index: Int = mCourseDecoration.size) {
+    fun addCourseDecoration(decor: ItemDecoration<CourseLayout>, index: Int = mCourseDecoration.size) {
         mCourseDecoration.add(index, decor)
     }
 
     /**
      * 仿照 RV 的 OnItemTouchListener 设计。用于处理滑动事件，
-     * 这样以后要扩展不是直接在这个 [CourseLayout] 里面添加代码，而是添加一个 [OnCourseTouchListener] 来增加新的功能
+     * 这样以后要扩展不是直接在这个 [CourseLayout] 里面添加代码，而是添加一个 [OnItemTouchListener] 来增加新的功能
      */
-    fun addCourseTouchListener(l: OnCourseTouchListener, index: Int = mCourseTouchListener.size) {
-        mCourseTouchListener.add(index, l)
+    fun addCourseTouchListener(l: OnItemTouchListener<CourseLayout>, index: Int = mTouchDispatchHelper.size) {
+        mTouchDispatchHelper.addCourseTouchListener(l, index)
     }
 
     /**
-     * 用于在 [CourseDecoration] 和 [OnCourseTouchListener] 中，[CourseLayout] 即将被摧毁时保存一些必要的信息
+     * 用于在 [ItemDecoration] 和 [OnItemTouchListener] 中，[CourseLayout] 即将被摧毁时保存一些必要的信息
+     * @param tag 唯一标记，请尽可能的不要重复
+     * @param l 与 [tag] 对应的监听
      */
-    fun addSaveBundleListener(l: OnSaveBundleListener) {
-        mSaveBundleListeners.add(l)
+    fun addSaveBundleListener(tag: Int, l: OnSaveBundleListener) {
+        val bundle = mSaveBundleListenerCache[tag]
+        if (bundle != null) {
+            // 如果有之前保留的数据，意思是设置监听前就得到了保留的数据
+            l.onRestoreInstanceState(bundle)
+            mSaveBundleListenerCache.remove(tag)
+        }
+        mSaveBundleListeners.put(tag, l)
     }
 
     /**
@@ -95,11 +112,7 @@ class CourseLayout : NetLayout {
     fun getNoonRowState(): RowState {
         if (mNoonAnimation is FoldAnimation) return RowState.FOLD_ANIM
         if (mNoonAnimation is UnfoldAnimation) return RowState.UNFOLD_ANIM
-        return when (getRowsWeight(NOON_TOP, NOON_BOTTOM) / (NOON_BOTTOM - NOON_TOP + 1)) {
-            1F -> RowState.UNFOLD
-            0F -> RowState.FOLD
-            else -> mNoonRowState
-        }
+        return mNoonRowState
     }
 
     /**
@@ -108,11 +121,7 @@ class CourseLayout : NetLayout {
     fun getDuskRowState(): RowState {
         if (mDuskAnimation is FoldAnimation) return RowState.FOLD_ANIM
         if (mDuskAnimation is UnfoldAnimation) return RowState.UNFOLD_ANIM
-        return when (getRowsWeight(DUSK_TOP, DUSK_BOTTOM) / (DUSK_BOTTOM - DUSK_TOP + 1)) {
-            1F -> RowState.UNFOLD
-            0F -> RowState.FOLD
-            else -> mDuskRowState
-        }
+        return mDuskRowState
     }
 
     /**
@@ -137,15 +146,24 @@ class CourseLayout : NetLayout {
      * 带有动画的强制折叠中午时间段。会 cancel 掉之前的动画
      */
     fun foldNoonForce(onChanged: ((Float) -> Unit)? = null) {
+        when (getNoonRowState()) {
+            RowState.FOLD, RowState.FOLD_ANIM -> {
+                mNoonAnimation?.addChangeListener(onChanged)
+                return
+            }
+            else -> mNoonAnimation?.cancel()
+        }
         mNoonRowState = RowState.FOLD_ANIM
+        mNoonImageView.animation?.cancel()
+        mNoonImageView.visibility = VISIBLE
+        mNoonImageView.startAnimation(mImgShowAnimation)
         val nowWeight = mNoonAnimation?.nowWeight ?: 0.99999F
-        mNoonAnimation?.cancel()
         mNoonAnimation = FoldAnimation(nowWeight) {
             changeNoonWeight(it)
             onChanged?.invoke(it)
         }.addEndListener {
             mNoonAnimation = null
-            mNoonImageView.visibility = VISIBLE
+            mNoonRowState = RowState.FOLD
         }.start()
     }
 
@@ -157,6 +175,8 @@ class CourseLayout : NetLayout {
         mNoonAnimation?.cancel()
         mNoonAnimation = null
         changeNoonWeight(0F)
+        mNoonRowState = RowState.FOLD
+        mNoonImageView.animation?.cancel()
         mNoonImageView.visibility = VISIBLE
     }
 
@@ -164,15 +184,24 @@ class CourseLayout : NetLayout {
      * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
      */
     fun unfoldNoonForce(onChanged: ((Float) -> Unit)? = null) {
+        when (getNoonRowState()) {
+            RowState.UNFOLD, RowState.UNFOLD_ANIM -> {
+                mNoonAnimation?.addChangeListener(onChanged)
+                return
+            }
+            else -> mNoonAnimation?.cancel()
+        }
         mNoonRowState = RowState.UNFOLD_ANIM
         val nowWeight = mNoonAnimation?.nowWeight ?: 0.00001F
-        mNoonAnimation?.cancel()
-        mNoonImageView.visibility = INVISIBLE
+        mNoonImageView.animation?.cancel()
+        mNoonImageView.startAnimation(mImgHideAnimation)
         mNoonAnimation = UnfoldAnimation(nowWeight) {
             changeNoonWeight(it)
             onChanged?.invoke(it)
         }.addEndListener {
             mNoonAnimation = null
+            mNoonRowState = RowState.UNFOLD
+            mNoonImageView.visibility = INVISIBLE
         }.start()
     }
 
@@ -184,6 +213,8 @@ class CourseLayout : NetLayout {
         mNoonAnimation?.cancel()
         mNoonAnimation = null
         changeNoonWeight(1F)
+        mNoonRowState = RowState.UNFOLD
+        mNoonImageView.animation?.cancel()
         mNoonImageView.visibility = INVISIBLE
     }
 
@@ -191,15 +222,24 @@ class CourseLayout : NetLayout {
      * 带有动画的强制折叠傍晚时间段。会 cancel 掉之前的动画
      */
     fun foldDuskForce(onChanged: ((Float) -> Unit)? = null) {
+        when (getDuskRowState()) {
+            RowState.FOLD, RowState.FOLD_ANIM -> {
+                mDuskAnimation?.addChangeListener(onChanged)
+                return
+            }
+            else -> mDuskAnimation?.cancel()
+        }
         mDuskRowState = RowState.FOLD_ANIM
+        mDuskImageView.animation?.cancel()
+        mDuskImageView.visibility = VISIBLE
+        mDuskImageView.startAnimation(mImgShowAnimation)
         val nowWeight = mDuskAnimation?.nowWeight ?: 0.99999F
-        mDuskAnimation?.cancel()
         mDuskAnimation = FoldAnimation(nowWeight) {
             changeDuskWeight(it)
             onChanged?.invoke(it)
         }.addEndListener {
             mDuskAnimation = null
-            mDuskImageView.visibility = VISIBLE
+            mDuskRowState = RowState.FOLD
         }.start()
     }
 
@@ -211,6 +251,8 @@ class CourseLayout : NetLayout {
         mDuskAnimation?.cancel()
         mDuskAnimation = null
         changeDuskWeight(0F)
+        mDuskRowState = RowState.FOLD
+        mDuskImageView.animation?.cancel()
         mDuskImageView.visibility = VISIBLE
     }
 
@@ -218,15 +260,24 @@ class CourseLayout : NetLayout {
      * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
      */
     fun unfoldDuskForce(onChanged: ((Float) -> Unit)? = null) {
+        when (getDuskRowState()) {
+            RowState.UNFOLD, RowState.UNFOLD_ANIM -> {
+                mDuskAnimation?.addChangeListener(onChanged)
+                return
+            }
+            else -> mDuskAnimation?.cancel()
+        }
         mDuskRowState = RowState.UNFOLD_ANIM
+        mDuskImageView.animation?.cancel()
+        mDuskImageView.startAnimation(mImgHideAnimation)
         val nowWeight = mDuskAnimation?.nowWeight ?: 0.00001F
-        mDuskAnimation?.cancel()
-        mDuskImageView.visibility = INVISIBLE
         mDuskAnimation = UnfoldAnimation(nowWeight) {
             changeDuskWeight(it)
             onChanged?.invoke(it)
         }.addEndListener {
             mDuskAnimation = null
+            mDuskRowState = RowState.UNFOLD
+            mDuskImageView.visibility = INVISIBLE
         }.start()
     }
 
@@ -238,19 +289,11 @@ class CourseLayout : NetLayout {
         mDuskAnimation?.cancel()
         mDuskAnimation = null
         changeDuskWeight(1F)
-        mDuskImageView.visibility = INVISIBLE
+        mDuskRowState = RowState.UNFOLD
     }
 
-    fun addNoonAnimationEndListener(onEnd: () -> Unit): Boolean {
-        mNoonAnimation?.addEndListener(onEnd)
-        return mNoonAnimation != null
-    }
-
-    fun addDuskAnimationEndListener(onEnd: () -> Unit): Boolean {
-        mDuskAnimation?.addEndListener(onEnd)
-        return mDuskAnimation != null
-    }
-
+    private var mImgShowAnimation = AlphaAnimation(0F, 1F).apply { duration = 300 }
+    private var mImgHideAnimation = AlphaAnimation(1F, 0F).apply { duration = 300 }
     private var mNoonRowState = RowState.FOLD // 当前中午时间段的状态，主要用于上一层保险，不能光靠他来判断
     private var mDuskRowState = RowState.FOLD // 当前傍晚时间段的状态，主要用于上一层保险，不能光靠他来判断
 
@@ -259,8 +302,10 @@ class CourseLayout : NetLayout {
      *
      * 因为在长按选择事务时，滑到屏幕显示边缘区域时需要调用 [CourseScrollView] 进行滚动，
      * 所以只能采用这种强耦合的方式
+     *
+     * 这里使用 private 修饰，禁止其他帮助类得到它的实例，想获取的话应该使用接口来进行隔离，降低耦合
      */
-    val mCourseScrollView: CourseScrollView by lazy(LazyThreadSafetyMode.NONE) {
+    private val mCourseScrollView: CourseScrollView by lazy(LazyThreadSafetyMode.NONE) {
         var scrollView: CourseScrollView? = null
         var parent = parent
         while (parent is ViewGroup) {
@@ -276,8 +321,14 @@ class CourseLayout : NetLayout {
         scrollView
     }
 
+    val scrollView: ICourseScrollView by lazyUnlock { mCourseScrollView }
+
+    override fun getAbsolutePointer(pointerId: Int): IAbsoluteCoordinates.IAbsolutePointer {
+        return mCourseScrollView.getAbsolutePointer(pointerId)
+    }
+
     /**
-     * 得到自身与 [mCourseScrollView] 之间相差的高度，是眼睛能看见的高度差
+     * 得到自身与 [scrollView] 之间相差的高度，是眼睛能看见的高度差
      * ```
      * 如：
      *                 |---------- CourseScrollView ----------|
@@ -289,12 +340,12 @@ class CourseLayout : NetLayout {
      *   |-- 得到的值 --| (注意：此时值为负)
      * ```
      */
-    fun getDistanceCourseLayoutToScrollView(): Int {
+    fun getDistanceToScrollView(): Int {
         var dHeight = top // 与 mCourseScrollView 去掉 scrollY 后的高度差，即屏幕上显示的高度差
         var parent = parent
         while (parent is ViewGroup) { // 这个循环用于计算 dHeight
             dHeight -= parent.scrollY
-            if (parent === mCourseScrollView) { // 找到 mCourseScrollView 就结束
+            if (parent === scrollView) { // 找到 scrollView 就结束
                 break
             }
             dHeight += parent.top
@@ -306,15 +357,11 @@ class CourseLayout : NetLayout {
     private val mCourseAttrs: CourseLayoutAttrs
 
     // 自定义绘图的监听
-    private val mCourseDecoration = ArrayList<CourseDecoration>(5)
-    // 自定义事件处理的监听
-    private val mCourseTouchListener = ArrayList<OnCourseTouchListener>(5)
-    // 自定义事件处理中拦截的监听者
-    private var mInterceptingOnTouchListener: OnCourseTouchListener? = null
-    // 自定义事件处理中提前拦截的监听者
-    private var mAdvanceInterceptingOnTouchListener: OnCourseTouchListener? = null
+    private val mCourseDecoration = ArrayList<ItemDecoration<CourseLayout>>(5)
+    // 自定义事件分发帮助类
+    private val mTouchDispatchHelper = TouchDispatcher<CourseLayout>()
     // 在 View 被摧毁时需要保存必要信息的监听
-    private val mSaveBundleListeners = ArrayList<OnSaveBundleListener>(3)
+    private val mSaveBundleListeners = SparseArray<OnSaveBundleListener>(3)
 
     constructor(
         context: Context,
@@ -407,118 +454,17 @@ class CourseLayout : NetLayout {
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        mCourseTouchListener.forEach {
-            it.onDispatchTouchEvent(ev, this)
-        }
+        mTouchDispatchHelper.dispatchTouchEvent(ev, this)
         return super.dispatchTouchEvent(ev)
     }
 
     override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-        val action = ev.action
-        if (action == MotionEvent.ACTION_DOWN) {
-            mAdvanceInterceptingOnTouchListener = null // 重置
-            var isIntercept = false
-            mCourseTouchListener.forEach { listener ->
-                if (mAdvanceInterceptingOnTouchListener == null) {
-                    if (listener.isAdvanceIntercept(ev, this)) {
-                        mAdvanceInterceptingOnTouchListener = listener
-                        isIntercept = true
-                        val cancelEvent = ev.also { it.action = MotionEvent.ACTION_CANCEL }
-                        // 通知前面已经分发 Down 事件了的 listener 取消事件
-                        for (i in mCourseTouchListener.indices) {
-                            val l = mCourseTouchListener[i]
-                            if (l !== listener) {
-                                l.isAdvanceIntercept(cancelEvent, this)
-                            } else {
-                                break
-                            }
-                        }
-                        ev.action = action // 还原
-                    }
-                } else {
-                    // 通知后面没有收到 Down 事件的 listener，Down 事件被前面的 listener 拦截
-                    listener.onCancelDownEvent(ev, this)
-                }
-            }
-            return isIntercept
-        } else {
-            /*
-            * 走到这一步说明：
-            * 1、mInterceptingOnTouchListener 一定为 null
-            *   （如果 mInterceptingOnTouchListener 不为 null，则说明：
-            *      1、没有子 View 拦截事件；
-            *      2、CourseLayout 自身拦截了事件
-            *      ==> onInterceptTouchEvent() 不会再被调用，也就不会再走到这一步）
-            * 2、事件一定被子 View 拦截
-            * 3、mAdvanceInterceptingOnTouchListener 也一定为 null
-            * */
-            mCourseTouchListener.forEach { listener ->
-                if (listener.isAdvanceIntercept(ev, this)) {
-                    mAdvanceInterceptingOnTouchListener = listener
-                    val cancelEvent = ev.also { it.action = MotionEvent.ACTION_CANCEL }
-                    // 因为之前所有 listener 都通知了 Down 事件，所以需要全部都通知取消事件
-                    mCourseTouchListener.forEach {
-                        if (it !== listener) {
-                            it.isAdvanceIntercept(cancelEvent, this)
-                        }
-                    }
-                    ev.action = action // 恢复
-                    return true
-                }
-            }
-        }
-        return false
+        return mTouchDispatchHelper.onInterceptTouchEvent(ev, this)
     }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (mAdvanceInterceptingOnTouchListener != null) {
-            mAdvanceInterceptingOnTouchListener!!.onTouchEvent(event, this)
-            return true
-        }
-        val action = event.action
-        if (action == MotionEvent.ACTION_DOWN) {
-            mInterceptingOnTouchListener = null // 重置
-            // 分配自定义事件处理的监听
-            mCourseTouchListener.forEach {
-                if (mInterceptingOnTouchListener == null) {
-                    if (it.isIntercept(event, this)) {
-                        mInterceptingOnTouchListener = it
-                    }
-                } else {
-                    it.onCancelDownEvent(event, this)
-                }
-            }
-        } else {
-            /*
-            * 走到这里说明：
-            * 1、Down 事件中没有提前拦截的 listener，即 mAdvanceInterceptingOnTouchListener 为 null
-            * 2、Down 事件中没有任何子 View 拦截
-            * 3、CourseLayout 自身拦截事件
-            * 4、因为自身拦截事件，onInterceptTouchEvent() 不会再被调用
-            * */
-            mCourseTouchListener.forEach { listener ->
-                if (listener.isAdvanceIntercept(event, this)) {
-                    mAdvanceInterceptingOnTouchListener = listener
-                    listener.onTouchEvent(event, this)
-                    val cancelEvent = event.also { it.action = MotionEvent.ACTION_CANCEL }
-                    if (mInterceptingOnTouchListener !== listener) {
-                        // 如果不是同一个就通知 mInterceptingOnTouchListener CANCEL 事件
-                        mInterceptingOnTouchListener?.onTouchEvent(cancelEvent, this)
-                    }
-                    // 因为之前所有 listener 都通知了 Down 事件，所以需要全部都通知取消事件
-                    mCourseTouchListener.forEach {
-                        if (it !== listener) {
-                            it.isAdvanceIntercept(cancelEvent, this)
-                        }
-                    }
-                    event.action = action // 恢复
-                    return true
-                }
-            }
-        }
-        mInterceptingOnTouchListener?.onTouchEvent(event, this)
-        return true
+        return mTouchDispatchHelper.onTouchEvent(event, this)
     }
 
     override fun dispatchDraw(canvas: Canvas) {
@@ -580,8 +526,14 @@ class CourseLayout : NetLayout {
             }
             return this
         }
-        fun addEndListener(onEnd: () -> Unit): ChangeWeightAnimation {
+        fun addEndListener(onEnd: (() -> Unit)?): ChangeWeightAnimation {
+            if (onEnd == null) return this
             animator.addListener(onEnd = { onEnd.invoke() })
+            return this
+        }
+        fun addChangeListener(onChanged: ((Float) -> Unit)?): ChangeWeightAnimation {
+            if (onChanged == null) return this
+            animator.addUpdateListener { onChanged.invoke(nowWeight) }
             return this
         }
 
@@ -590,29 +542,35 @@ class CourseLayout : NetLayout {
         }
     }
 
+    // 如果没有设置监听，就暂时保存
+    private val mSaveBundleListenerCache = SparseArray<Bundle?>(3)
+
     override fun onRestoreInstanceState(state: Parcelable) {
         if (state !is SavedState) {
             super.onRestoreInstanceState(state)
             return
         }
         super.onRestoreInstanceState(state.superState)
-        // 先恢复 mSaveBundleListeners 的状态
-        for (i in state.saveBundleListeners.indices) {
-            mSaveBundleListeners[i].onRestoreInstanceState(state.saveBundleListeners[i])
-        }
-        // 再恢复被摧毁时的折叠状态
+        // 先恢复被摧毁时的折叠状态
         if (state.isFoldNoon) foldNoonWithoutAnim() else unfoldNoonWithoutAnim()
         if (state.isFoldDusk) foldDuskWithoutAnim() else unfoldDuskWithoutAnim()
+
+        mSaveBundleListenerCache.clear()
+        // 再恢复 mSaveBundleListeners 的状态
+        state.saveBundleListeners.forEach { key, value ->
+            val listener = mSaveBundleListeners[key]
+            if (listener != null) {
+                listener.onRestoreInstanceState(value)
+            } else {
+                mSaveBundleListenerCache.put(key, value)
+            }
+        }
+
     }
 
     override fun onSaveInstanceState(): Parcelable {
         val superState = super.onSaveInstanceState()
         val ss = SavedState(superState)
-        // 保存 mSaveBundleListeners 的状态
-        ss.saveBundleListeners = Array(mSaveBundleListeners.size) {
-            mSaveBundleListeners[it].onSaveInstanceState()
-        }
-
         // 即将被摧毁，保存折叠状态
         when (getNoonRowState()) {
             RowState.FOLD, RowState.FOLD_ANIM -> ss.isFoldNoon = true
@@ -622,6 +580,12 @@ class CourseLayout : NetLayout {
             RowState.FOLD, RowState.FOLD_ANIM -> ss.isFoldDusk = true
             RowState.UNFOLD, RowState.UNFOLD_ANIM -> ss.isFoldDusk = false
         }
+
+        // 保存 mSaveBundleListeners 的状态
+        ss.saveBundleListeners = SparseArray(mSaveBundleListeners.size())
+        mSaveBundleListeners.forEach { key, value ->
+            ss.saveBundleListeners.put(key, value.onSaveInstanceState())
+        }
         return ss
     }
 
@@ -629,7 +593,7 @@ class CourseLayout : NetLayout {
      * 用于在 [CourseLayout] 被摧毁时保存必要的信息
      */
     private class SavedState : BaseSavedState {
-        lateinit var saveBundleListeners: Array<Bundle?> // 保存的 mSaveBundleListeners 的信息
+        lateinit var saveBundleListeners: SparseArray<Bundle?> // 保存的 mSaveBundleListeners 的信息
         var isFoldNoon = true // 是否折叠了中午时间段
         var isFoldDusk = true // 是否折叠了傍晚时间段
 
@@ -637,20 +601,14 @@ class CourseLayout : NetLayout {
 
         @SuppressLint("ParcelClassLoader")
         constructor(source: Parcel) : super(source) {
-            val size = source.readInt() // 先读取之前设置的 mSaveBundleListeners 的数量
-            saveBundleListeners = Array(size) {
-                source.readBundle()
-            }
+            saveBundleListeners = source.readSparseArray<Bundle?>(null)!!
             isFoldNoon = source.readInt() == 1
             isFoldDusk = source.readInt() == 1
         }
 
         override fun writeToParcel(out: Parcel, flags: Int) {
             super.writeToParcel(out, flags)
-            out.writeInt(saveBundleListeners.size) // 先写入设置的 mSaveBundleListeners 的数量
-            saveBundleListeners.forEach {
-                out.writeBundle(it)
-            }
+            out.writeSparseArray(saveBundleListeners)
             out.writeInt(if (isFoldNoon) 1 else 0)
             out.writeInt(if (isFoldDusk) 1 else 0)
         }
@@ -734,36 +692,10 @@ class CourseLayout : NetLayout {
         }
 
         /**
-         * 计算当前移动后是否包含中午时间段
-         */
-        fun isContainNoonNow(view: View, course: CourseLayout): Boolean {
-            val topNoon = course.getRowsHeight(0, NOON_TOP - 1)
-            val bottomNoon =
-                topNoon + course.getRowsHeight(NOON_TOP, NOON_BOTTOM)
-            val lp = view.layoutParams as CourseLayoutParams
-            val top = course.getRowsHeight(0, lp.startRow - 1) + view.translationY
-            val bottom = top + course.getRowsHeight(lp.startRow, lp.endRow)
-            return top < topNoon - 2 && bottom > bottomNoon + 2 // 因为是移动后，所以加个 2 来填充误差
-        }
-
-        /**
          * 静止状态下是否包含傍晚时间段
          */
         fun isContainDusk(lp: CourseLayoutParams): Boolean {
             return lp.startRow <= DUSK_TOP && lp.endRow >= DUSK_BOTTOM
-        }
-
-        /**
-         * 计算当前移动后是否包含傍晚时间段
-         */
-        fun isContainDuskNow(view: View, course: CourseLayout): Boolean {
-            val topDusk = course.getRowsHeight(0, DUSK_TOP - 1)
-            val bottomDusk =
-                topDusk + course.getRowsHeight(DUSK_TOP, DUSK_BOTTOM)
-            val lp = view.layoutParams as CourseLayoutParams
-            val top = course.getRowsHeight(0, lp.startRow - 1) + view.translationY
-            val bottom = top + course.getRowsHeight(lp.startRow, lp.endRow)
-            return top < topDusk - 2 && bottom > bottomDusk + 2 // 因为是移动后，所以加个 2 来填充误差
         }
     }
 }

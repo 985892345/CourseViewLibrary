@@ -8,6 +8,7 @@ import android.view.View
 import androidx.core.widget.NestedScrollView
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
+import com.mredrock.cyxbs.lib.courseview.course.utils.IAbsoluteCoordinates
 import kotlin.math.max
 
 /**
@@ -41,7 +42,8 @@ import kotlin.math.max
 class CourseScrollView(
     context: Context,
     attrs: AttributeSet
-) : NestedScrollView(context, attrs) {
+) : NestedScrollView(context, attrs),
+    IAbsoluteCoordinates, ICourseScrollView {
 
     /**
      * 重写该方法的几个原因：
@@ -78,38 +80,43 @@ class CourseScrollView(
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
     }
 
-    var mInitialX = 0 // Down 时的初始 X 值
-        private set
-    var mInitialY = 0 // Down 时的初始 Y 值
-        private set
-    var mLastMoveX = 0 // Move 时的移动 X 值
-        private set
-    var mLastMoveY = 0 // Move 时的移动 Y 值
-        private set
-    var mDiffMoveX = 0 // 每次 Move 的偏移值
-        private set
-    var mDiffMoveY = 0 // 每次 Move 的偏移值
-        private set
+    private val mPointerManger = AbsolutePointerImpl.PointerManger()
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        val x = ev.x.toInt()
-        val y = ev.y.toInt()
-        when (ev.action) {
-            MotionEvent.ACTION_DOWN -> {
-                mInitialX = x
-                mInitialY = y
-                mLastMoveX = x
-                mLastMoveY = y
-                mDiffMoveY = 0
-                mDiffMoveX = 0
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN,
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                val index = ev.actionIndex
+                val id = ev.getPointerId(index)
+                val x = ev.getX(index).toInt()
+                val y = ev.getY(index).toInt()
+                mPointerManger.createPointer(id, x, y)
             }
             MotionEvent.ACTION_MOVE -> {
-                mDiffMoveX = x - mLastMoveX
-                mDiffMoveY = y - mLastMoveY
-                mLastMoveX = x
-                mLastMoveY = y
+                for (index in 0 until ev.pointerCount) {
+                    val pointerId = ev.getPointerId(index)
+                    val pointer = mPointerManger.getPointer(pointerId)
+                    val x = ev.getX(index).toInt()
+                    val y = ev.getY(index).toInt()
+                    pointer.diffMoveX = x - pointer.lastMoveX
+                    pointer.diffMoveY = y - pointer.lastMoveY
+                    pointer.lastMoveX = x
+                    pointer.lastMoveY = y
+                }
             }
+            else -> {}
         }
         return super.dispatchTouchEvent(ev)
     }
+
+    override fun getAbsolutePointer(pointerId: Int): IAbsoluteCoordinates.IAbsolutePointer {
+        return mPointerManger.getPointer(pointerId)
+    }
+
+    override fun scrollBy(dy: Int) {
+        scrollBy(0, dy)
+    }
+
+    override val innerHeight: Int
+        get() = getChildAt(0).height
 }
