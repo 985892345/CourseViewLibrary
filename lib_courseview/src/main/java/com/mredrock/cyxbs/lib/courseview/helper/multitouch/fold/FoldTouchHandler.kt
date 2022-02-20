@@ -5,19 +5,25 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent.Action.*
 import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
-import com.mredrock.cyxbs.lib.courseview.helper.multitouch.AbstractTouchHandler
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.RecyclerTouchHandler
 import com.mredrock.cyxbs.lib.courseview.helper.multitouch.PointerFlag
 import kotlin.math.abs
 
 /**
  * 点击时间轴上箭头的事件处理者
+ *
+ * 该类作用：
+ * 1、绑定一根手指的事件；
+ * 2、封装点击中午和傍晚时间段功能
+ *
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/18 22:21
  */
 internal class FoldTouchHandler(
     val course: CourseLayout
-) : AbstractTouchHandler<CourseLayout>() {
+) : RecyclerTouchHandler<CourseLayout>() {
 
     fun start(downWhich: DownWhich) {
         flag = PointerFlag.START

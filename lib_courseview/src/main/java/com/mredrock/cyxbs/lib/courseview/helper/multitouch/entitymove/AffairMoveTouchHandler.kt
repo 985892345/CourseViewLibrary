@@ -22,18 +22,31 @@ import com.mredrock.cyxbs.lib.courseview.utils.lazyUnlock
 import kotlin.math.*
 
 /**
- * 长按整体移动的事件处理类
+ * 长按事务整体移动的事件处理者
+ *
+ * 该类作用：
+ * 1、绑定一根手指的事件；
+ * 2、封装长按整体移动功能；
+ *
+ * 注意事项：
+ * 1、长按事务整体移动
+ * 2、对于长按的那个 View 在激活长按时是会被移除父布局的，
+ *    在移动动画结束后会重新添加（如果不移除父布局就会造成很多因重新布局大小改变的问题）
+ * 3、采取的是 MOVE 中拦截，只要移动距离不大，不会拦截 View 的点击监听
+ *
+ *
+ * 注：代码虽然有点小多，但其实主要多在了松手时位置的判断，那部分逻辑时很完善的，一般不会出 bug
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/18 14:40
  */
-internal class EntityMoveTouchHandler(
+internal open class AffairMoveTouchHandler(
     val course: CourseLayout,
     dispatcher: EntityMovePointerDispatcher
 ) : EntityMovePointerDispatcher.AbstractEntityMoveTouchHandler(dispatcher),
     ItemDecoration<CourseLayout> {
 
-    fun start(event: IPointerEvent, child: View) {
+    override fun start(event: IPointerEvent, child: View) {
         flag = PointerFlag.START
         mPointerId = event.pointerId
         mIsInOverlay = false // 重置
@@ -43,11 +56,12 @@ internal class EntityMoveTouchHandler(
         mLongPressView = child
     }
 
-    fun cancel() {
+    override fun cancel() {
         if (mIsInLongPress) {
             restoreAffairViewToOldLocation(true)
             mScrollRunnable.cancel()
             mIsInLongPress = false // 重置
+            removeFromDispatcher(mPointerId)
         } else {
             mLongPressRunnable.cancel()
         }
@@ -55,7 +69,13 @@ internal class EntityMoveTouchHandler(
         flag = PointerFlag.OVER
     }
 
-    fun isHandleEvent(): Boolean {
+    /**
+     * 是否开始拦截事件
+     *
+     * 在长按激活前，不会正式拦截事件，会处于一种准备状态，
+     * 但如果在长按激活前移动距离过大，会直接结束事件，此后都不再拦截
+     */
+    override fun isStartInterceptEvent(): Boolean {
         if (flag == PointerFlag.OVER) return false
         if (mIsInLongPress) {
             return true
@@ -64,7 +84,7 @@ internal class EntityMoveTouchHandler(
             if (abs(pointer.diffMoveX) > mTouchSlop
                 || abs(pointer.diffMoveY) > mTouchSlop
             ) {
-                // 如果在长按激活前移动距离大于 mTouchSlop 就取消拦截
+                // 如果在长按激活前移动距离大于 mTouchSlop 就结束事件，不在拦截
                 cancel()
             }
         }
@@ -74,7 +94,7 @@ internal class EntityMoveTouchHandler(
     /**
      * 是否在处理当前 View
      */
-    fun isAlreadyHandle(child: View): Boolean {
+    override fun isAlreadyHandle(child: View): Boolean {
         return child === mLongPressView || child === mSubstituteView
     }
 
@@ -148,6 +168,7 @@ internal class EntityMoveTouchHandler(
                 mScrollRunnable.cancel()
                 mLongPressView = null // 重置
                 mIsInLongPress = false // 重置
+                removeFromDispatcher(mPointerId)
             }
             CANCEL -> {
                 cancel()
@@ -163,13 +184,15 @@ internal class EntityMoveTouchHandler(
         * 3、所以为了减少不必要的判断，直接放在绘图的回调里是最方便的
         * */
         mLongPressView?.let {
-            translateView(it)
+            if (mIsInLongPress) {
+                translateView(it)
+            }
         }
     }
 
     private fun longPressStart() {
         course.parent.requestDisallowInterceptTouchEvent(true)
-        mLongPressView!!.translationZ = 6F // 给 LongPressView 加些阴影
+        mLongPressView!!.translationZ = 4F // 让 LongPressView 绘制在其他 View 之上
         VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
         val lp = mLongPressView!!.layoutParams as CourseLayoutParams
         // 记录长按开始时的中午状态
@@ -186,7 +209,7 @@ internal class EntityMoveTouchHandler(
         isContainDuskLongPressStart = CourseLayout.isContainDusk(lp)
 
         // 如果需要就自动展开中午和傍晚时间段
-        unfoldNoonOrDuskIfNecessary(mLongPressView!!)
+        unfoldNoonOrDuskIfNecessary()
         putViewIntoOverlayIfCan() // 只能放在展开动画后
 
         // 用一个透明的 View 去代替 LongPressView 的位置，因为使用 overlay 会使 View 被移除
@@ -199,47 +222,21 @@ internal class EntityMoveTouchHandler(
     /**
      * 判断当前平移 LongPressView 中是否需要自动展开中午或者傍晚时间段
      */
-    private fun unfoldNoonOrDuskIfNecessary(view: View) {
-        // 如果长按开始时或者当前包含了中午时间段
-        if (isContainNoonLongPressStart || isContainNoonNow(view)) {
-            when (course.getNoonRowState()) {
-                RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldNoonForce()
-                else -> {}
-            }
+    private fun unfoldNoonOrDuskIfNecessary() {
+        // 如果长按开始时或者当前与中午时间段有交集
+        val noonState = course.getNoonRowState()
+        if ((noonState == RowState.FOLD || noonState == RowState.FOLD_ANIM)
+            && (isContainNoonLongPressStart || isEntityInNoon())
+        ) {
+            course.unfoldNoonForce()
         }
-        // 如果长按开始时或者当前包含了傍晚时间段
-        if (isContainDuskLongPressStart || isContainDuskNow(view)) {
-            when (course.getDuskRowState()) {
-                RowState.FOLD, RowState.FOLD_ANIM -> course.unfoldDuskForce()
-                else -> {}
-            }
+        // 如果长按开始时或者当前与傍晚时间段有交集
+        val duskState = course.getDuskRowState()
+        if ((duskState == RowState.FOLD || duskState == RowState.FOLD_ANIM)
+            && (isContainDuskLongPressStart || isEntityInDusk())
+        ) {
+            course.unfoldDuskForce()
         }
-    }
-
-    /**
-     * 精确计算当前移动后是否包含中午时间段
-     */
-    private fun isContainNoonNow(view: View): Boolean {
-        val topNoon = course.getRowsHeight(0, CourseLayout.NOON_TOP - 1)
-        val bottomNoon =
-            topNoon + course.getRowsHeight(CourseLayout.NOON_TOP, CourseLayout.NOON_BOTTOM)
-        val lp = view.layoutParams as CourseLayoutParams
-        val top = lp.constraintTop + view.translationY
-        val bottom = lp.constraintBottom + view.translationY
-        return top < topNoon - 2 && bottom > bottomNoon + 2 // 因为是移动后，所以加个 2 来填充误差
-    }
-
-    /**
-     * 精确计算当前移动后是否包含傍晚时间段
-     */
-    private fun isContainDuskNow(view: View): Boolean {
-        val topDusk = course.getRowsHeight(0, CourseLayout.DUSK_TOP - 1)
-        val bottomDusk =
-            topDusk + course.getRowsHeight(CourseLayout.DUSK_TOP, CourseLayout.DUSK_BOTTOM)
-        val lp = view.layoutParams as CourseLayoutParams
-        val top = lp.constraintTop + view.translationY
-        val bottom = lp.constraintBottom + view.translationY
-        return top < topDusk - 2 && bottom > bottomDusk + 2 // 因为是移动后，所以加个 2 来填充误差
     }
 
     /**
@@ -378,7 +375,7 @@ internal class EntityMoveTouchHandler(
         view.y = pointer.lastMoveY - course.getDistanceToScrollView() - mDistanceDownToViewTop
         // 判断是否展开中午或者傍晚时间段（在滑过中午或者傍晚时需要将他们自动展开）
         // 这里应该拿替身 View 去算，因为 mLongPressView 可能进 overlay 了
-        unfoldNoonOrDuskIfNecessary(view)
+        unfoldNoonOrDuskIfNecessary()
     }
 
     /**
@@ -389,7 +386,7 @@ internal class EntityMoveTouchHandler(
      *
      * 如果你要测试的话，建议把 [CourseLayout.DEBUG] 属性给打开
      */
-    private fun changeLocationIfNecessary(isFinalUpEvent: Boolean) {
+    protected open fun changeLocationIfNecessary(isFinalUpEvent: Boolean) {
         val view = mLongPressView
         if (view != null) {
             val layoutParams = view.layoutParams as CourseLayoutParams
@@ -422,12 +419,12 @@ internal class EntityMoveTouchHandler(
             * 根据与 View 内部最相邻的格子约束线的距离，修正此时的位置（格子约束线：因为是网状布局嘛，所以会有一个一个的格子）
             * 如果不修正，那由边界高度值取得的行数和列数将比总行数和总列数大上一行和一列
             * */
-            if (leftDistance > rightDistance) {
+            if (leftDistance >= rightDistance) {
                 rightColumn = leftColumn + columnCount - 1
             } else {
                 leftColumn = rightColumn - columnCount + 1
             }
-            if (topDistance > bottomDistance) {
+            if (topDistance >= bottomDistance) {
                 bottomRow = topRow + rowCount - 1
             } else {
                 topRow = bottomRow - rowCount + 1
@@ -685,19 +682,14 @@ internal class EntityMoveTouchHandler(
                         view.translationY = -(view.top - it.top - y)
                     }
                 }.addEndListener {
-                    if (!mIsInOverlay) {
-                        // 与前面互相对应，如果 view 没有添加进 overlay，则在移动动画结束后恢复
-                        // 这个必须放在设置 lp 之前
-                        recoverFoldState(isFinalUpEvent, isInNoonEnd, isInDuskEnd)
-                    }
                     view.translationX = 0F // 还原
                     view.translationY = 0F // 还原
                     view.translationZ = 0F // 重置
                     val lp = view.layoutParams as CourseLayoutParams
-                    lp.startRow = topRow
-                    lp.endRow = bottomRow
-                    lp.startColumn = leftColumn
-                    lp.endColumn = rightColumn
+                    lp.startRow = mSubstituteLp.startRow
+                    lp.endRow = mSubstituteLp.endRow
+                    lp.startColumn = mSubstituteLp.startColumn
+                    lp.endColumn = mSubstituteLp.endColumn
                     course.removeView(mSubstituteView)
                     if (mIsInOverlay) {
                         course.overlay.remove(view)
@@ -705,6 +697,8 @@ internal class EntityMoveTouchHandler(
                         mIsInOverlay = false // 重置
                     } else {
                         view.layoutParams = lp
+                        // 与前面互相对应，如果 view 没有添加进 overlay，则在移动动画结束后恢复
+                        recoverFoldState(isFinalUpEvent, isInNoonEnd, isInDuskEnd)
                     }
                     flag = PointerFlag.OVER
                 }.start()
@@ -731,12 +725,10 @@ internal class EntityMoveTouchHandler(
     /**
      * 带有动画的恢复 LongPressView 到原位置
      */
-    private fun restoreAffairViewToOldLocation(isFinalUpEvent: Boolean) {
+    protected fun restoreAffairViewToOldLocation(isFinalUpEvent: Boolean) {
         val view = mLongPressView
         if (view != null) {
-            if (isFinalUpEvent) {
-                recoverFoldState(isFinalUpEvent, isContainNoonLongPressStart, isContainDuskLongPressStart)
-            }
+            recoverFoldState(isFinalUpEvent, isContainNoonLongPressStart, isContainDuskLongPressStart)
 
             val dx = view.x - mSubstituteView.left
             val dy = view.y - mSubstituteView.top
@@ -780,6 +772,40 @@ internal class EntityMoveTouchHandler(
                 flag = PointerFlag.OVER
             }.start()
         }
+    }
+
+    /**
+     * 计算当前长按 View 是否与中午时间段有交集
+     */
+    override fun isEntityInNoon(): Boolean {
+        if (!mIsInLongPress) return false
+        mLongPressView?.let {
+            val topNoon = course.getRowsHeight(0, CourseLayout.NOON_TOP - 1)
+            val bottomNoon =
+                topNoon + course.getRowsHeight(CourseLayout.NOON_TOP, CourseLayout.NOON_BOTTOM)
+            val lp = it.layoutParams as CourseLayoutParams
+            val top = lp.constraintTop + it.translationY.roundToInt()
+            val bottom = lp.constraintBottom + it.translationY.roundToInt()
+            return topNoon in top..bottom || bottomNoon in top..bottom
+        }
+        return false
+    }
+
+    /**
+     * 计算当前长按 View 是否与傍晚时间段有交集
+     */
+    override fun isEntityInDusk(): Boolean {
+        if (!mIsInLongPress) return false
+        mLongPressView?.let {
+            val topDusk = course.getRowsHeight(0, CourseLayout.DUSK_TOP - 1)
+            val bottomDusk =
+                topDusk + course.getRowsHeight(CourseLayout.DUSK_TOP, CourseLayout.DUSK_BOTTOM)
+            val lp = it.layoutParams as CourseLayoutParams
+            val top = lp.constraintTop + it.translationY.roundToInt()
+            val bottom = lp.constraintBottom + it.translationY.roundToInt()
+            return topDusk in top..bottom || bottomDusk in top..bottom
+        }
+        return false
     }
 
     init {

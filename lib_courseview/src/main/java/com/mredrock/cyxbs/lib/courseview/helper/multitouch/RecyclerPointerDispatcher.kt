@@ -5,7 +5,7 @@ import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.IPointerDispatche
 import kotlin.collections.ArrayList
 
 /**
- * 配合 [AbstractTouchHandler] 一起使用的手指事件分发者
+ * 配合 [RecyclerTouchHandler] 一起使用的手指事件分发者
  *
  * 该类作用：
  * 1、加入回收机制，减少类重复生成
@@ -14,19 +14,16 @@ import kotlin.collections.ArrayList
  * @email 2767465918@qq.com
  * @date 2022/2/18 13:40
  */
-abstract class AbstractPointerDispatcher
-<V: ViewGroup, H: AbstractTouchHandler<V>> : IPointerDispatcher<V> {
-
-    protected val mHandlerPool = HandlerPool()
-
-    abstract fun createNewHandler(): H
+abstract class RecyclerPointerDispatcher<V: ViewGroup> : IPointerDispatcher<V> {
 
     /**
-     * [AbstractTouchHandler] 池，用于复用，本身实现了 [Iterable]，支持遍历
+     * [RecyclerTouchHandler] 池，用于复用，本身实现了 [Iterable]，支持遍历
      *
-     * **NOTE:** 能否复用取决于 [AbstractTouchHandler.flag] 标记，一定要在合适时间改变它
+     * **NOTE:** 能否复用取决于 [RecyclerTouchHandler.flag] 标记，一定要在合适时间结束它
      */
-    protected inner class HandlerPool : Iterable<H> {
+    protected inner class HandlerPool<H: RecyclerTouchHandler<V>>(
+        val create: () -> H
+    ) : Iterable<H> {
         private val mHandlers = ArrayList<H>(3)
 
         fun getHandler(): H {
@@ -35,7 +32,7 @@ abstract class AbstractPointerDispatcher
                     return it
                 }
             }
-            return createNewHandler().also {
+            return create().also {
                 mHandlers.add(it)
             }
         }

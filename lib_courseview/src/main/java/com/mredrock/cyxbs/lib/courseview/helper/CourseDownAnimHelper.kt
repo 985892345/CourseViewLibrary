@@ -8,17 +8,24 @@ import androidx.core.util.forEach
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.course.touch.OnItemTouchListener
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.CourseMultiTouchHelper
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import kotlin.math.abs
 import kotlin.math.pow
 
 /**
  * 点击 View 实现 Q 弹动画的事件帮助类
+ *
+ * 为什么写在这里?
+ * 原因：
+ * 多指触摸的那个分发帮助类会拦截子 View 的事件，
+ * 所以点击实现的 Q 弹动画就得写在这里，而且使用 onDispatchTouchEvent() 来实现
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/19 14:44
  */
-internal class CourseDownAnimHelper : OnItemTouchListener<CourseLayout> {
+internal class CourseDownAnimHelper private constructor(): OnItemTouchListener<CourseLayout> {
 
     private var mTouchSlop = 0
     private val mViewById = SparseArray<View>(3)
@@ -101,4 +108,15 @@ internal class CourseDownAnimHelper : OnItemTouchListener<CourseLayout> {
     }
 
     override fun onTouchEvent(event: MotionEvent, view: CourseLayout) {}
+
+    companion object {
+        /**
+         * 采用这种方式更能明白该类的作用
+         */
+        fun attach(course: CourseLayout): CourseDownAnimHelper {
+            return CourseDownAnimHelper().apply {
+                course.addCourseTouchListener(this) // 监听 course 的事件分发
+            }
+        }
+    }
 }

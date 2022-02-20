@@ -1,6 +1,7 @@
 package com.mredrock.cyxbs.lib.courseview.utils
 
 import android.graphics.*
+import android.util.Log
 import android.view.LayoutInflater
 import android.widget.TextView
 import com.mredrock.cyxbs.lib.courseview.course.CourseBeanInternal
@@ -9,9 +10,8 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
 import com.mredrock.cyxbs.lib.courseview.lesson.LessonView
-import com.mredrock.cyxbs.lib.courseview.lesson.affair.AffairDrawable
+import com.mredrock.cyxbs.lib.courseview.lesson.affair.AffairView
 import java.lang.RuntimeException
-import java.util.*
 
 /**
  * 操作 [CourseLayout] 的帮助类
@@ -220,7 +220,7 @@ object LessonHelper {
     ) {
         val context = lessonView.context
         lp.type = CourseType.AFFAIR
-        lessonView.background = AffairDrawable(context)
+        lessonView.addView(AffairView(context), 0)
         val tvTop: TextView = lessonView.findViewById(R.id.tv_top)
         val tvBottom: TextView = lessonView.findViewById(R.id.tv_bottom)
         val color = R.color.course_affair_tv_color.color(context)

@@ -8,11 +8,15 @@ import android.os.Bundle
 import android.os.Parcel
 import android.os.Parcelable
 import android.util.AttributeSet
+import android.util.Log
+import android.util.SparseArray
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.animation.AlphaAnimation
 import android.widget.ImageView
 import androidx.core.animation.addListener
+import androidx.core.util.forEach
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
@@ -89,9 +93,17 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
 
     /**
      * 用于在 [ItemDecoration] 和 [OnItemTouchListener] 中，[CourseLayout] 即将被摧毁时保存一些必要的信息
+     * @param tag 唯一标记，请尽可能的不要重复
+     * @param l 与 [tag] 对应的监听
      */
-    fun addSaveBundleListener(l: OnSaveBundleListener) {
-        mSaveBundleListeners.add(l)
+    fun addSaveBundleListener(tag: Int, l: OnSaveBundleListener) {
+        val bundle = mSaveBundleListenerCache[tag]
+        if (bundle != null) {
+            // 如果有之前保留的数据，意思是设置监听前就得到了保留的数据
+            l.onRestoreInstanceState(bundle)
+            mSaveBundleListenerCache.remove(tag)
+        }
+        mSaveBundleListeners.put(tag, l)
     }
 
     /**
@@ -100,11 +112,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     fun getNoonRowState(): RowState {
         if (mNoonAnimation is FoldAnimation) return RowState.FOLD_ANIM
         if (mNoonAnimation is UnfoldAnimation) return RowState.UNFOLD_ANIM
-        return when (getRowsWeight(NOON_TOP, NOON_BOTTOM) / (NOON_BOTTOM - NOON_TOP + 1)) {
-            1F -> RowState.UNFOLD
-            0F -> RowState.FOLD
-            else -> mNoonRowState
-        }
+        return mNoonRowState
     }
 
     /**
@@ -113,11 +121,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     fun getDuskRowState(): RowState {
         if (mDuskAnimation is FoldAnimation) return RowState.FOLD_ANIM
         if (mDuskAnimation is UnfoldAnimation) return RowState.UNFOLD_ANIM
-        return when (getRowsWeight(DUSK_TOP, DUSK_BOTTOM) / (DUSK_BOTTOM - DUSK_TOP + 1)) {
-            1F -> RowState.UNFOLD
-            0F -> RowState.FOLD
-            else -> mDuskRowState
-        }
+        return mDuskRowState
     }
 
     /**
@@ -142,18 +146,24 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
      * 带有动画的强制折叠中午时间段。会 cancel 掉之前的动画
      */
     fun foldNoonForce(onChanged: ((Float) -> Unit)? = null) {
-        if (getNoonRowState() == RowState.FOLD) {
-            return
+        when (getNoonRowState()) {
+            RowState.FOLD, RowState.FOLD_ANIM -> {
+                mNoonAnimation?.addChangeListener(onChanged)
+                return
+            }
+            else -> mNoonAnimation?.cancel()
         }
         mNoonRowState = RowState.FOLD_ANIM
+        mNoonImageView.animation?.cancel()
+        mNoonImageView.visibility = VISIBLE
+        mNoonImageView.startAnimation(mImgShowAnimation)
         val nowWeight = mNoonAnimation?.nowWeight ?: 0.99999F
-        mNoonAnimation?.cancel()
         mNoonAnimation = FoldAnimation(nowWeight) {
             changeNoonWeight(it)
             onChanged?.invoke(it)
         }.addEndListener {
             mNoonAnimation = null
-            mNoonImageView.visibility = VISIBLE
+            mNoonRowState = RowState.FOLD
         }.start()
     }
 
@@ -165,6 +175,8 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         mNoonAnimation?.cancel()
         mNoonAnimation = null
         changeNoonWeight(0F)
+        mNoonRowState = RowState.FOLD
+        mNoonImageView.animation?.cancel()
         mNoonImageView.visibility = VISIBLE
     }
 
@@ -172,18 +184,24 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
      * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
      */
     fun unfoldNoonForce(onChanged: ((Float) -> Unit)? = null) {
-        if (getNoonRowState() == RowState.UNFOLD) {
-            return
+        when (getNoonRowState()) {
+            RowState.UNFOLD, RowState.UNFOLD_ANIM -> {
+                mNoonAnimation?.addChangeListener(onChanged)
+                return
+            }
+            else -> mNoonAnimation?.cancel()
         }
         mNoonRowState = RowState.UNFOLD_ANIM
         val nowWeight = mNoonAnimation?.nowWeight ?: 0.00001F
-        mNoonAnimation?.cancel()
-        mNoonImageView.visibility = INVISIBLE
+        mNoonImageView.animation?.cancel()
+        mNoonImageView.startAnimation(mImgHideAnimation)
         mNoonAnimation = UnfoldAnimation(nowWeight) {
             changeNoonWeight(it)
             onChanged?.invoke(it)
         }.addEndListener {
             mNoonAnimation = null
+            mNoonRowState = RowState.UNFOLD
+            mNoonImageView.visibility = INVISIBLE
         }.start()
     }
 
@@ -195,6 +213,8 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         mNoonAnimation?.cancel()
         mNoonAnimation = null
         changeNoonWeight(1F)
+        mNoonRowState = RowState.UNFOLD
+        mNoonImageView.animation?.cancel()
         mNoonImageView.visibility = INVISIBLE
     }
 
@@ -202,18 +222,24 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
      * 带有动画的强制折叠傍晚时间段。会 cancel 掉之前的动画
      */
     fun foldDuskForce(onChanged: ((Float) -> Unit)? = null) {
-        if (getDuskRowState() == RowState.FOLD) {
-            return
+        when (getDuskRowState()) {
+            RowState.FOLD, RowState.FOLD_ANIM -> {
+                mDuskAnimation?.addChangeListener(onChanged)
+                return
+            }
+            else -> mDuskAnimation?.cancel()
         }
         mDuskRowState = RowState.FOLD_ANIM
+        mDuskImageView.animation?.cancel()
+        mDuskImageView.visibility = VISIBLE
+        mDuskImageView.startAnimation(mImgShowAnimation)
         val nowWeight = mDuskAnimation?.nowWeight ?: 0.99999F
-        mDuskAnimation?.cancel()
         mDuskAnimation = FoldAnimation(nowWeight) {
             changeDuskWeight(it)
             onChanged?.invoke(it)
         }.addEndListener {
             mDuskAnimation = null
-            mDuskImageView.visibility = VISIBLE
+            mDuskRowState = RowState.FOLD
         }.start()
     }
 
@@ -225,6 +251,8 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         mDuskAnimation?.cancel()
         mDuskAnimation = null
         changeDuskWeight(0F)
+        mDuskRowState = RowState.FOLD
+        mDuskImageView.animation?.cancel()
         mDuskImageView.visibility = VISIBLE
     }
 
@@ -232,18 +260,24 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
      * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
      */
     fun unfoldDuskForce(onChanged: ((Float) -> Unit)? = null) {
-        if (getDuskRowState() == RowState.UNFOLD) {
-            return
+        when (getDuskRowState()) {
+            RowState.UNFOLD, RowState.UNFOLD_ANIM -> {
+                mDuskAnimation?.addChangeListener(onChanged)
+                return
+            }
+            else -> mDuskAnimation?.cancel()
         }
         mDuskRowState = RowState.UNFOLD_ANIM
+        mDuskImageView.animation?.cancel()
+        mDuskImageView.startAnimation(mImgHideAnimation)
         val nowWeight = mDuskAnimation?.nowWeight ?: 0.00001F
-        mDuskAnimation?.cancel()
-        mDuskImageView.visibility = INVISIBLE
         mDuskAnimation = UnfoldAnimation(nowWeight) {
             changeDuskWeight(it)
             onChanged?.invoke(it)
         }.addEndListener {
             mDuskAnimation = null
+            mDuskRowState = RowState.UNFOLD
+            mDuskImageView.visibility = INVISIBLE
         }.start()
     }
 
@@ -255,9 +289,11 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         mDuskAnimation?.cancel()
         mDuskAnimation = null
         changeDuskWeight(1F)
-        mDuskImageView.visibility = INVISIBLE
+        mDuskRowState = RowState.UNFOLD
     }
 
+    private var mImgShowAnimation = AlphaAnimation(0F, 1F).apply { duration = 300 }
+    private var mImgHideAnimation = AlphaAnimation(1F, 0F).apply { duration = 300 }
     private var mNoonRowState = RowState.FOLD // 当前中午时间段的状态，主要用于上一层保险，不能光靠他来判断
     private var mDuskRowState = RowState.FOLD // 当前傍晚时间段的状态，主要用于上一层保险，不能光靠他来判断
 
@@ -325,7 +361,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     // 自定义事件分发帮助类
     private val mTouchDispatchHelper = TouchDispatcher<CourseLayout>()
     // 在 View 被摧毁时需要保存必要信息的监听
-    private val mSaveBundleListeners = ArrayList<OnSaveBundleListener>(3)
+    private val mSaveBundleListeners = SparseArray<OnSaveBundleListener>(3)
 
     constructor(
         context: Context,
@@ -490,8 +526,14 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
             }
             return this
         }
-        fun addEndListener(onEnd: () -> Unit): ChangeWeightAnimation {
+        fun addEndListener(onEnd: (() -> Unit)?): ChangeWeightAnimation {
+            if (onEnd == null) return this
             animator.addListener(onEnd = { onEnd.invoke() })
+            return this
+        }
+        fun addChangeListener(onChanged: ((Float) -> Unit)?): ChangeWeightAnimation {
+            if (onChanged == null) return this
+            animator.addUpdateListener { onChanged.invoke(nowWeight) }
             return this
         }
 
@@ -500,29 +542,35 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         }
     }
 
+    // 如果没有设置监听，就暂时保存
+    private val mSaveBundleListenerCache = SparseArray<Bundle?>(3)
+
     override fun onRestoreInstanceState(state: Parcelable) {
         if (state !is SavedState) {
             super.onRestoreInstanceState(state)
             return
         }
         super.onRestoreInstanceState(state.superState)
-        // 先恢复 mSaveBundleListeners 的状态
-        for (i in state.saveBundleListeners.indices) {
-            mSaveBundleListeners[i].onRestoreInstanceState(state.saveBundleListeners[i])
-        }
-        // 再恢复被摧毁时的折叠状态
+        // 先恢复被摧毁时的折叠状态
         if (state.isFoldNoon) foldNoonWithoutAnim() else unfoldNoonWithoutAnim()
         if (state.isFoldDusk) foldDuskWithoutAnim() else unfoldDuskWithoutAnim()
+
+        mSaveBundleListenerCache.clear()
+        // 再恢复 mSaveBundleListeners 的状态
+        state.saveBundleListeners.forEach { key, value ->
+            val listener = mSaveBundleListeners[key]
+            if (listener != null) {
+                listener.onRestoreInstanceState(value)
+            } else {
+                mSaveBundleListenerCache.put(key, value)
+            }
+        }
+
     }
 
     override fun onSaveInstanceState(): Parcelable {
         val superState = super.onSaveInstanceState()
         val ss = SavedState(superState)
-        // 保存 mSaveBundleListeners 的状态
-        ss.saveBundleListeners = Array(mSaveBundleListeners.size) {
-            mSaveBundleListeners[it].onSaveInstanceState()
-        }
-
         // 即将被摧毁，保存折叠状态
         when (getNoonRowState()) {
             RowState.FOLD, RowState.FOLD_ANIM -> ss.isFoldNoon = true
@@ -532,6 +580,12 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
             RowState.FOLD, RowState.FOLD_ANIM -> ss.isFoldDusk = true
             RowState.UNFOLD, RowState.UNFOLD_ANIM -> ss.isFoldDusk = false
         }
+
+        // 保存 mSaveBundleListeners 的状态
+        ss.saveBundleListeners = SparseArray(mSaveBundleListeners.size())
+        mSaveBundleListeners.forEach { key, value ->
+            ss.saveBundleListeners.put(key, value.onSaveInstanceState())
+        }
         return ss
     }
 
@@ -539,7 +593,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
      * 用于在 [CourseLayout] 被摧毁时保存必要的信息
      */
     private class SavedState : BaseSavedState {
-        lateinit var saveBundleListeners: Array<Bundle?> // 保存的 mSaveBundleListeners 的信息
+        lateinit var saveBundleListeners: SparseArray<Bundle?> // 保存的 mSaveBundleListeners 的信息
         var isFoldNoon = true // 是否折叠了中午时间段
         var isFoldDusk = true // 是否折叠了傍晚时间段
 
@@ -547,20 +601,14 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
 
         @SuppressLint("ParcelClassLoader")
         constructor(source: Parcel) : super(source) {
-            val size = source.readInt() // 先读取之前设置的 mSaveBundleListeners 的数量
-            saveBundleListeners = Array(size) {
-                source.readBundle()
-            }
+            saveBundleListeners = source.readSparseArray<Bundle?>(null)!!
             isFoldNoon = source.readInt() == 1
             isFoldDusk = source.readInt() == 1
         }
 
         override fun writeToParcel(out: Parcel, flags: Int) {
             super.writeToParcel(out, flags)
-            out.writeInt(saveBundleListeners.size) // 先写入设置的 mSaveBundleListeners 的数量
-            saveBundleListeners.forEach {
-                out.writeBundle(it)
-            }
+            out.writeSparseArray(saveBundleListeners)
             out.writeInt(if (isFoldNoon) 1 else 0)
             out.writeInt(if (isFoldDusk) 1 else 0)
         }

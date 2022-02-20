@@ -1,17 +1,24 @@
 package com.mredrock.cyxbs.lib.courseview.utils
 
 import android.content.res.TypedArray
+import com.mredrock.cyxbs.lib.courseview.R
 
 /**
  * 这个枚举类记录 CourseLayout
+ *
+ * 这里面的数据与 [R.styleable.CourseLayout_Layout_course_layout_type] 对应
+ *
+ * **NOTE:** 每个类型的位置决定了它的大小顺序，越在上面的，在课表的显示也会在上面，这是 kt 给枚举类的语法题，
+ * 自然顺序是它们在枚举类中定义的顺序，意思是 MY < AFFAIR
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/1/27
  */
 enum class CourseType(val i: Int) {
     MY(0), // 我的课程
-    LINK(1), // 关联人的课程
-    AFFAIR(2), // 我的事务
+    AFFAIR(1), // 我的事务
+    LINK(2), // 关联人的课程
     TIME(3), // 时间轴上的数字和中午、傍晚
     AFFAIR_TOUCH(4), // 带有加号的那个 View
     ARROW_NOON(5), // 中午时间段的那个箭头

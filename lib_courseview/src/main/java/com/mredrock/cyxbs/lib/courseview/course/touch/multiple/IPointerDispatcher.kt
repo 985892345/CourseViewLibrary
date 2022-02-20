@@ -45,4 +45,9 @@ interface IPointerDispatcher<V: ViewGroup> {
      * ```
      */
     fun onDispatchTouchEvent(event: MotionEvent, view: V) { }
+
+    /**
+     * 当事件被某个分发者拦截时回调
+     */
+    fun onOtherDispatcherRobEvent(event: IPointerEvent, dispatcher: IPointerDispatcher<V>) { }
 }

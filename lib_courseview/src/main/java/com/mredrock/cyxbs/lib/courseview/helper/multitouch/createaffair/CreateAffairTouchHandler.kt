@@ -1,6 +1,7 @@
 package com.mredrock.cyxbs.lib.courseview.helper.multitouch.createaffair
 
 import android.graphics.Canvas
+import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
@@ -25,7 +26,12 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * 长按生成事务的事件处理类
+ * 长按生成事务的事件处理者
+ *
+ * 该类作用：
+ * 1、绑定一根手指的事件；
+ * 2、封装长按生成事务的功能
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/18 19:15
@@ -48,7 +54,7 @@ internal class CreateAffairTouchHandler(
         mPointerId = event.pointerId
 
         mTouchAffairView = view
-        view.isUsed = true
+        view.startUse()
 
         mInitialRow = course.getRow(event.y.toInt())
         mInitialColumn = course.getColumn(event.x.toInt())
@@ -62,19 +68,9 @@ internal class CreateAffairTouchHandler(
         calculateUpperLowerRow()
     }
 
-    fun cancel() {
-        if (mIsInLongPress) {
-            mIsInLongPress = false // 重置
-            mScrollRunnable.cancel()
-        } else {
-            mLongPressRunnable.cancel()
-        }
-        flag = PointerFlag.OVER
-    }
-
     override var flag: PointerFlag = PointerFlag.OVER
 
-    private lateinit var mTouchAffairView: TouchAffairView
+    private var mTouchAffairView: TouchAffairView? = null
 
     private var mIsNoonFoldedWhenLongPress = true // 长按开始时中午时间段是否处于折叠状态
     private var mIsDuskFoldedWhenLongPress = true // 长按开始时傍晚时间段是否处于折叠状态
@@ -125,7 +121,8 @@ internal class CreateAffairTouchHandler(
                     if (abs(pointer.diffMoveX) > mTouchSlop
                         || abs(pointer.diffMoveY) > mTouchSlop
                     ) {
-                        cancel() // 把事件转移给 ScrollTouchHandler 处理
+                        mLongPressRunnable.cancel()
+                        flag = PointerFlag.OVER // 把事件转移给 ScrollTouchHandler 处理
                     }
                 }
             }
@@ -140,9 +137,7 @@ internal class CreateAffairTouchHandler(
                         && abs(pointer.diffMoveY) <= mTouchSlop
                     ) {
                         // 这里说明移动的距离小于 mTouchSlop，但还是得把点击的事务给绘制上，但是只有一格
-                        if (!isAlreadyShow()) { // 如果屏幕上已经有了，则下一次的点击是删除操作
-                            mTouchAffairView.show(mTopRow, mBottomRow, mInitialColumn)
-                        }
+                        mTouchAffairView?.show(mTopRow, mBottomRow, mInitialColumn)
                     }
                 }
                 // 在最后一个手指抬起时才恢复状态
@@ -152,7 +147,13 @@ internal class CreateAffairTouchHandler(
                 flag = PointerFlag.OVER
             }
             CANCEL -> {
-                cancel()
+                if (mIsInLongPress) {
+                    mIsInLongPress = false // 重置
+                    mScrollRunnable.cancel()
+                } else {
+                    mLongPressRunnable.cancel()
+                }
+                flag = PointerFlag.OVER
             }
         }
     }
@@ -161,7 +162,7 @@ internal class CreateAffairTouchHandler(
         /*
         * 在每次刷新时修改 mTouchAffairView 的位置
         * */
-        if (mTouchAffairView.isCanRefresh() && mIsInLongPress) {
+        if (mTouchAffairView != null && mIsInLongPress) {
             refreshTouchAffairView()
         }
     }
@@ -179,11 +180,11 @@ internal class CreateAffairTouchHandler(
             RowState.FOLD, RowState.UNFOLD_ANIM -> true
             RowState.UNFOLD, RowState.FOLD_ANIM -> false
         }
-        mTouchAffairView.show(mTopRow, mBottomRow, mInitialColumn)
+        mTouchAffairView!!.show(mTopRow, mBottomRow, mInitialColumn)
         // 回调监听
         mOnTouchAffairListener?.onCreateTouchAffair(
-            mTouchAffairView,
-            mTouchAffairView.layoutParams as CourseLayoutParams
+            mTouchAffairView!!,
+            mTouchAffairView!!.layoutParams as CourseLayoutParams
         )
     }
 
@@ -339,7 +340,7 @@ internal class CreateAffairTouchHandler(
         if (topRow < mUpperRow) topRow = mUpperRow // 根据上限再次修正 topRow
         if (bottomRow > mLowerRow) bottomRow = mLowerRow // 根据下限再次修正 bottomRow
         if (topRow != mTopRow || bottomRow != mBottomRow) { // 避免不必要的刷新
-            mTouchAffairView.refresh(mTopRow, mBottomRow, topRow, bottomRow)
+            mTouchAffairView!!.refresh(mTopRow, mBottomRow, topRow, bottomRow)
             mTopRow = topRow
             mBottomRow = bottomRow
         }
@@ -361,17 +362,13 @@ internal class CreateAffairTouchHandler(
                 CourseType.TIME, CourseType.ARROW_NOON, CourseType.ARROW_DUSK,
                 CourseType.UNKNOWN -> {}
                 else -> {
-                    if (!hasViewInNoon && CourseLayout.isContainNoon(lp)) {
-                        hasViewInNoon = true
-                    }
-                    if (!hasViewInDusk && CourseLayout.isContainDusk(lp)) {
-                        hasViewInDusk = true
-                    }
+                    if (CourseLayout.isContainNoon(lp)) hasViewInNoon = true
+                    if (CourseLayout.isContainDusk(lp)) hasViewInDusk = true
                 }
             }
             if (hasViewInNoon && hasViewInDusk) break
         }
-        val lp = mTouchAffairView.layoutParams as CourseLayoutParams
+        val lp = mTouchAffairView!!.layoutParams as CourseLayoutParams
         if (mIsNoonFoldedWhenLongPress && !CourseLayout.isContainNoon(lp) && !hasViewInNoon) {
             when (course.getNoonRowState()) {
                 RowState.UNFOLD, RowState.UNFOLD_ANIM -> course.foldNoonForce()
@@ -386,34 +383,8 @@ internal class CreateAffairTouchHandler(
         }
     }
 
-//    override fun onSaveInstanceState(): Bundle? {
-//        // mTouchAffairView 没有被添加时不用保存信息
-//        if (mTouchAffairView.isAdded()) return null
-//        // mTouchAffairView 被添加时保存 layoutParams
-//        return Bundle().also {
-//            it.putSerializable(
-//                this::mTouchAffairView.name,
-//                mTouchAffairView.layoutParams as CourseLayoutParams
-//            )
-//        }
-//    }
-//
-//    override fun onRestoreInstanceState(bundle: Bundle?) {
-//        if (bundle == null) return
-//        // 恢复之前保存的 layoutParams
-//        val lp = bundle.getSerializable(this::mTouchAffairView.name) as CourseLayoutParams
-//        course.addCourse(mTouchAffairView, lp)
-//        // 从竖屏到横屏时，显示的 mTouchAffairView 可能会在屏幕显示区域外，所以需要调整 ScrollView 的 scrollY，
-//        // 让 mTouchAffairView 刚好显示在屏幕内
-//        // 但回调 onRestoreInstanceState() 时还没有开始布局，得不到 top 值，所以需要用 post 在布局后设置
-//        course.post {
-//            course.scrollView.setScrollY(mTouchAffairView.top + course.getDistanceToScrollView() - 60)
-//        }
-//    }
-
     init {
-        course.addCourseDecoration(this)
-//        course.addSaveBundleListener(this)
+        course.addCourseDecoration(this) // 监听 course 的 onDraw() 刷新
     }
 
     interface OnTouchAffairListener {

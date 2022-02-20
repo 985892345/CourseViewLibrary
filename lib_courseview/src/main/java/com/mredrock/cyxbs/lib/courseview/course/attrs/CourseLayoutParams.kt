@@ -2,6 +2,7 @@ package com.mredrock.cyxbs.lib.courseview.course.attrs
 
 import android.content.Context
 import android.util.AttributeSet
+import android.util.Log
 import com.mredrock.cyxbs.lib.courseview.course.CourseBeanInternal
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.base.int
@@ -16,7 +17,10 @@ import java.io.Serializable
  * @email 2767465918@qq.com
  * @date 2022/1/20
  */
-open class CourseLayoutParams : NetLayoutParams, CourseBeanInternal, Serializable {
+open class CourseLayoutParams :
+    NetLayoutParams,
+    CourseBeanInternal,
+    Serializable {
 
     /**
      * 克隆一个一样的
@@ -115,5 +119,28 @@ open class CourseLayoutParams : NetLayoutParams, CourseBeanInternal, Serializabl
                 "endColumn = $endColumn, " +
                 "rowCount = $rowCount, " +
                 "columnCount = $columnCount)"
+    }
+
+    override fun compareTo(other: NetLayoutParams): Int {
+        if (type == CourseType.SUBSTITUTE || type == CourseType.UNKNOWN) {
+            // 替身 View 只能在最底下，这样才不会干扰其他重叠的 View 的点击
+            return -1
+        }
+        if (other is CourseLayoutParams) {
+            val dColumn = startColumn - other.startColumn
+            if (dColumn == 0) {
+                val dRow = startRow - other.startRow
+                if (dRow == 0) {
+                    val dLength = length - other.length
+                    if (dLength == 0) {
+                        return -type.compareTo(other.type) // 这里根据枚举类的定义位置要取个负
+                    }
+                    return dLength // 越长的越在后面，即显示在上面
+                }
+                return dRow // 行数越大的越在后面，即显示在上面
+            }
+            return dColumn // 列数越大的越在后面，即显示在上面
+        }
+        return super.compareTo(other)
     }
 }

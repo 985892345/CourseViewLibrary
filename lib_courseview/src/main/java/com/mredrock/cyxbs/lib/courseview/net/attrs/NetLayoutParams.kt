@@ -107,10 +107,6 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
         return dArea // 先行×列面积大的在下面
     }
 
-    companion object {
-        const val UNSET = -1
-    }
-
     /**
      * 上次测量的与父布局总宽度比
      */
@@ -181,5 +177,9 @@ open class NetLayoutParams : ViewGroup.MarginLayoutParams, BaseViewAttrs, Compar
                 "constraintRight = $constraintRight, " +
                 "constraintTop = $constraintTop, " +
                 "constraintBottom = $constraintBottom)"
+    }
+
+    companion object {
+        const val UNSET = -1
     }
 }

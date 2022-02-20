@@ -57,6 +57,9 @@ class CourseTimelineHelper private constructor(
     private val course: CourseLayout
 ) : ItemDecoration<CourseLayout>, ViewExtend {
 
+    /**
+     * 设置是否显示当前时间线
+     */
     fun setVisible(boolean: Boolean) {
         mVisible = boolean
         course.invalidate()
@@ -111,11 +114,11 @@ class CourseTimelineHelper private constructor(
         })
     }
 
-    override fun onDrawAbove(canvas: Canvas, course: CourseLayout) {
+    override fun onDrawBelow(canvas: Canvas, view: CourseLayout) {
         if (mVisible) {
-            val left = course.getColumnsWidth(0, CourseLayout.TIME_LINE_LEFT - 1)
+            val left = view.getColumnsWidth(0, CourseLayout.TIME_LINE_LEFT - 1)
             val width =
-                course.getColumnsWidth(CourseLayout.TIME_LINE_LEFT, CourseLayout.TIME_LINE_RIGHT)
+                view.getColumnsWidth(CourseLayout.TIME_LINE_LEFT, CourseLayout.TIME_LINE_RIGHT)
             val right = left + width
             val lineHeight = getLineHeight()
             val cx = left + 28F
@@ -429,9 +432,12 @@ class CourseTimelineHelper private constructor(
     }
 
     companion object {
+        /**
+         * 采用这种方式更能明白该类的作用
+         */
         fun attach(course: CourseLayout): CourseTimelineHelper {
             return CourseTimelineHelper(course).apply {
-                course.addCourseDecoration(this)
+                course.addCourseDecoration(this) // 监听 course 的 onDraw() 回调
             }
         }
     }

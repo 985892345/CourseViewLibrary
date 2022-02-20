@@ -3,7 +3,6 @@ package com.mredrock.cyxbs.lib.courseview.helper.multitouch.createaffair
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.graphics.drawable.GradientDrawable
-import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AlphaAnimation
@@ -19,7 +18,14 @@ import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
 
 /**
- * ...
+ * 显示带有加号的那个 View
+ *
+ * 该类作用：
+ * 1、封装带加号 View 的一些行为；
+ *
+ * 注意事项：
+ * 1、里面包含了一个 ImageView，原因在于实现一个生长的动画，不然直接滑动显得有些生硬
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/18 20:32
@@ -27,18 +33,39 @@ import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
 @SuppressLint("ViewConstructor")
 internal class TouchAffairView(
     val course: CourseLayout
-) : ViewGroup(course.context), ViewExtend {
+) : ViewGroup(course.context), ITouchView, ViewExtend {
 
-    var isUsed = false // 是否被使用
+    /**
+     * 从 startUse() 到 remove() 的生命周期
+     */
+    private var isUsed = false
 
-    fun isAlreadyShow(): Boolean {
-        return parent != null || animation != null
+    fun isUsed(): Boolean {
+        if (parent != null) {
+            if ((visibility == GONE || animation != null) && !isUsed) {
+                // 存在 isUsed = false，但仍有 parent，比如长按整体移动会把 view 添加进 overlay，结束时再加进 course
+                return false
+            }
+            return true
+        }
+        if (isAttachedToWindow) {
+            return true
+        }
+        return isUsed
+    }
+
+    /**
+     * 使用的开始
+     */
+    fun startUse() {
+        isUsed = true
     }
 
     /**
      * 显示 mTouchAffairView（用于添加事务的 View）
      */
     fun show(topRow: Int, bottomRow: Int, initialColumn: Int) {
+        animation?.cancel()
         if (visibility == GONE) {
             /*
             * 如果走到这分支，就说明刚才触发了长按整体移动再回来的动画
@@ -69,7 +96,11 @@ internal class TouchAffairView(
         )
     }
 
-    fun remove() {
+    /**
+     * 使用的结束，带有动画的消失
+     */
+    override fun remove() {
+        isUsed = false
         if (parent != null) {
             if (visibility == GONE) {
                 /*
@@ -78,7 +109,6 @@ internal class TouchAffairView(
                 * */
                 course.removeView(this)
                 visibility = VISIBLE
-                isUsed = false
                 return
             }
             startAnimation(
@@ -89,7 +119,7 @@ internal class TouchAffairView(
                         override fun onAnimationRepeat(animation: Animation) {}
                         override fun onAnimationEnd(animation: Animation) {
                             // 这里是因为长按整体移动的原因，会把它添加进 overlay，是不会被 removeView 掉的
-                            // 为降低耦合度，所以只能采用这种方式，在动画结束时在设置它的 visibility
+                            // 为降低耦合度，所以只能采用这种方式，在动画结束时再设置它的 visibility
                             if (parent != course) {
                                 visibility = GONE
                             }
@@ -99,13 +129,8 @@ internal class TouchAffairView(
             )
             if (parent === course) {
                 course.removeView(this)
-                isUsed = false
             }
         }
-    }
-
-    fun isCanRefresh(): Boolean {
-        return parent != null
     }
 
     /**
@@ -129,6 +154,9 @@ internal class TouchAffairView(
         }
     }
 
+    // 内部 ImageView 的 margin 值，主要是为了阴影效果
+    private val mMargin = 1.2F.dp2px()
+
     // 扩展动画
     private var mExpandValueAnimator: ValueAnimator? = null
     // 下一次布局的回调
@@ -141,7 +169,7 @@ internal class TouchAffairView(
         mOnNextLayoutCallback?.invoke(this)
         mOnNextLayoutCallback = null
         if (mExpandValueAnimator == null) {
-            mImageView.layout(0, 0, r - l, b - t)
+            mImageView.layout(mMargin, mMargin, r - l - mMargin, b - t - mMargin)
         }
     }
 
@@ -178,7 +206,13 @@ internal class TouchAffairView(
                 val oldBottom = course.getRowsHeight(0, oldBottomRow)
                 val newBottom = course.getRowsHeight(0, bottomRow)
                 val nowBottom = ((newBottom - oldBottom) * now).toInt() + oldBottom - newTop
-                mImageView.layout(0, nowTop, width, nowBottom) // 手动调用布局
+                // 手动调用布局
+                mImageView.layout(
+                    mMargin,
+                    nowTop + mMargin,
+                    width - mMargin,
+                    nowBottom - mMargin
+                )
             }
             doOnStart {
                 course.clipChildren = false // 请求父布局不要裁剪
@@ -191,6 +225,14 @@ internal class TouchAffairView(
             duration = 120
             start()
         }
+    }
+
+    override fun setTranslationZ(translationZ: Float) {
+        mImageView.translationZ = translationZ
+    }
+
+    override fun cloneLp(): CourseLayoutParams {
+        return (layoutParams as CourseLayoutParams).clone()
     }
 
     init {

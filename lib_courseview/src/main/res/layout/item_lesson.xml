@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <com.mredrock.cyxbs.lib.courseview.lesson.LessonView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/lessonView_background"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:layout_margin="1dp" >
+    android:layout_margin="1dp"
+    app:cardElevation="0dp"
+    app:cardCornerRadius="@dimen/course_course_item_radius">
 
     <TextView
         android:id="@+id/tv_top"
@@ -31,7 +34,7 @@
         android:layout_marginBottom="@dimen/widget_course_margin"
         android:ellipsize="end"
         android:gravity="center"
-        android:maxLines="3"
+        android:maxLines="2"
         android:textSize="11dp"
         android:layout_gravity="bottom"
         tools:ignore="SpUsage"

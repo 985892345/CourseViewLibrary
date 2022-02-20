@@ -7,13 +7,17 @@ import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEve
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent.Action.*
 
 /**
- * 将事件分发给需要拦截的 [IPointerDispatcher]，他们决定了同一种类型的事件
+ * 处理多指触摸的帮助类
+ *
+ * 该类作用：
+ * 1、将事件分发给需要拦截的 [IPointerDispatcher]，让他们来决定了同一种类型的事件谁来处理
+ *
  *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/16 20:44
  */
-class MultiTouchDispatcherHelper<V: ViewGroup> : AbstractMultiTouchDispatcher<V>() {
+open class MultiTouchDispatcherHelper<V: ViewGroup> : AbstractMultiTouchDispatcher<V>() {
 
     fun addPointerDispatcher(dispatcher: IPointerDispatcher<V>) {
         mDispatchers.add(dispatcher)
@@ -52,6 +56,12 @@ class MultiTouchDispatcherHelper<V: ViewGroup> : AbstractMultiTouchDispatcher<V>
         } else {
             mDispatchers.forEach {
                 if (it.isPrepareToIntercept(event, view)) {
+                    mDispatchers.forEach { dispatcher ->
+                        if (dispatcher !== it) {
+                            // 通知其他分发者，我抢夺了这个事件
+                            dispatcher.onOtherDispatcherRobEvent(event, it)
+                        }
+                    }
                     val handler = it.getInterceptHandler(event, view)
                     return if (handler != null) {
                         handler

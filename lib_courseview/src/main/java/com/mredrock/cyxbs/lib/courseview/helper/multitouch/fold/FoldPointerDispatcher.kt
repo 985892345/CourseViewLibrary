@@ -1,5 +1,6 @@
 package com.mredrock.cyxbs.lib.courseview.helper.multitouch.fold
 
+import android.util.Log
 import android.util.SparseArray
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.DUSK_BOTTOM
@@ -8,23 +9,33 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_BOTT
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_TOP
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.TIME_LINE_LEFT
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.TIME_LINE_RIGHT
+import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.IPointerDispatcher
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.IPointerTouchHandler
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent.Action.*
 import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
-import com.mredrock.cyxbs.lib.courseview.helper.multitouch.AbstractPointerDispatcher
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.RecyclerPointerDispatcher
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.entitymove.EntityMovePointerDispatcher
 
 /**
  * 点击时间轴上箭头的事件分发者
+ *
+ * 该类作用：
+ * 1、拦截点击时间轴上箭头的事件；
+ * 2、管理点击时间轴上箭头的事件分发；
+ *
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/18 22:21
  */
 internal class FoldPointerDispatcher(
     val course: CourseLayout
-) : AbstractPointerDispatcher<CourseLayout, FoldTouchHandler>() {
+) : RecyclerPointerDispatcher<CourseLayout>() {
 
     private val mHandlerById = SparseArray<FoldTouchHandler>(3)
+
+    private val mHandlerPool = HandlerPool { FoldTouchHandler(course) }
 
     override fun isPrepareToIntercept(event: IPointerEvent, view: CourseLayout): Boolean {
         val x = event.x.toInt()
@@ -62,7 +73,9 @@ internal class FoldPointerDispatcher(
                         val handler = mHandlerPool.getHandler()
                         handler.start(DownWhich.NOON)
                         mHandlerById.put(event.pointerId, handler)
-                        return true
+                        // 判断是否有整体移动的 View 在中午时间段上
+                        val hasEntityMoveInNoon = mEntityMovePointerDispatcher?.hasEntityInNoon() ?: false
+                        return !hasEntityMoveInNoon
                     } else {
                         // 傍晚那一行的显示范围
                         val duskTopHeight = view.getRowsHeight(0, DUSK_TOP - 1)
@@ -75,7 +88,9 @@ internal class FoldPointerDispatcher(
                             val handler = mHandlerPool.getHandler()
                             handler.start(DownWhich.DUSK)
                             mHandlerById.put(event.pointerId, handler)
-                            return true
+                            // 判断是否有整体移动的 View 在傍晚时间段上
+                            val hasEntityMoveInDusk = mEntityMovePointerDispatcher?.hasEntityInDusk() ?: false
+                            return !hasEntityMoveInDusk
                         }
                     }
                 }
@@ -92,7 +107,14 @@ internal class FoldPointerDispatcher(
         return mHandlerById[event.pointerId]
     }
 
-    override fun createNewHandler(): FoldTouchHandler {
-        return FoldTouchHandler(course)
+    private var mEntityMovePointerDispatcher: EntityMovePointerDispatcher? = null
+
+    override fun onOtherDispatcherRobEvent(
+        event: IPointerEvent,
+        dispatcher: IPointerDispatcher<CourseLayout>
+    ) {
+        if (mEntityMovePointerDispatcher == null && dispatcher is EntityMovePointerDispatcher) {
+            mEntityMovePointerDispatcher = dispatcher
+        }
     }
 }

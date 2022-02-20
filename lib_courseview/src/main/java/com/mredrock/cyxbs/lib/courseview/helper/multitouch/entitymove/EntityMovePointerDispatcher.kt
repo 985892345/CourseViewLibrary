@@ -9,23 +9,58 @@ import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.IPointerTouchHandler
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent
 import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent.Action.*
-import com.mredrock.cyxbs.lib.courseview.helper.multitouch.AbstractPointerDispatcher
-import com.mredrock.cyxbs.lib.courseview.helper.multitouch.AbstractTouchHandler
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.RecyclerPointerDispatcher
+import com.mredrock.cyxbs.lib.courseview.helper.multitouch.RecyclerTouchHandler
 import com.mredrock.cyxbs.lib.courseview.helper.multitouch.PointerFlag
 import com.mredrock.cyxbs.lib.courseview.helper.multitouch.scroll.ScrollTouchHandler
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 
 /**
  * 长按整体移动的事件分发者
+ *
+ * 该类作用：
+ * 1、管理长按整体移动的事件分发；
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/18 14:39
  */
 internal class EntityMovePointerDispatcher(
     val course: CourseLayout
-) : AbstractPointerDispatcher<CourseLayout, EntityMoveTouchHandler>() {
+) : RecyclerPointerDispatcher<CourseLayout>() {
 
-    private val mHandlerById = SparseArray<EntityMoveTouchHandler>(3)
+    /**
+     * 是否有个体移动到了中午时间段
+     */
+    fun hasEntityInNoon(): Boolean {
+        mAffairHandlerPool.forEach {
+            if (it.isEntityInNoon()) return true
+        }
+        mLessonHandlerPool.forEach {
+            if (it.isEntityInNoon()) return true
+        }
+        return false
+    }
+
+    /**
+     * 是否有个体移动到了傍晚时间段
+     */
+    fun hasEntityInDusk(): Boolean {
+        mAffairHandlerPool.forEach {
+            if (it.isEntityInDusk()) return true
+        }
+        mLessonHandlerPool.forEach {
+            if (it.isEntityInDusk()) return true
+        }
+        return false
+    }
+
+    private val mHandlerById = SparseArray<AbstractEntityMoveTouchHandler>(3)
+
+    // 移动事务的事件处理者
+    private val mAffairHandlerPool = HandlerPool { AffairMoveTouchHandler(course, this) }
+    // 移动课程的事件处理者
+    private val mLessonHandlerPool = HandlerPool { LessonMoveTouchHandler(course, this) }
 
     override fun isPrepareToIntercept(event: IPointerEvent, view: CourseLayout): Boolean {
         if (event.event.action == MotionEvent.ACTION_DOWN) {
@@ -35,21 +70,24 @@ internal class EntityMovePointerDispatcher(
             mIsDuskFoldedLongPressStart = false // 重置
             mIsContainNoonLongPressStart = false // 重置
             mIsContainDuskLongPressStart = false // 重置
+            mHandlerById.clear() // 重置
         }
         val x = event.x.toInt()
         val y = event.y.toInt()
         when (event.action) {
             DOWN -> {
                 val child = course.findItemUnderByXY(x, y) ?: return false
-                if (isCanEntityMove(child)) {
-                    val handler = mHandlerPool.getHandler()
+                val handler = getEntityHandler(child)
+                if (handler != null) {
                     mHandlerById.put(event.pointerId, handler)
                     handler.start(event, child)
                     return true
                 }
             }
             UP, CANCEL -> {
+                // 因为可能在长按未激活前就抬手或者被外布局拦截，此时处理者是还没有开始处理事件的
                 mHandlerById[event.pointerId]?.cancel()
+                mHandlerById.remove(event.pointerId)
             }
             else -> {}
         }
@@ -70,29 +108,34 @@ internal class EntityMovePointerDispatcher(
             * */
             return ScrollTouchHandler.get(event.pointerId)
         }
-        return if (handler.isHandleEvent()) handler else null
-    }
-
-    override fun createNewHandler(): EntityMoveTouchHandler {
-        return EntityMoveTouchHandler(course, this)
+        /*
+        * 这里与长按生成事务不同
+        * 原因在于：
+        * 1、长按移动需要长按激活时才能开始处理事件
+        *
+        * 所以它需要早长按激活时才会给出处理者，这样才会开始处理
+        * */
+        return if (handler.isStartInterceptEvent()) handler else null
     }
 
     /**
-     * 是否能够开启整体移动功能
+     * 得到想要拦截的处理者
      *
+     * 作用：
      * 1、防止多个手指点击同一个 View
-     * 2、有些类型是不能整体移动的，比如时间轴上的时间
+     * 2、判断类型，有些类型是不能整体移动的，比如时间轴上的时间
      */
-    private fun isCanEntityMove(child: View): Boolean {
+    private fun getEntityHandler(child: View): AffairMoveTouchHandler? {
         mHandlerById.forEach { _, handler ->
             if (handler.isAlreadyHandle(child)) {
-                return false
+                return null
             }
         }
         val lp = child.layoutParams as CourseLayoutParams
         return when (lp.type) {
-            CourseType.AFFAIR, CourseType.AFFAIR_TOUCH -> true
-            else -> false
+            CourseType.AFFAIR, CourseType.AFFAIR_TOUCH -> mAffairHandlerPool.getHandler()
+            CourseType.MY, CourseType.LINK -> mLessonHandlerPool.getHandler()
+            else -> null
         }
     }
 
@@ -105,7 +148,7 @@ internal class EntityMovePointerDispatcher(
 
     abstract class AbstractEntityMoveTouchHandler(
         private val dispatcher: EntityMovePointerDispatcher
-    ) : AbstractTouchHandler<CourseLayout>() {
+    ) : RecyclerTouchHandler<CourseLayout>() {
 
         protected abstract val isNoonFoldedLongPressStart: Boolean
         protected abstract val isDuskFoldedLongPressStart: Boolean
@@ -188,5 +231,21 @@ internal class EntityMovePointerDispatcher(
             }
             return false
         }
+
+        /**
+         * 从分发者中移除，应该在 UP 和 CANCEL 时调用
+         *
+         * **NOTE:** 移除后可能仍有动画的进行
+         */
+        protected fun removeFromDispatcher(pointerId: Int) {
+            dispatcher.mHandlerById.remove(pointerId)
+        }
+
+        abstract fun start(event: IPointerEvent, child: View)
+        abstract fun cancel()
+        abstract fun isStartInterceptEvent(): Boolean
+        abstract fun isAlreadyHandle(child: View): Boolean
+        abstract fun isEntityInNoon(): Boolean
+        abstract fun isEntityInDusk(): Boolean
     }
 }

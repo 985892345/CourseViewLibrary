@@ -12,4 +12,6 @@ interface ICourseScrollView {
     fun setScrollY(y: Int)
     fun getHeight(): Int
     val innerHeight: Int
+    fun smoothScrollTo(x: Int, y: Int, scrollDurationMs: Int = 250)
+    fun smoothScrollBy(dx: Int, dy: Int, scrollDurationMs: Int = 250)
 }

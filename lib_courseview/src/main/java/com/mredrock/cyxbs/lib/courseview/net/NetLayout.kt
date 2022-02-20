@@ -426,8 +426,8 @@ open class NetLayout : ViewGroup {
      */
     protected open fun getChildAfterIndex(child: View, params: NetLayoutParams): Int {
         var start = 0
-        var end = childCount
-        while (start < end) {
+        var end = childCount - 1
+        while (start <= end) {
             val half = (start + end) / 2
             val view = getChildAt(half)
             val lp = view.layoutParams.net()
