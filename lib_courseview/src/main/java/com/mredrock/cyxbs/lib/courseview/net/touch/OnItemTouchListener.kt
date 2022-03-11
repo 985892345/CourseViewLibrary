@@ -1,8 +1,8 @@
-package com.mredrock.cyxbs.lib.courseview.course.touch
+package com.mredrock.cyxbs.lib.courseview.net.touch
 
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
-import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 
 /**
  * 该类主要用于实现一些简单的触摸事件处理，将一个 View 的复杂的触摸功能分为几个 listener 的来实现，
@@ -10,6 +10,7 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  *
  * 设计参考了 RV 的 ItemTouchListener，但与它又有些不同。RV 的 ItemTouchListener 是想实现像 View 一般的事件
  * 监听，而针对于课表的需求，我更改为了一种更好的思路来分配事件
+ *
  * ```
  *
  * 例如：共设置了 3 个 listener，分别为 l1、l2、l3，且按顺序添加
@@ -121,7 +122,7 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  * @email 2767465918@qq.com
  * @date 2022/1/27
  */
-interface OnItemTouchListener<V: ViewGroup> {
+interface OnItemTouchListener {
 
     /**
      * 是否拦截事件。
@@ -135,7 +136,7 @@ interface OnItemTouchListener<V: ViewGroup> {
      * 注：只能接收到子 View 不拦截时的 Down 事件
      * ```
      */
-    fun isIntercept(event: MotionEvent, view: V): Boolean = false
+    fun isIntercept(event: MotionEvent, view: ViewGroup): Boolean = false
 
     /**
      * 是否提前拦截事件。
@@ -148,7 +149,7 @@ interface OnItemTouchListener<V: ViewGroup> {
      * 注：可以接收到子 View 拦截前的 Down、Move、Cancel 等全部事件
      * ```
      */
-    fun isAdvanceIntercept(event: MotionEvent, view: V): Boolean = false
+    fun isAdvanceIntercept(event: MotionEvent, view: ViewGroup): Boolean = false
 
     /**
      * 处理事件
@@ -156,7 +157,7 @@ interface OnItemTouchListener<V: ViewGroup> {
      * 注：可以接收到 Down、Move、Cancel 等全部事件
      * ```
      */
-    fun onTouchEvent(event: MotionEvent, view: V)
+    fun onTouchEvent(event: MotionEvent, view: ViewGroup)
 
     /**
      * Down 事件中，被顺序在前面的 [OnItemTouchListener] 拦截时回调
@@ -164,7 +165,7 @@ interface OnItemTouchListener<V: ViewGroup> {
      * 注：只能接收到 Down 事件
      * ```
      */
-    fun onCancelDownEvent(event: MotionEvent, view: V) { }
+    fun onCancelDownEvent(event: MotionEvent, view: ViewGroup) { }
 
     /**
      * 在 CourseLayout 的 dispatchTouchEvent() 中调用，即事件分发下来时就回调，
@@ -173,5 +174,5 @@ interface OnItemTouchListener<V: ViewGroup> {
      * 注：可以接收到 Down、Move、Cancel 等全部事件
      * ```
      */
-    fun onDispatchTouchEvent(event: MotionEvent, view: V) { }
+    fun onDispatchTouchEvent(event: MotionEvent, view: ViewGroup) { }
 }

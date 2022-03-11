@@ -23,9 +23,11 @@ internal interface BaseViewAttrs {
             attrs: AttributeSet,
             @StyleableRes
             styleableId: IntArray,
+            defStyleAttr: Int = 0,
+            defStyleRes: Int = 0,
             func: Typedef.() -> T
         ): T {
-            val ty = context.obtainStyledAttributes(attrs, styleableId)
+            val ty = context.obtainStyledAttributes(attrs, styleableId, defStyleAttr, defStyleRes)
             try {
                 return Typedef(ty).func()
             } finally {
@@ -41,6 +43,7 @@ internal interface BaseViewAttrs {
         fun Int.dimens(defValue: Float): Float = this.dimens(ty, defValue)
         fun Int.string(defValue: String? = null): String = this.string(ty, defValue)
         fun Int.boolean(defValue: Boolean): Boolean = this.boolean(ty, defValue)
+        fun Int.float(defValue: Float): Float = this.float(ty, defValue)
         inline fun <reified E: RuntimeException> Int.intOrThrow(
             attrsName: String): Int = this.intOrThrow<E>(ty, attrsName)
         inline fun <reified E: RuntimeException> Int.stringOrThrow(
@@ -52,8 +55,10 @@ internal inline fun <T> Context.getAttrs(
     attrs: AttributeSet,
     @StyleableRes
     styleableId: IntArray,
+    defStyleAttr: Int,
+    defStyleRes: Int,
     func: BaseViewAttrs.Typedef.() -> T
-) = BaseViewAttrs.newAttrs(this, attrs, styleableId, func)
+) = BaseViewAttrs.newAttrs(this, attrs, styleableId, defStyleAttr, defStyleRes, func)
 
 internal fun Int.int(ty: TypedArray, defValue: Int): Int {
     return ty.getInt(this, defValue)
@@ -77,6 +82,10 @@ internal fun Int.string(ty: TypedArray, defValue: String? = null): String {
 
 internal fun Int.boolean(ty: TypedArray, defValue: Boolean): Boolean {
     return ty.getBoolean(this, defValue)
+}
+
+internal fun Int.float(ty: TypedArray, defValue: Float): Float {
+    return ty.getFloat(this, defValue)
 }
 
 internal inline fun <reified E: RuntimeException> Int.intOrThrow(

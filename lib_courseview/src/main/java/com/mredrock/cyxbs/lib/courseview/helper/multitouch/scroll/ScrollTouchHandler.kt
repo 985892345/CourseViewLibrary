@@ -1,37 +1,55 @@
 package com.mredrock.cyxbs.lib.courseview.helper.multitouch.scroll
 
-import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
-import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.IPointerTouchHandler
-import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent
+import android.util.Log
+import android.view.View
+import com.mredrock.cyxbs.lib.courseview.net.touch.multiple.IPointerTouchHandler
+import com.mredrock.cyxbs.lib.courseview.net.touch.multiple.event.IPointerEvent
+import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
+import com.mredrock.cyxbs.lib.courseview.scroll.ICourseScrollView
 
 /**
- * 用于手动滚动 CourseScrollView 的多指事件处理者
+ * ## 用于手动滚动 [CourseScrollView] 的多指事件处理者
  *
- * 在事件被拦截后，需要该处理者来实现手动滚动
+ * ### 该类作用：
+ * - 在事件被多指拦截后，需要该处理者来实现手动滚动
  *
- * 注意事项：
- * 1、除了可以不在 Down 事件外，UP 或者 CANCEL 事件必须传递进来才能保证被下次使用
+ * ### 注意事项：
+ * - 除了可以 Down 事件外，UP 或者 CANCEL 事件必须传递进来才能保证被下次使用。意思是只会有一个手指才能实现滑动
  *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/18 23:12
  */
-internal class ScrollTouchHandler private constructor() : IPointerTouchHandler<CourseLayout> {
+internal class ScrollTouchHandler private constructor() : IPointerTouchHandler {
 
-    override fun onPointerTouchEvent(event: IPointerEvent, view: CourseLayout) {
-        when (event.action) {
-            IPointerEvent.Action.MOVE -> {
-                val pointer = view.getAbsolutePointer(event.pointerId)
-                view.scrollView.scrollBy(-pointer.diffMoveY)
+    private var mScroll: ICourseScrollView? = null
+    private var mHandlingPointerId = -1
+
+    override fun onPointerTouchEvent(event: IPointerEvent, view: View) {
+        if (mHandlingPointerId != event.pointerId) {
+            if (mHandlingPointerId == -1) {
+                mHandlingPointerId = event.pointerId
+            } else {
+                // 已经被一个手指拦截，所以不处理事件
+                return
             }
-            IPointerEvent.Action.UP,
-            IPointerEvent.Action.CANCEL -> {
-                /*
-                * 这里记得要把 UP 和 CANCEL 事件传给他
-                * */
-                sPointerId = -1 // 还原
+        }
+        mScroll?.let {
+            when (event.action) {
+                IPointerEvent.Action.MOVE -> {
+                    val pointer = it.getPointer(event.pointerId)
+                    it.scrollBy(-pointer.diffMoveY)
+                }
+                IPointerEvent.Action.UP,
+                IPointerEvent.Action.CANCEL -> {
+                    /*
+                    * 这里记得要把 UP 和 CANCEL 事件传给他用于还原
+                    * */
+                    mScroll = null
+                    mHandlingPointerId = -1
+                }
+                else -> {}
             }
-            else -> {}
         }
     }
 
@@ -41,19 +59,14 @@ internal class ScrollTouchHandler private constructor() : IPointerTouchHandler<C
         * */
         private val INSTANCE: ScrollTouchHandler = ScrollTouchHandler()
 
-        private var sPointerId: Int = -1
-
         /**
          * 获取 ScrollTouchHandler
          *
          * 会在已经被其他手指获取后返回 null，不然会出现多个手指对应同一个 ScrollTouchHandler，造成重复滚动
          */
-        fun get(pointerId: Int): ScrollTouchHandler? {
-            return if (pointerId != sPointerId) {
-                INSTANCE
-            } else {
-                null
-            }
+        fun get(scroll: ICourseScrollView): ScrollTouchHandler {
+            INSTANCE.mScroll = scroll
+            return INSTANCE
         }
     }
 }

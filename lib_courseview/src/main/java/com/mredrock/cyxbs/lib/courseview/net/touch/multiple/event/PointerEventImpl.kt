@@ -1,9 +1,18 @@
-package com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event
+package com.mredrock.cyxbs.lib.courseview.net.touch.multiple.event
 
 import android.view.MotionEvent
+import com.mredrock.cyxbs.lib.courseview.net.touch.multiple.AbstractMultiTouchDispatcher
 
 /**
- * ...
+ * ## 当个手指事件的封装的实现类
+ *
+ * ### 该类作用：
+ * - 配合 [AbstractMultiTouchDispatcher] 将多个手指的事件分发为当个手指的事件
+ *
+ * ### 注意事项：
+ * - 该类为单例，因为手指触摸不会设计到多线程操作
+ * - 请不要保留 event 到一些延时的回调中，事件是会自动改变的
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/16 16:29
@@ -28,7 +37,10 @@ object PointerEventImpl : IPointerEvent {
         }
 }
 
-fun MotionEvent.toPointerEvent(
+/**
+ * 将 MotionEvent 转化为 IPointerEvent，**内部使用方法，不建议私自调用**
+ */
+internal fun MotionEvent.toPointerEvent(
     pointerIndex: Int,
     pointerId: Int
 ) : IPointerEvent = PointerEventImpl.also {
@@ -37,7 +49,16 @@ fun MotionEvent.toPointerEvent(
     PointerEventImpl.pointerId = pointerId
 }
 
-inline fun IPointerEvent.pretendEvent(action: Int, func: (IPointerEvent) -> Unit) {
+/**
+ * 用于在某特定范围内伪装某个事件，**内部使用方法，不建议私自调用**
+ * ```
+ * 如：
+ *    mIPointerEvent.pretendEvent(MotionEvent.CANCEL) { it ->
+ *        // 这里面的 it 将会变成 CANCEL 事件
+ *    }
+ * ```
+ */
+internal inline fun IPointerEvent.pretendEvent(action: Int, func: (IPointerEvent) -> Unit) {
     val originalAction = action
     PointerEventImpl.event.action = action
     func.invoke(event.toPointerEvent(pointerIndex, pointerId))

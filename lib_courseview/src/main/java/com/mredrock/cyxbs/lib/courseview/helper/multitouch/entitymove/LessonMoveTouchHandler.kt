@@ -1,6 +1,7 @@
 package com.mredrock.cyxbs.lib.courseview.helper.multitouch.entitymove
 
-import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
+import com.mredrock.cyxbs.lib.courseview.course.ICourseLayout
+import com.mredrock.cyxbs.lib.courseview.scroll.ICourseScrollView
 
 /**
  * 长按课程整体移动的事件处理者
@@ -15,9 +16,10 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
  * @date 2022/2/20 16:15
  */
 internal class LessonMoveTouchHandler(
-    course: CourseLayout,
+    scroll: ICourseScrollView,
+    course: ICourseLayout,
     dispatcher: EntityMovePointerDispatcher
-) : AffairMoveTouchHandler(course, dispatcher) {
+) : AffairMoveTouchHandler(scroll, course, dispatcher) {
 
     /**
      * 课程的移动只有展示下面隐藏课程的作用，所以松手就直接回到原位置

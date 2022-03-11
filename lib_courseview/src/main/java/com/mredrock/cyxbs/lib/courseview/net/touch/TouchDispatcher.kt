@@ -1,37 +1,42 @@
-package com.mredrock.cyxbs.lib.courseview.course.touch
+package com.mredrock.cyxbs.lib.courseview.net.touch
 
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 
 /**
- * 自定义事件分发者，参考 RV 的 ItemTouchListener 设计
+ * ## 自定义事件分发者，参考 RV 的 ItemTouchListener 设计
  *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/15 14:55
  */
-class TouchDispatcher<T: ViewGroup> {
+class TouchDispatcher : ItemTouchProvider {
     // 自定义事件处理的监听
-    private val mItemTouchListener = ArrayList<OnItemTouchListener<T>>(5)
+    private val mItemTouchListener = ArrayList<OnItemTouchListener>(5)
     // 自定义事件处理中拦截的监听者
-    private var mInterceptingOnTouchListener: OnItemTouchListener<T>? = null
+    private var mInterceptingOnTouchListener: OnItemTouchListener? = null
     // 自定义事件处理中提前拦截的监听者
-    private var mAdvanceInterceptingOnTouchListener: OnItemTouchListener<T>? = null
+    private var mAdvanceInterceptingOnTouchListener: OnItemTouchListener? = null
 
     val size: Int
         get() = mItemTouchListener.size
 
-    fun addCourseTouchListener(l: OnItemTouchListener<T>, index: Int = size) {
+    override fun addItemTouchListener(l: OnItemTouchListener) {
+        mItemTouchListener.add(l)
+    }
+
+    override fun addItemTouchListener(l: OnItemTouchListener, index: Int) {
         mItemTouchListener.add(index, l)
     }
 
-    fun dispatchTouchEvent(event: MotionEvent, view: T) {
+    fun dispatchTouchEvent(event: MotionEvent, view: ViewGroup) {
         mItemTouchListener.forEach {
             it.onDispatchTouchEvent(event, view)
         }
     }
 
-    fun onInterceptTouchEvent(event: MotionEvent, view: T): Boolean {
+    fun onInterceptTouchEvent(event: MotionEvent, view: ViewGroup): Boolean {
         val action = event.actionMasked
         if (action == MotionEvent.ACTION_DOWN) {
             mAdvanceInterceptingOnTouchListener = null // 重置
@@ -88,7 +93,7 @@ class TouchDispatcher<T: ViewGroup> {
         return false
     }
 
-    fun onTouchEvent(event: MotionEvent, view: T): Boolean {
+    fun onTouchEvent(event: MotionEvent, view: ViewGroup): Boolean {
         if (mAdvanceInterceptingOnTouchListener != null) {
             mAdvanceInterceptingOnTouchListener!!.onTouchEvent(event, view)
             return true

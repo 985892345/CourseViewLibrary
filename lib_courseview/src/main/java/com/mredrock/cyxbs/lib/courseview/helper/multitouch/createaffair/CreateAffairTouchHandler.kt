@@ -11,14 +11,17 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.DUSK_BOTT
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.DUSK_TOP
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_BOTTOM
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_TOP
+import com.mredrock.cyxbs.lib.courseview.course.ICourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
-import com.mredrock.cyxbs.lib.courseview.course.draw.ItemDecoration
-import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent
-import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent.Action.*
+import com.mredrock.cyxbs.lib.courseview.net.draw.ItemDecoration
+import com.mredrock.cyxbs.lib.courseview.net.touch.multiple.event.IPointerEvent
+import com.mredrock.cyxbs.lib.courseview.net.touch.multiple.event.IPointerEvent.Action.*
 import com.mredrock.cyxbs.lib.courseview.course.utils.RowState
 import com.mredrock.cyxbs.lib.courseview.helper.multitouch.PointerFlag
 import com.mredrock.cyxbs.lib.courseview.helper.multitouch.scroll.ScrollTouchHandler
+import com.mredrock.cyxbs.lib.courseview.net.INetLayout
 import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
+import com.mredrock.cyxbs.lib.courseview.scroll.ICourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.VibratorUtil
 import kotlin.math.abs
@@ -37,10 +40,11 @@ import kotlin.math.min
  * @date 2022/2/18 19:15
  */
 internal class CreateAffairTouchHandler(
-    val course: CourseLayout,
+    val scroll: ICourseScrollView,
+    val course: ICourseLayout,
     dispatcher: CreateAffairPointerDispatcher
 ) : CreateAffairPointerDispatcher.AbstractCreateAffairTouchHandler(dispatcher),
-    ItemDecoration<CourseLayout> {
+    ItemDecoration {
 
     /**
      * 设置触摸空白区域生成的用于添加事务的 View 的事件监听
@@ -54,7 +58,6 @@ internal class CreateAffairTouchHandler(
         mPointerId = event.pointerId
 
         mTouchAffairView = view
-        view.startUse()
 
         mInitialRow = course.getRow(event.y.toInt())
         mInitialColumn = course.getColumn(event.x.toInt())
@@ -63,6 +66,8 @@ internal class CreateAffairTouchHandler(
 
         mIsInLongPress = false // 重置
         mLongPressRunnable.start()
+
+        mIsScrollHandle = false // 重置
 
         // 计算上下限，并且会再次判断是否能生成 mTouchAffair，所以只能放在最后
         calculateUpperLowerRow()
@@ -82,15 +87,17 @@ internal class CreateAffairTouchHandler(
 
     private var mTouchRow = 0 // 当前触摸的行数
     private var mUpperRow = 0 // 选择区域的上限
-    private var mLowerRow = course.getRowCount() - 1 // 选择区域的下限
+    private var mLowerRow = course.rowCount- 1 // 选择区域的下限
 
     private var mOnTouchAffairListener: OnTouchAffairListener? = null
 
     private var mPointerId = 0
     private var mIsInLongPress = false
 
+    private var mIsScrollHandle = false // 是否处于 ScrollTouchHandler 拦截的状态
+
     // 认定是在滑动的最小移动值，其中 ScrollView 拦截事件就与该值有关，不建议修改该值
-    private var mTouchSlop = ViewConfiguration.get(course.context).scaledTouchSlop
+    private var mTouchSlop = ViewConfiguration.get(course.getContext()).scaledTouchSlop
 
     private val mLongPressRunnable = object : Runnable {
         private val mLongPressTimeout = ViewConfiguration.getLongPressTimeout().toLong()
@@ -102,13 +109,17 @@ internal class CreateAffairTouchHandler(
         fun cancel() = course.removeCallbacks(this)
     }
 
-    override fun onPointerTouchEvent(event: IPointerEvent, view: CourseLayout) {
-        if (flag == PointerFlag.OVER) {
+    override fun onPointerTouchEvent(event: IPointerEvent, view: View) {
+        val action = event.action
+        if (mIsScrollHandle) {
             // 把事件转移给 ScrollTouchHandler 处理
-            ScrollTouchHandler.get(event.pointerId)?.onPointerTouchEvent(event, view)
+            ScrollTouchHandler.get(scroll).onPointerTouchEvent(event, view)
+            if (action == UP || action == CANCEL) {
+                flag = PointerFlag.OVER // 结束标志
+            }
             return
         }
-        when (event.action) {
+        when (action) {
             DOWN -> {
                 // 这个会触发 DOWN 事件，但为了方便，我就不写在这里了，写在了 start() 中
             }
@@ -117,12 +128,12 @@ internal class CreateAffairTouchHandler(
                     scrollIsNecessary()
                     course.invalidate()
                 } else {
-                    val pointer = course.getAbsolutePointer(mPointerId)
+                    val pointer = scroll.getPointer(mPointerId)
                     if (abs(pointer.diffMoveX) > mTouchSlop
                         || abs(pointer.diffMoveY) > mTouchSlop
                     ) {
                         mLongPressRunnable.cancel()
-                        flag = PointerFlag.OVER // 把事件转移给 ScrollTouchHandler 处理
+                        mIsScrollHandle = true // 把事件转移给 ScrollTouchHandler 处理
                     }
                 }
             }
@@ -132,7 +143,7 @@ internal class CreateAffairTouchHandler(
                     mScrollRunnable.cancel()
                 } else {
                     mLongPressRunnable.cancel()
-                    val pointer = course.getAbsolutePointer(mPointerId)
+                    val pointer = scroll.getPointer(mPointerId)
                     if (abs(pointer.diffMoveX) <= mTouchSlop
                         && abs(pointer.diffMoveY) <= mTouchSlop
                     ) {
@@ -144,6 +155,7 @@ internal class CreateAffairTouchHandler(
                 if (event.event.action == MotionEvent.ACTION_UP) {
                     recoverFoldState()
                 }
+                removeFromDispatcher(mPointerId)
                 flag = PointerFlag.OVER
             }
             CANCEL -> {
@@ -153,23 +165,25 @@ internal class CreateAffairTouchHandler(
                 } else {
                     mLongPressRunnable.cancel()
                 }
+                removeFromDispatcher(mPointerId)
                 flag = PointerFlag.OVER
             }
         }
     }
 
-    override fun onDrawBelow(canvas: Canvas, view: CourseLayout) {
+    override fun onDrawBelow(canvas: Canvas, view: View) {
         /*
         * 在每次刷新时修改 mTouchAffairView 的位置
         * */
         if (mTouchAffairView != null && mIsInLongPress) {
-            refreshTouchAffairView()
+            refreshTouchAffairView(view)
         }
     }
 
     private fun longPressStart() {
-        course.parent.requestDisallowInterceptTouchEvent(true)
-        VibratorUtil.start(course.context, 36) // 长按被触发来个震动提醒
+        // 禁止父布局拦截
+        course.getParent().requestDisallowInterceptTouchEvent(true)
+        VibratorUtil.start(course.getContext(), 36) // 长按被触发来个震动提醒
         // 记录长按开始时的中午状态
         mIsNoonFoldedWhenLongPress = when (course.getNoonRowState()) {
             RowState.FOLD, RowState.UNFOLD_ANIM -> true
@@ -193,9 +207,11 @@ internal class CreateAffairTouchHandler(
      */
     private fun calculateUpperLowerRow() {
         mUpperRow = 0 // 重置
-        mLowerRow = course.getRowCount() - 1 // 重置
-        for (i in 0 until course.childCount) {
+        mLowerRow = course.rowCount - 1 // 重置
+        for (i in 0 until course.getChildCount()) {
             val child = course.getChildAt(i)
+            if (child === mTouchAffairView) continue
+            if (child.visibility == View.GONE) continue
             val lp = child.layoutParams as CourseLayoutParams
             if (mInitialColumn in lp.startColumn..lp.endColumn) {
                 when {
@@ -260,9 +276,9 @@ internal class CreateAffairTouchHandler(
 
         override fun run() {
             if (isAllowScrollAndCalculateVelocity()) {
-                course.scrollView.scrollBy(velocity)
+                scroll.scrollBy(velocity)
                 course.invalidate()
-                ViewCompat.postOnAnimation(course, this)
+                course.postOnAnimation(this)
             } else {
                 isInScrolling = false
             }
@@ -292,8 +308,7 @@ internal class CreateAffairTouchHandler(
          * 是否允许滚动，如果允许，则计算滚动速度给 [velocity] 变量
          */
         private fun isAllowScrollAndCalculateVelocity(): Boolean {
-            val scroll = course.scrollView
-            val nowHeight = course.getAbsolutePointer(mPointerId).lastMoveY
+            val nowHeight = scroll.getPointer(mPointerId).lastMoveY
             val moveBoundary = 100 // 移动的边界值
             // 向上滚动，即手指移到底部，需要显示下面的内容
             val isNeedScrollUp =
@@ -320,10 +335,8 @@ internal class CreateAffairTouchHandler(
         }
     }
 
-    private fun refreshTouchAffairView() {
-        val y = course.let {
-            it.getAbsolutePointer(mPointerId).lastMoveY - it.getDistanceToScrollView()
-        }
+    private fun refreshTouchAffairView(view: View) {
+        val y = scroll.getPointer(mPointerId).lastMoveY - scroll.getDistance(course)
         mTouchRow = course.getRow(y) // 当前触摸的行数
         var topRow: Int
         var bottomRow: Int
@@ -352,7 +365,7 @@ internal class CreateAffairTouchHandler(
     private fun recoverFoldState() {
         var hasViewInNoon = false
         var hasViewInDusk = false
-        for (i in 0 until course.childCount) {
+        for (i in 0 until course.getChildCount()) {
             // 判断中午和傍晚时间段是否存在 View
             val child = course.getChildAt(i)
             if (child === mTouchAffairView) continue
@@ -384,7 +397,7 @@ internal class CreateAffairTouchHandler(
     }
 
     init {
-        course.addCourseDecoration(this) // 监听 course 的 onDraw() 刷新
+        course.addItemDecoration(this) // 监听 course 的 onDraw() 刷新
     }
 
     interface OnTouchAffairListener {

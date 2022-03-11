@@ -1,7 +1,6 @@
 package com.mredrock.cyxbs.lib.courseview.utils
 
 import android.graphics.*
-import android.util.Log
 import android.view.LayoutInflater
 import android.widget.TextView
 import com.mredrock.cyxbs.lib.courseview.course.CourseBeanInternal
@@ -25,7 +24,7 @@ import java.lang.RuntimeException
 object LessonHelper {
 
     /**
-     * 清楚全部课程和事务
+     * 清除全部课程和事务
      */
     fun clearLessonAndAffair(course: CourseLayout) {
         var index = 0
@@ -140,7 +139,7 @@ object LessonHelper {
             LessonType.AFFAIR -> setAffair(lessonView, lp, title, content, lp.startPos)
         }
         course.addCourse(lessonView, lp)
-        judgeIsUnfoldNoonOrDusk(course, lp)
+        unfoldNoonOrDuskIfNeed(course, lp)
     }
 
     /**
@@ -233,7 +232,7 @@ object LessonHelper {
     /**
      * 判断是否展开中午或者傍晚时间段
      */
-    private fun judgeIsUnfoldNoonOrDusk(course: CourseLayout, lp: CourseLayoutParams) {
+    private fun unfoldNoonOrDuskIfNeed(course: CourseLayout, lp: CourseLayoutParams) {
         if (lp.startRow <= CourseLayout.NOON_TOP && lp.endRow >= CourseLayout.NOON_BOTTOM) {
             if (course.getNoonRowState() == RowState.FOLD) {
                 course.unfoldNoonWithoutAnim()

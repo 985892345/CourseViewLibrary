@@ -3,16 +3,18 @@ package com.mredrock.cyxbs.lib.courseview.helper.multitouch.createaffair
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.graphics.drawable.GradientDrawable
+import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.AlphaAnimation
-import android.view.animation.Animation
 import android.view.animation.DecelerateInterpolator
 import android.widget.ImageView
+import androidx.core.animation.doOnCancel
 import androidx.core.animation.doOnEnd
 import androidx.core.animation.doOnStart
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
+import com.mredrock.cyxbs.lib.courseview.course.ICourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.utils.CourseType
 import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
@@ -22,10 +24,10 @@ import kotlin.math.roundToInt
  * 显示带有加号的那个 View
  *
  * 该类作用：
- * 1、封装带加号 View 的一些行为；
+ * - 封装带加号 View 的一些行为；
  *
  * 注意事项：
- * 1、里面包含了一个 ImageView，原因在于实现一个生长的动画，不然直接滑动显得有些生硬
+ * - 里面包含了一个 ImageView，原因在于实现一个生长的动画，不然直接滑动显得有些生硬
  *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
@@ -33,8 +35,8 @@ import kotlin.math.roundToInt
  */
 @SuppressLint("ViewConstructor")
 internal class TouchAffairView(
-    val course: CourseLayout
-) : ViewGroup(course.context), ITouchView, ViewExtend {
+    val course: ICourseLayout
+) : ViewGroup(course.getContext()), ITouchView, ViewExtend {
 
     /**
      * 从 startUse() 到 remove() 的生命周期
@@ -43,20 +45,20 @@ internal class TouchAffairView(
 
     fun isUsed(): Boolean {
         if (parent != null) {
-            if ((visibility == GONE || animation != null) && !isUsed) {
+            if ((visibility == GONE || mHideAnimator != null) && !isUsed) {
                 // 存在 isUsed = false，但仍有 parent，比如长按整体移动会把 view 添加进 overlay，结束时再加进 course
                 return false
             }
             return true
+        } else {
+            // parent 为 null 一定没有被使用了
+            isUsed = false // 重置
+            return false
         }
-        if (isAttachedToWindow) {
-            return true
-        }
-        return isUsed
     }
 
     /**
-     * 使用的开始
+     * 使用的开始，应该在一个手指开始处理事件时就调用，对于取消使用会在判断是否使用时智能判断
      */
     fun startUse() {
         isUsed = true
@@ -66,12 +68,11 @@ internal class TouchAffairView(
      * 显示 mTouchAffairView（用于添加事务的 View）
      */
     fun show(topRow: Int, bottomRow: Int, initialColumn: Int) {
-        animation?.cancel()
+        // 先取消可能存在的动画
+        mHideAnimator?.cancel() 
+        // 添加一个入场动画
+        startAnimation(mShowAnimation)
         if (visibility == GONE) {
-            /*
-            * 如果走到这分支，就说明刚才触发了长按整体移动再回来的动画
-            * 因为添加进了 overlay 而没有被成功 removeView 掉
-            * */
             visibility = VISIBLE
         }
         val lp = layoutParams as CourseLayoutParams
@@ -84,60 +85,62 @@ internal class TouchAffairView(
             if (parent is CourseLayout) {
                 layoutParams = lp
             } else {
+                /*
+                * 这里只要你没有改动其他代码，是不会出现这个 bug 的
+                * 即使在长按移动中会添加进 overlay，但本身 show() 方法需要一个长按的延时，
+                * 这个时候长按整体移动的动画肯定结束了，所以不会触发这个 bug
+                * */
                 throw RuntimeException("为什么 mTouchAffairView 的父布局不是 CourseLayout?")
             }
         } else {
-            course.addView(this, lp)
+            course.addItem(this, lp)
         }
-        // 添加一个入场动画
-        startAnimation(
-            AlphaAnimation(0F, 1F).apply {
-                duration = 200
-            }
-        )
     }
 
     /**
      * 使用的结束，带有动画的消失
      */
     override fun remove() {
-        isUsed = false
+        if (!isUsed) return
+        isUsed = false // 重置
         if (parent != null) {
-            if (visibility == GONE) {
-                /*
-                * 如果走到这分支，就说明刚才触发了长按整体移动再回来的动画
-                * 因为添加进了 overlay 而没有被成功 removeView 掉
-                * */
-                course.removeView(this)
-                visibility = VISIBLE
-                return
-            }
-            startAnimation(
-                AlphaAnimation(1F, 0F).apply {
+            /*
+            * 记录一下：
+            * 因为是直接修改 alpha，最开始我直接使用的补间动画，但后来出现了阴影重叠的问题，所以改为属性动画
+            * 猜测原因：
+            * 补间动画会直接将绘制拦截，然后单独处理，所以可能在这个阶段时，设置 translationZ 会失效，
+            * 导致背景图片的阴影效果无法取消（仅是猜测）
+            * */
+            if (mHideAnimator == null) {
+                mHideAnimator = ValueAnimator.ofFloat(1F, 0F).apply {
+                    addUpdateListener {
+                        alpha = animatedValue as Float
+                    }
+                    doOnEnd {
+                        mHideAnimator = null
+                        alpha = 1F
+                        /*
+                        * 这里直接设置 visibility 有以下原因：
+                        * 1、方便处理，不需要直接 course.removeView()
+                        * 2、长按整体移动时会把 View 添加进 overlay，这时调用 course.removeView() 是没有效果的
+                        * */
+                        visibility = GONE
+                    }
+                    doOnCancel {
+                        mHideAnimator = null
+                        alpha = 1F
+                    }
                     duration = 200
-                    setAnimationListener(object : Animation.AnimationListener {
-                        override fun onAnimationStart(animation: Animation) {}
-                        override fun onAnimationRepeat(animation: Animation) {}
-                        override fun onAnimationEnd(animation: Animation) {
-                            // 这里是因为长按整体移动的原因，会把它添加进 overlay，是不会被 removeView 掉的
-                            // 为降低耦合度，所以只能采用这种方式，在动画结束时再设置它的 visibility
-                            if (parent != course) {
-                                visibility = GONE
-                            }
-                        }
-                    })
+                    start()
                 }
-            )
-            if (parent === course) {
-                course.removeView(this)
             }
         }
     }
 
     /**
      * 该方法作用：
-     * 1、计算当前位置并刷新布局
-     * 2、启动一个生长的动画
+     * - 计算当前位置并刷新布局
+     * - 启动一个生长的动画
      */
     fun refresh(
         oldTopRow: Int,
@@ -150,15 +153,19 @@ internal class TouchAffairView(
         lp.endRow = bottomRow
         layoutParams = lp // 设置属性，刷新布局
         mOnNextLayoutCallback = {
-            // 在已经布局完毕后再调用动画，不然得到的高度值是有问题的
+            // 在已经布局完毕后再调用动画，不然 TouchAffairView 高度值还是之前的大小，导致 ImageView 要闪
             startExpandValueAnimator(oldTopRow, oldBottomRow, topRow, bottomRow)
         }
     }
 
-    // 扩展动画
-    private var mExpandValueAnimator: ValueAnimator? = null
     // 下一次布局的回调
     private var mOnNextLayoutCallback: ((View) -> Unit)? = null
+    // 扩展动画
+    private var mExpandValueAnimator: ValueAnimator? = null
+    // 开始显示时的淡入动画动画
+    private var mShowAnimation = AlphaAnimation(0F, 1F).apply { duration = 200 }
+    // 点击其他区域的淡出动画
+    private var mHideAnimator: ValueAnimator? = null
 
     /**
      * 在执行动画时不给 imageView 布局
@@ -214,14 +221,15 @@ internal class TouchAffairView(
                 mImageView.layout(0, nowTop, width, nowBottom)
             }
             doOnStart {
-                course.clipChildren = false // 请求父布局不要裁剪
+                course.setClipChildren(false) // 请求父布局不要裁剪
                 background = null
+                // 把背景交给 ImageView
                 mImageView.background = mBackground
             }
             doOnEnd {
                 mExpandValueAnimator = null
-                course.clipChildren = true // 及时关闭，减少不必要绘制
-                // 设置为 ImageView 的背景后，这样会使整体移动中改变 translationZ 后会有阴影效果
+                course.setClipChildren(true) // 及时关闭，减少不必要绘制
+                // 设置为 ImageView 的背景后，这样会使整体移动中改变 translationZ 带有阴影效果
                 background = mImageView.background
                 mImageView.background = null
             }

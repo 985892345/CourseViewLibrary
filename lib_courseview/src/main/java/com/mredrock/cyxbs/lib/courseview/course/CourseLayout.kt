@@ -1,39 +1,32 @@
 package com.mredrock.cyxbs.lib.courseview.course
 
 import android.animation.ValueAnimator
-import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.Canvas
 import android.os.Bundle
-import android.os.Parcel
 import android.os.Parcelable
 import android.util.AttributeSet
-import android.util.Log
-import android.util.SparseArray
-import android.view.MotionEvent
 import android.view.View
-import android.view.ViewGroup
 import android.view.animation.AlphaAnimation
 import android.widget.ImageView
+import androidx.annotation.CallSuper
 import androidx.core.animation.addListener
-import androidx.core.util.forEach
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutAttrs
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
-import com.mredrock.cyxbs.lib.courseview.course.draw.ItemDecoration
-import com.mredrock.cyxbs.lib.courseview.course.touch.OnItemTouchListener
-import com.mredrock.cyxbs.lib.courseview.course.touch.TouchDispatcher
 import com.mredrock.cyxbs.lib.courseview.course.utils.*
-import com.mredrock.cyxbs.lib.courseview.net.NetLayout
-import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
-import com.mredrock.cyxbs.lib.courseview.scroll.ICourseScrollView
-import com.mredrock.cyxbs.lib.courseview.utils.lazyUnlock
+import com.mredrock.cyxbs.lib.courseview.net.NetLayout2
+import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutAttrs
+import com.mredrock.cyxbs.lib.courseview.net.save.OnSaveStateListener
 
 /**
- * ```
  * 该 View 作用：
- * 1、继承于 NetLayout，自定义对课程的布局
+ * - 继承于 NetLayout，自定义对课程的布局
+ * - 与课表需求进行高度耦合
  *
+ * 注意事项：
+ * - 注意该类实现的所有接口，尽量用接口来解耦合
+ *
+ * ```
  * ● ======== app:net_columnCount = 8 ======== ●
  * ↓                                           ↓
  * --------------------------------------------- ←- ●
@@ -67,7 +60,9 @@ import com.mredrock.cyxbs.lib.courseview.utils.lazyUnlock
  * @email 2767465918@qq.com
  * @date 2022/1/20
  */
-class CourseLayout : NetLayout, IAbsoluteCoordinates {
+class CourseLayout : NetLayout2,
+    OnSaveStateListener,
+    ICourseLayout {
 
     /**
      * 添加课程
@@ -77,39 +72,9 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     }
 
     /**
-     * 仿照 RV 的 ItemDecoration 设计。用于自定义绘制一些东西
-     */
-    fun addCourseDecoration(decor: ItemDecoration<CourseLayout>, index: Int = mCourseDecoration.size) {
-        mCourseDecoration.add(index, decor)
-    }
-
-    /**
-     * 仿照 RV 的 OnItemTouchListener 设计。用于处理滑动事件，
-     * 这样以后要扩展不是直接在这个 [CourseLayout] 里面添加代码，而是添加一个 [OnItemTouchListener] 来增加新的功能
-     */
-    fun addCourseTouchListener(l: OnItemTouchListener<CourseLayout>, index: Int = mTouchDispatchHelper.size) {
-        mTouchDispatchHelper.addCourseTouchListener(l, index)
-    }
-
-    /**
-     * 用于在 [ItemDecoration] 和 [OnItemTouchListener] 中，[CourseLayout] 即将被摧毁时保存一些必要的信息
-     * @param tag 唯一标记，请尽可能的不要重复
-     * @param l 与 [tag] 对应的监听
-     */
-    fun addSaveBundleListener(tag: Int, l: OnSaveBundleListener) {
-        val bundle = mSaveBundleListenerCache[tag]
-        if (bundle != null) {
-            // 如果有之前保留的数据，意思是设置监听前就得到了保留的数据
-            l.onRestoreInstanceState(bundle)
-            mSaveBundleListenerCache.remove(tag)
-        }
-        mSaveBundleListeners.put(tag, l)
-    }
-
-    /**
      * 得到当前中午那一行的状态
      */
-    fun getNoonRowState(): RowState {
+    override fun getNoonRowState(): RowState {
         if (mNoonAnimation is FoldAnimation) return RowState.FOLD_ANIM
         if (mNoonAnimation is UnfoldAnimation) return RowState.UNFOLD_ANIM
         return mNoonRowState
@@ -118,7 +83,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     /**
      * 得到当前中午那一行的状态
      */
-    fun getDuskRowState(): RowState {
+    override fun getDuskRowState(): RowState {
         if (mDuskAnimation is FoldAnimation) return RowState.FOLD_ANIM
         if (mDuskAnimation is UnfoldAnimation) return RowState.UNFOLD_ANIM
         return mDuskRowState
@@ -127,7 +92,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     /**
      * 改变中午时间段所在行数的比重
      */
-    fun changeNoonWeight(weight: Float) {
+    override fun changeNoonWeight(weight: Float) {
         for (row in NOON_TOP..NOON_BOTTOM) {
             setRowWeight(row, weight)
         }
@@ -136,7 +101,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     /**
      * 改变傍晚时间段所在行数的比重
      */
-    fun changeDuskWeight(weight: Float) {
+    override fun changeDuskWeight(weight: Float) {
         for (row in DUSK_TOP..DUSK_BOTTOM) {
             setRowWeight(row, weight)
         }
@@ -145,7 +110,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     /**
      * 带有动画的强制折叠中午时间段。会 cancel 掉之前的动画
      */
-    fun foldNoonForce(onChanged: ((Float) -> Unit)? = null) {
+    override fun foldNoonForce(onChanged: ((Float) -> Unit)?) {
         when (getNoonRowState()) {
             RowState.FOLD, RowState.FOLD_ANIM -> {
                 mNoonAnimation?.addChangeListener(onChanged)
@@ -170,7 +135,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     /**
      * 不带动画的立即折叠中午时间段。如果此时正处于展开动画，则立马取消；如果正处于折叠动画，则不做取消操作
      */
-    fun foldNoonWithoutAnim() {
+    override fun foldNoonWithoutAnim() {
         if (mNoonAnimation is FoldAnimation) return
         mNoonAnimation?.cancel()
         mNoonAnimation = null
@@ -183,7 +148,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     /**
      * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
      */
-    fun unfoldNoonForce(onChanged: ((Float) -> Unit)? = null) {
+    override fun unfoldNoonForce(onChanged: ((Float) -> Unit)?) {
         when (getNoonRowState()) {
             RowState.UNFOLD, RowState.UNFOLD_ANIM -> {
                 mNoonAnimation?.addChangeListener(onChanged)
@@ -208,7 +173,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     /**
      * 不带动画的立即展开中午时间段。如果此时正处于折叠动画，则立马取消；如果正处于展开动画，则不做取消操作
      */
-    fun unfoldNoonWithoutAnim() {
+    override fun unfoldNoonWithoutAnim() {
         if (mNoonAnimation is UnfoldAnimation) return
         mNoonAnimation?.cancel()
         mNoonAnimation = null
@@ -221,7 +186,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     /**
      * 带有动画的强制折叠傍晚时间段。会 cancel 掉之前的动画
      */
-    fun foldDuskForce(onChanged: ((Float) -> Unit)? = null) {
+    override fun foldDuskForce(onChanged: ((Float) -> Unit)?) {
         when (getDuskRowState()) {
             RowState.FOLD, RowState.FOLD_ANIM -> {
                 mDuskAnimation?.addChangeListener(onChanged)
@@ -246,7 +211,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     /**
      * 不带动画的立即折叠傍晚时间段。如果此时正处于展开动画，则立马取消；如果正处于折叠动画，则不做取消操作
      */
-    fun foldDuskWithoutAnim() {
+    override fun foldDuskWithoutAnim() {
         if (mDuskAnimation is FoldAnimation) return
         mDuskAnimation?.cancel()
         mDuskAnimation = null
@@ -259,7 +224,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     /**
      * 带有动画的强制展开中午时间段。会 cancel 掉之前的动画
      */
-    fun unfoldDuskForce(onChanged: ((Float) -> Unit)? = null) {
+    override fun unfoldDuskForce(onChanged: ((Float) -> Unit)?) {
         when (getDuskRowState()) {
             RowState.UNFOLD, RowState.UNFOLD_ANIM -> {
                 mDuskAnimation?.addChangeListener(onChanged)
@@ -284,7 +249,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     /**
      * 不带动画的立即展开傍晚时间段。如果此时正处于折叠动画，则立马取消；如果正处于展开动画，则不做取消操作
      */
-    fun unfoldDuskWithoutAnim() {
+    override fun unfoldDuskWithoutAnim() {
         if (mDuskAnimation is UnfoldAnimation) return
         mDuskAnimation?.cancel()
         mDuskAnimation = null
@@ -297,84 +262,24 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
     private var mNoonRowState = RowState.FOLD // 当前中午时间段的状态，主要用于上一层保险，不能光靠他来判断
     private var mDuskRowState = RowState.FOLD // 当前傍晚时间段的状态，主要用于上一层保险，不能光靠他来判断
 
-    /**
-     * 得到 [CourseLayout] 外层包裹的 [CourseScrollView]
-     *
-     * 因为在长按选择事务时，滑到屏幕显示边缘区域时需要调用 [CourseScrollView] 进行滚动，
-     * 所以只能采用这种强耦合的方式
-     *
-     * 这里使用 private 修饰，禁止其他帮助类得到它的实例，想获取的话应该使用接口来进行隔离，降低耦合
-     */
-    private val mCourseScrollView: CourseScrollView by lazy(LazyThreadSafetyMode.NONE) {
-        var scrollView: CourseScrollView? = null
-        var parent = parent
-        while (parent is ViewGroup) {
-            if (parent is CourseScrollView) {
-                scrollView = parent
-                break
-            }
-            parent = parent.parent
-        }
-        if (scrollView == null) throw RuntimeException(
-            "CourseLayout 必须拥有 CourseScrollView 父布局，因为在一些情况下要调用它滚动"
-        )
-        scrollView
-    }
-
-    val scrollView: ICourseScrollView by lazyUnlock { mCourseScrollView }
-
-    override fun getAbsolutePointer(pointerId: Int): IAbsoluteCoordinates.IAbsolutePointer {
-        return mCourseScrollView.getAbsolutePointer(pointerId)
-    }
-
-    /**
-     * 得到自身与 [scrollView] 之间相差的高度，是眼睛能看见的高度差
-     * ```
-     * 如：
-     *                 |---------- CourseScrollView ----------|
-     *                               |------------- CourseLayout -------------|
-     *                 |-- 得到的值 --| (值为正)
-     * or
-     *                 |---------- CourseScrollView ----------|
-     *   |------------- CourseLayout -------------|
-     *   |-- 得到的值 --| (注意：此时值为负)
-     * ```
-     */
-    fun getDistanceToScrollView(): Int {
-        var dHeight = top // 与 mCourseScrollView 去掉 scrollY 后的高度差，即屏幕上显示的高度差
-        var parent = parent
-        while (parent is ViewGroup) { // 这个循环用于计算 dHeight
-            dHeight -= parent.scrollY
-            if (parent === scrollView) { // 找到 scrollView 就结束
-                break
-            }
-            dHeight += parent.top
-            parent = parent.parent
-        }
-        return dHeight
-    }
-
     private val mCourseAttrs: CourseLayoutAttrs
 
-    // 自定义绘图的监听
-    private val mCourseDecoration = ArrayList<ItemDecoration<CourseLayout>>(5)
-    // 自定义事件分发帮助类
-    private val mTouchDispatchHelper = TouchDispatcher<CourseLayout>()
-    // 在 View 被摧毁时需要保存必要信息的监听
-    private val mSaveBundleListeners = SparseArray<OnSaveBundleListener>(3)
-
-    constructor(
-        context: Context,
-        attrs: AttributeSet
-    ) : super(context, attrs) {
-        mCourseAttrs = CourseLayoutAttrs(mNetAttrs)
-    }
-
-    constructor(
-        context: Context,
-        attrs: CourseLayoutAttrs
-    ) : super(context, attrs) {
+    constructor(context: Context, attrs: CourseLayoutAttrs) : super(context, attrs) {
         mCourseAttrs = attrs
+    }
+    constructor(context: Context, attrs: AttributeSet) : this(context, attrs, 0)
+    constructor(
+        context: Context,
+        attrs: AttributeSet,
+        defStyleAttr: Int
+    ) : this(context, attrs, defStyleAttr, 0)
+    constructor(
+        context: Context,
+        attrs: AttributeSet,
+        defStyleAttr: Int,
+        defStyleRes: Int
+    ) : super(context, attrs, defStyleAttr, defStyleRes) {
+        mCourseAttrs = CourseLayoutAttrs(mNetAttrs)
     }
 
     init {
@@ -393,6 +298,7 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         for (column in TIME_LINE_LEFT..TIME_LINE_RIGHT) {
             setColumnInitialWeight(column, 0.8F)
         }
+        addSaveStateListener(478741894, this)
     }
 
     private var mNoonAnimation: ChangeWeightAnimation? = null // 中午折叠或者展开的动画
@@ -451,30 +357,6 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         )
 
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
-    }
-
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        mTouchDispatchHelper.dispatchTouchEvent(ev, this)
-        return super.dispatchTouchEvent(ev)
-    }
-
-    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
-        return mTouchDispatchHelper.onInterceptTouchEvent(ev, this)
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
-    override fun onTouchEvent(event: MotionEvent): Boolean {
-        return mTouchDispatchHelper.onTouchEvent(event, this)
-    }
-
-    override fun dispatchDraw(canvas: Canvas) {
-        mCourseDecoration.forEach {
-            it.onDrawBelow(canvas, this)
-        }
-        super.dispatchDraw(canvas)
-        mCourseDecoration.forEach {
-            it.onDrawAbove(canvas, this)
-        }
     }
 
     override fun generateLayoutParams(attrs: AttributeSet): LayoutParams {
@@ -542,86 +424,31 @@ class CourseLayout : NetLayout, IAbsoluteCoordinates {
         }
     }
 
-    // 如果没有设置监听，就暂时保存
-    private val mSaveBundleListenerCache = SparseArray<Bundle?>(3)
-
-    override fun onRestoreInstanceState(state: Parcelable) {
-        if (state !is SavedState) {
-            super.onRestoreInstanceState(state)
-            return
-        }
-        super.onRestoreInstanceState(state.superState)
-        // 先恢复被摧毁时的折叠状态
-        if (state.isFoldNoon) foldNoonWithoutAnim() else unfoldNoonWithoutAnim()
-        if (state.isFoldDusk) foldDuskWithoutAnim() else unfoldDuskWithoutAnim()
-
-        mSaveBundleListenerCache.clear()
-        // 再恢复 mSaveBundleListeners 的状态
-        state.saveBundleListeners.forEach { key, value ->
-            val listener = mSaveBundleListeners[key]
-            if (listener != null) {
-                listener.onRestoreInstanceState(value)
-            } else {
-                mSaveBundleListenerCache.put(key, value)
-            }
-        }
-
-    }
-
-    override fun onSaveInstanceState(): Parcelable {
-        val superState = super.onSaveInstanceState()
-        val ss = SavedState(superState)
+    @CallSuper
+    override fun onSaveState(): Parcelable {
         // 即将被摧毁，保存折叠状态
-        when (getNoonRowState()) {
-            RowState.FOLD, RowState.FOLD_ANIM -> ss.isFoldNoon = true
-            RowState.UNFOLD, RowState.UNFOLD_ANIM -> ss.isFoldNoon = false
+        val isFoldNoon = when (getNoonRowState()) {
+            RowState.FOLD, RowState.FOLD_ANIM -> true
+            RowState.UNFOLD, RowState.UNFOLD_ANIM -> false
         }
-        when (getDuskRowState()) {
-            RowState.FOLD, RowState.FOLD_ANIM -> ss.isFoldDusk = true
-            RowState.UNFOLD, RowState.UNFOLD_ANIM -> ss.isFoldDusk = false
+        val isFoldDusk = when (getDuskRowState()) {
+            RowState.FOLD, RowState.FOLD_ANIM -> true
+            RowState.UNFOLD, RowState.UNFOLD_ANIM -> false
         }
-
-        // 保存 mSaveBundleListeners 的状态
-        ss.saveBundleListeners = SparseArray(mSaveBundleListeners.size())
-        mSaveBundleListeners.forEach { key, value ->
-            ss.saveBundleListeners.put(key, value.onSaveInstanceState())
+        return Bundle().apply {
+            putBoolean("IS_FOLD_NOON", isFoldNoon)
+            putBoolean("IS_FOLD_DUSK", isFoldDusk)
         }
-        return ss
     }
 
-    /**
-     * 用于在 [CourseLayout] 被摧毁时保存必要的信息
-     */
-    private class SavedState : BaseSavedState {
-        lateinit var saveBundleListeners: SparseArray<Bundle?> // 保存的 mSaveBundleListeners 的信息
-        var isFoldNoon = true // 是否折叠了中午时间段
-        var isFoldDusk = true // 是否折叠了傍晚时间段
-
-        constructor(superState: Parcelable?) : super(superState)
-
-        @SuppressLint("ParcelClassLoader")
-        constructor(source: Parcel) : super(source) {
-            saveBundleListeners = source.readSparseArray<Bundle?>(null)!!
-            isFoldNoon = source.readInt() == 1
-            isFoldDusk = source.readInt() == 1
-        }
-
-        override fun writeToParcel(out: Parcel, flags: Int) {
-            super.writeToParcel(out, flags)
-            out.writeSparseArray(saveBundleListeners)
-            out.writeInt(if (isFoldNoon) 1 else 0)
-            out.writeInt(if (isFoldDusk) 1 else 0)
-        }
-
-        companion object CREATOR : Parcelable.Creator<SavedState> {
-            override fun createFromParcel(source: Parcel): SavedState {
-                return SavedState(source)
-            }
-
-            override fun newArray(size: Int): Array<SavedState?> {
-                return arrayOfNulls(size)
-            }
-        }
+    @CallSuper
+    override fun onRestoreState(savedState: Parcelable?) {
+        if (savedState == null) return
+        val bundle = savedState as Bundle
+        val isFoldNoon = bundle.getBoolean("IS_FOLD_NOON")
+        val isFoldDusk = bundle.getBoolean("IS_FOLD_DUSK")
+        if (isFoldNoon) foldNoonWithoutAnim() else unfoldNoonWithoutAnim()
+        if (isFoldDusk) foldDuskWithoutAnim() else unfoldDuskWithoutAnim()
     }
 
     companion object {

@@ -8,11 +8,12 @@ import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.net.NetLayout
 
 /**
- * ```
- * 该类作用：
- * 1、用于快速得到 View 控件，方便使用
- * 2、将一些耦合的操作单独提出来，方便以后修改
- * ```
+ * ## Week 的 Layout 容器
+ *
+ * ### 该类作用：
+ * - 用于快速得到 View 控件，方便使用
+ * - 将一些耦合的操作单独提出来，方便以后修改
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/1/27

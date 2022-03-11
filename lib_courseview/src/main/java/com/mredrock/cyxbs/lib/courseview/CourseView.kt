@@ -5,7 +5,6 @@ import android.util.AttributeSet
 import android.view.View
 import android.widget.LinearLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseBeanInternal
-import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.helper.*
 import com.mredrock.cyxbs.lib.courseview.helper.multitouch.CourseMultiTouchHelper
@@ -13,16 +12,15 @@ import com.mredrock.cyxbs.lib.courseview.helper.multitouch.createaffair.CreateAf
 import com.mredrock.cyxbs.lib.courseview.helper.multitouch.entitymove.EntityMovePointerDispatcher
 import com.mredrock.cyxbs.lib.courseview.helper.multitouch.fold.FoldPointerDispatcher
 import com.mredrock.cyxbs.lib.courseview.lesson.LessonView
-import com.mredrock.cyxbs.lib.courseview.scroll.CourseScrollView
 import com.mredrock.cyxbs.lib.courseview.utils.CourseLayoutContainer
 import com.mredrock.cyxbs.lib.courseview.utils.LessonHelper
 import com.mredrock.cyxbs.lib.courseview.utils.WeekLayoutContainer
 
 /**
- * ```
  * 该 View 作用：
- * 1、添加子 View
- * 2、与课表的操控行为强耦合
+ * - 添加子 View
+ * - 与课表的操控行为强耦合
+ *
  * ```
  * [CourseView] ↘
  * -----------------------------------------------------------------------
@@ -52,7 +50,7 @@ import com.mredrock.cyxbs.lib.courseview.utils.WeekLayoutContainer
  * |  |  -----------------------------------------------------------  |  |
  * |  -----------------------------------------------------------------  |
  * -----------------------------------------------------------------------
- *
+ * ```
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/1/20
@@ -74,7 +72,7 @@ class CourseView(
             day,
             beginLesson,
             period,
-            mCourse.layout,
+            mCourse.course,
             title, content,
             LessonHelper.LessonType.MY,
             onClick
@@ -93,7 +91,7 @@ class CourseView(
             day,
             beginLesson,
             period,
-            mCourse.layout,
+            mCourse.course,
             title, content,
             LessonHelper.LessonType.AFFAIR,
             onClick
@@ -112,7 +110,7 @@ class CourseView(
             day,
             beginLesson,
             period,
-            mCourse.layout,
+            mCourse.course,
             title, content,
             LessonHelper.LessonType.LINK,
             onClick
@@ -128,7 +126,7 @@ class CourseView(
     ) {
         LessonHelper.addLessonItem(
             bean,
-            mCourse.layout,
+            mCourse.course,
             title,
             content,
             type,
@@ -137,7 +135,7 @@ class CourseView(
     }
 
     fun clear() {
-        LessonHelper.clearLessonAndAffair(mCourse.layout)
+        LessonHelper.clearLessonAndAffair(mCourse.course)
     }
 
     fun setOnClickTouchAffairListener(onClick: (view: View, lp: CourseLayoutParams) -> Unit) {
@@ -159,21 +157,25 @@ class CourseView(
     }
 
     private fun initCourse() {
-        addView(mCourse.scrollView)
-        CourseTimelineHelper.attach(mCourse.layout)
-        CourseDownAnimHelper.attach(mCourse.layout)
-        CourseMultiTouchHelper.attach(mCourse.layout).apply {
-            addPointerDispatcher(FoldPointerDispatcher(mCourse.layout))
-            addPointerDispatcher(EntityMovePointerDispatcher(mCourse.layout))
-            addPointerDispatcher(
-                CreateAffairPointerDispatcher(mCourse.layout).apply {
-                    setOnClickListener {
-                        it.remove()
-                        addAnyLesson(it.cloneLp(), "自习", "233", LessonHelper.LessonType.AFFAIR)
-                    }
-                }
-            )
-        }
+        addView(mCourse.scroll)
+        mCourse.course.addItemDecoration(
+            CourseTimelineHelper(mCourse.course),
+        )
+        mCourse.course.addItemTouchListener(
+            CourseDownAnimHelper(mCourse.scroll, mCourse.course),
+            CourseMultiTouchHelper.attach(mCourse.course, mCourse.scroll).apply {
+                add(
+                    FoldPointerDispatcher(),
+                    EntityMovePointerDispatcher(),
+                    CreateAffairPointerDispatcher().apply {
+                        setOnClickListener {
+                            it.remove()
+                            addAnyLesson(it.cloneLp(), "自习", "233", LessonHelper.LessonType.AFFAIR)
+                        }
+                    },
+                )
+            }
+        )
 
         addMyLesson(0, 3, 2, "高等数学", "233")
         addMyLesson(3, 5, 2, "大学物理", "233")

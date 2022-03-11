@@ -1,8 +1,6 @@
 package com.mredrock.cyxbs.lib.courseview.scroll
 
 import android.util.SparseArray
-import androidx.core.util.forEach
-import com.mredrock.cyxbs.lib.courseview.course.utils.IAbsoluteCoordinates
 
 /**
  * ...
@@ -10,7 +8,7 @@ import com.mredrock.cyxbs.lib.courseview.course.utils.IAbsoluteCoordinates
  * @email 2767465918@qq.com
  * @date 2022/2/15 15:32
  */
-class AbsolutePointerImpl private constructor() : IAbsoluteCoordinates.IAbsolutePointer {
+internal class AbsolutePointerImpl private constructor() : IAbsoluteCoordinates.IAbsolutePointer {
     override var initialX = 0 // Down 时的初始 X 值
     override var initialY = 0 // Down 时的初始 Y 值
     override var lastMoveX = 0 // Move 时的移动 X 值
@@ -18,10 +16,13 @@ class AbsolutePointerImpl private constructor() : IAbsoluteCoordinates.IAbsolute
     override var diffMoveX = 0 // 每次 Move 的偏移值
     override var diffMoveY = 0 // 每次 Move 的偏移值
 
-    class PointerManger {
+    class PointerManger : IAbsoluteCoordinates {
         private val mPointers = SparseArray<AbsolutePointerImpl>(3)
 
-        fun createPointer(pointerId: Int, initialX: Int, initialY: Int): AbsolutePointerImpl {
+        /**
+         * 初始化一个保存当前手指事件的 [IAbsoluteCoordinates.IAbsolutePointer]
+         */
+        fun initPointer(pointerId: Int, initialX: Int, initialY: Int): AbsolutePointerImpl {
             val pointer = mPointers[pointerId] ?: AbsolutePointerImpl().apply {
                 mPointers.put(pointerId, this)
             }
@@ -35,7 +36,7 @@ class AbsolutePointerImpl private constructor() : IAbsoluteCoordinates.IAbsolute
             }
         }
 
-        fun getPointer(pointerId: Int): AbsolutePointerImpl {
+        override fun getPointer(pointerId: Int): AbsolutePointerImpl {
             return mPointers.get(pointerId)
         }
     }

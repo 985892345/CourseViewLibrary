@@ -79,20 +79,47 @@ fun addMyLesson()
 ## 依赖关系
 
 > 补充中。。。
+>
+> 下面列出一些重要的类（类有些多，说实话，我看的话我都会被吓到）
 
-- layout
+- layout 布局
   - [NetLayout](https://github.com/985892345/CourseViewLibrary/blob/main/md/layout/NetLayout.md)
   - [CourseLayout](https://github.com/985892345/CourseViewLibrary/blob/main/md/layout/CourseLayout.md)
   - [LessonView](https://github.com/985892345/CourseViewLibrary/blob/main/md/layout/LessonView.md)
   - [CourseScrollView](https://github.com/985892345/CourseViewLibrary/blob/main/md/layout/CourseScrollView.md)
+- touch 触摸事件
+  - TouchDispatcher
+  - OnItemTouchListener
+  - AbstractMultiTouchDispatcher
+  - MultiTouchDispatcherHelper
+  - IPointerDispatcher
+  - IPointerTouchHandler
+
 - helper
   - [CourseTimelineHelper](https://github.com/985892345/CourseViewLibrary/blob/main/md/helper/CourseTimelineHelper.md)
-  - [CourseCreateAffairHelper](https://github.com/985892345/CourseViewLibrary/blob/main/md/helper/CourseCreateAffairHelper.md)
-  - [CourseFoldHelper](https://github.com/985892345/CourseViewLibrary/blob/main/md/helper/CourseFoldHelper.md)
-  - [CourseLongPressAffairHelper](https://github.com/985892345/CourseViewLibrary/blob/main/md/helper/CourseLongPressAffairHelper.md)
-  - [CourseLongPressEntityMoveHelper](https://github.com/985892345/CourseViewLibrary/blob/main/md/helper/CourseLongPressEntityMoveHelper.md)
+  - CourseDownAnimHelper
+  - CreateAffairPointerDispatcher
+    - CreateAffairTouchHandler
+
+  - EntityMovePointerDispatcher
+    - AffairMoveTouchHandler
+    - LessonMoveTouchHandler
+
+  - FoldPointerDispatcher
+    - FoldTouchHandler
+
+  - ScrollTouchHandler
 
 
+## 更新日志
+
+- 1.0.0
+
+  完成课表展示的基本功能：长按生成事务、长按移动、点击展开中午和傍晚时间段
+
+- 1.1.0
+
+  升级为多指触摸，之前的操作皆可多指实现，写了一个多指事件分发成单指事件的分发类
 
 ## 心得体会
 

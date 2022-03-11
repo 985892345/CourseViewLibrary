@@ -2,13 +2,13 @@ package com.mredrock.cyxbs.lib.courseview.scroll
 
 import android.content.Context
 import android.util.AttributeSet
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import androidx.core.widget.NestedScrollView
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
-import com.mredrock.cyxbs.lib.courseview.course.utils.IAbsoluteCoordinates
+import com.mredrock.cyxbs.lib.courseview.course.ICourseLayout
 import kotlin.math.max
 
 /**
@@ -42,8 +42,7 @@ import kotlin.math.max
 class CourseScrollView(
     context: Context,
     attrs: AttributeSet
-) : NestedScrollView(context, attrs),
-    IAbsoluteCoordinates, ICourseScrollView {
+) : NestedScrollView(context, attrs), ICourseScrollView {
 
     /**
      * 重写该方法的几个原因：
@@ -78,6 +77,8 @@ class CourseScrollView(
         )
 
         child.measure(childWidthMeasureSpec, childHeightMeasureSpec)
+        // 这里只能使用 measuredHeight
+        innerHeight = child.measuredHeight + paddingTop + paddingBottom + lp.topMargin + lp.bottomMargin
     }
 
     private val mPointerManger = AbsolutePointerImpl.PointerManger()
@@ -90,7 +91,7 @@ class CourseScrollView(
                 val id = ev.getPointerId(index)
                 val x = ev.getX(index).toInt()
                 val y = ev.getY(index).toInt()
-                mPointerManger.createPointer(id, x, y)
+                mPointerManger.initPointer(id, x, y)
             }
             MotionEvent.ACTION_MOVE -> {
                 for (index in 0 until ev.pointerCount) {
@@ -109,7 +110,7 @@ class CourseScrollView(
         return super.dispatchTouchEvent(ev)
     }
 
-    override fun getAbsolutePointer(pointerId: Int): IAbsoluteCoordinates.IAbsolutePointer {
+    override fun getPointer(pointerId: Int): IAbsoluteCoordinates.IAbsolutePointer {
         return mPointerManger.getPointer(pointerId)
     }
 
@@ -117,6 +118,20 @@ class CourseScrollView(
         scrollBy(0, dy)
     }
 
-    override val innerHeight: Int
-        get() = getChildAt(0).height
+    // 在 measureChildWithMargins() 方法中赋值
+    override var innerHeight: Int = 0
+
+    override fun getDistance(course: ICourseLayout): Int {
+        var dHeight = course.getTop() // 与 CourseScrollView 去掉 scrollY 后的高度差，即屏幕上显示的高度差
+        var parent = course.getParent()
+        while (parent is ViewGroup) { // 这个循环用于计算 dHeight
+            dHeight -= parent.scrollY
+            if (parent === this) { // 找到 scrollView 就结束
+                break
+            }
+            dHeight += parent.top
+            parent = parent.parent
+        }
+        return dHeight
+    }
 }

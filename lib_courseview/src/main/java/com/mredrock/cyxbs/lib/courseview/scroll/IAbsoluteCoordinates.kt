@@ -1,16 +1,17 @@
-package com.mredrock.cyxbs.lib.courseview.course.utils
+package com.mredrock.cyxbs.lib.courseview.scroll
 
 /**
  * 绝对坐标系
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/16 14:21
  */
 interface IAbsoluteCoordinates {
     /**
-     * 获取绝对坐标
+     * 获取保存了当前手指绝对坐标信息的数据类
      */
-    fun getAbsolutePointer(pointerId: Int): IAbsolutePointer
+    fun getPointer(pointerId: Int): IAbsolutePointer
 
     /**
      * 绝对坐标系下 pointerId 对应的绝对坐标

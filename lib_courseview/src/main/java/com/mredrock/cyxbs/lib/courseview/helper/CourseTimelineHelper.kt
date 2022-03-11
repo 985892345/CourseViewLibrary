@@ -33,29 +33,30 @@ import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.LESSON_9_
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.LESSON_9_TOP
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_BOTTOM
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout.Companion.NOON_TOP
-import com.mredrock.cyxbs.lib.courseview.course.draw.ItemDecoration
+import com.mredrock.cyxbs.lib.courseview.course.ICourseLayout
+import com.mredrock.cyxbs.lib.courseview.net.draw.ItemDecoration
+import com.mredrock.cyxbs.lib.courseview.scroll.IAbsoluteCoordinates
 import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
 import java.util.*
 
 /**
- * ```
- * 该类作用：
- * 1、封装左侧时间栏中当前时间线的绘制
+ * ### 该类作用：
+ * - 封装左侧时间栏中当前时间线的绘制
  *
- * 该类设计：
- * 1、对 CourseLayout 增加自定义绘图的监听来实现
- * 2、绘图监听参考了 RV 的 ItemDecoration 的设计
+ * ### 该类设计：
+ * - 对 [CourseLayout] 增加自定义绘图的监听来实现
+ * - 绘图监听参考了 RV 的 [ItemDecoration] 的设计
  *
- * 注意事项：
- * 1、该类只管理左侧时间栏中当前时间线的绘制，请不要添加一些不属于该类的功能，想添加功能应该再写一个 CourseDecoration
- * ```
+ * ### 注意事项：
+ * - 该类只管理左侧时间栏中当前时间线的绘制，请不要添加一些不属于该类的功能，想添加功能应该再写一个 [ItemDecoration]
+ *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/6 15:21
  */
-class CourseTimelineHelper private constructor(
-    private val course: CourseLayout
-) : ItemDecoration<CourseLayout>, ViewExtend {
+class CourseTimelineHelper(
+    private val course: ICourseLayout
+) : ItemDecoration, ViewExtend {
 
     /**
      * 设置是否显示当前时间线
@@ -99,7 +100,7 @@ class CourseTimelineHelper private constructor(
 
     init {
         // 如果类初始化时 View 已经被添加到屏幕上，则直接 start()
-        if (course.isAttachedToWindow) {
+        if (course.isAttachedToWindow()) {
             mRefreshRunnable.start()
         }
         // 添加 View 状态的监听，在脱离视图时取消 mRefreshRunnable，防止内存泄漏
@@ -114,11 +115,11 @@ class CourseTimelineHelper private constructor(
         })
     }
 
-    override fun onDrawBelow(canvas: Canvas, view: CourseLayout) {
+    override fun onDrawBelow(canvas: Canvas, view: View) {
         if (mVisible) {
-            val left = view.getColumnsWidth(0, CourseLayout.TIME_LINE_LEFT - 1)
+            val left = course.getColumnsWidth(0, CourseLayout.TIME_LINE_LEFT - 1)
             val width =
-                view.getColumnsWidth(CourseLayout.TIME_LINE_LEFT, CourseLayout.TIME_LINE_RIGHT)
+                course.getColumnsWidth(CourseLayout.TIME_LINE_LEFT, CourseLayout.TIME_LINE_RIGHT)
             val right = left + width
             val lineHeight = getLineHeight()
             val cx = left + 28F
@@ -415,7 +416,7 @@ class CourseTimelineHelper private constructor(
                 val multiple = (now - start) / (end - start).toFloat()
                 val lessonH = course.getRowsHeight(
                     LESSON_12_BOTTOM + 1,
-                    course.getRowCount() - 1
+                    course.rowCount - 1
                 )
                 multiple * lessonH + course.getRowsHeight(
                     0, LESSON_12_BOTTOM
@@ -428,17 +429,6 @@ class CourseTimelineHelper private constructor(
     }
 
     override fun getContext(): Context {
-        return course.context
-    }
-
-    companion object {
-        /**
-         * 采用这种方式更能明白该类的作用
-         */
-        fun attach(course: CourseLayout): CourseTimelineHelper {
-            return CourseTimelineHelper(course).apply {
-                course.addCourseDecoration(this) // 监听 course 的 onDraw() 回调
-            }
-        }
+        return course.getContext()
     }
 }

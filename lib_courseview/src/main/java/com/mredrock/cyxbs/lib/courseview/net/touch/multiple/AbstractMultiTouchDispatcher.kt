@@ -1,32 +1,33 @@
-package com.mredrock.cyxbs.lib.courseview.course.touch.multiple
+package com.mredrock.cyxbs.lib.courseview.net.touch.multiple
 
 import android.util.SparseArray
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
-import com.mredrock.cyxbs.lib.courseview.course.touch.OnItemTouchListener
-import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.IPointerEvent
-import com.mredrock.cyxbs.lib.courseview.course.touch.multiple.event.toPointerEvent
+import com.mredrock.cyxbs.lib.courseview.net.touch.OnItemTouchListener
+import com.mredrock.cyxbs.lib.courseview.net.touch.multiple.event.IPointerEvent
+import com.mredrock.cyxbs.lib.courseview.net.touch.multiple.event.toPointerEvent
 
 /**
- * 用于分离多指事件的抽离层
+ * ## 用于分离多指事件的抽离层
  *
- * 该类作用：
- * 1、将多个手指的事件单独分离出来，实现像一个手指一样的操作
+ * ### 该类作用：
+ * - 将多个手指的事件单独分离出来，实现像一个手指一样的操作
  *
  * 该操作分为：DOWN、MOVE、UP、CANCEL 四个事件，就像你直接使用 event.action 来处理事件的逻辑一样，
  * 其中我把事件分发进行了一层封装，把每个手指的事件交给 [IPointerTouchHandler] 来处理
  *
- * 该类的分发逻辑虽然不肯绝对保证，但 99% 是完善的，如果你对一般的事件处理都不熟悉，建议你先熟悉了再来看
+ * 该类的分发逻辑虽然不能绝对保证，但 99% 是完善的，如果你对一般的事件处理都不熟悉，建议你先熟悉了再来看
  *
  * @author 985892345 (Guo Xiangrui)
  * @email 2767465918@qq.com
  * @date 2022/2/16 16:09
  */
-abstract class AbstractMultiTouchDispatcher<V : ViewGroup> : OnItemTouchListener<V> {
+abstract class AbstractMultiTouchDispatcher : OnItemTouchListener {
 
-    private val mHandlerById = SparseArray<IPointerTouchHandler<V>>(3)
+    private val mHandlerById = SparseArray<IPointerTouchHandler>(3)
 
-    final override fun isAdvanceIntercept(event: MotionEvent, view: V): Boolean {
+    final override fun isAdvanceIntercept(event: MotionEvent, view: ViewGroup): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 mHandlerById.clear() // 防止出现意外
@@ -93,7 +94,7 @@ abstract class AbstractMultiTouchDispatcher<V : ViewGroup> : OnItemTouchListener
         return false
     }
 
-    final override fun onTouchEvent(event: MotionEvent, view: V) {
+    final override fun onTouchEvent(event: MotionEvent, view: ViewGroup) {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 // 走到这里说明之前在 isAdvanceIntercept() 的 DOWN 事件 return true 了
@@ -172,34 +173,34 @@ abstract class AbstractMultiTouchDispatcher<V : ViewGroup> : OnItemTouchListener
         }
     }
 
-    final override fun isIntercept(event: MotionEvent, view: V): Boolean = false
+    final override fun isIntercept(event: MotionEvent, view: ViewGroup): Boolean = false
 
     /**
-     * 询问当前手指谁来拦截，要拦截就交出处理者
+     * 得到想要处理当前手指事件的处理者，然后处理者会与当前手指进行一对一绑定
+     *
+     * **NOTE:** UP 和 CANCEL 是不会被回调的
      */
     protected abstract fun getInterceptHandler(
         event: IPointerEvent,
-        view: V
-    ): IPointerTouchHandler<V>?
+        view: View
+    ): IPointerTouchHandler?
 
     /**
-     * 1、当前手指被拦截时，回调；
-     *
-     * 2、被前面的 [OnItemTouchListener] 拦截时，事件类型为 CANCEL；
-     *
-     * 3、被外布局拦截时，回调，事件类型为 CANCEL；
+     * - 当前手指被某个处理者绑定时，回调，事件类型为 DOWN(包括 POINTER_DOWN) 或 MOVE
+     * - 被前面的 [OnItemTouchListener] 拦截时，回调，事件类型为 CANCEL
+     * - 被外布局拦截时，回调，事件类型为 CANCEL
      */
     protected abstract fun onRobEvent(
         event: IPointerEvent,
-        handler: IPointerTouchHandler<V>?,
-        view: V
+        handler: IPointerTouchHandler?,
+        view: View
     )
 
     /**
-     * 当前手指还没有被拦截就抬起的回调
+     * 当前手指还没有绑定处理者时就抬起的回调
      */
     protected abstract fun onNoListenerUpEvent(
         event: IPointerEvent,
-        view: V
+        view: View
     )
 }
