@@ -163,7 +163,7 @@ class CourseView(
         )
         mCourse.course.addItemTouchListener(
             CourseDownAnimHelper(mCourse.scroll, mCourse.course),
-            CourseMultiTouchHelper.attach(mCourse.course, mCourse.scroll).apply {
+            CourseMultiTouchHelper(mCourse.course, mCourse.scroll).apply {
                 add(
                     FoldPointerDispatcher(),
                     EntityMovePointerDispatcher(),

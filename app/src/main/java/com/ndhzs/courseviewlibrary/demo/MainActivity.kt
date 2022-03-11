@@ -7,7 +7,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main).let {  }
+        setContentView(R.layout.activity_main)
 
 //        val courseLayout: CourseLayout = findViewById(R.id.course)
 //

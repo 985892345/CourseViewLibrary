@@ -34,23 +34,23 @@ import com.mredrock.cyxbs.lib.courseview.net.touch.ItemTouchProvider
 open class NetLayout2 : NetLayout,
     ItemDecorationProvider, ItemTouchProvider, SaveStateProvider {
 
-    override fun addItemDecoration(decor: ItemDecoration) {
+    final override fun addItemDecoration(decor: ItemDecoration) {
         mItemDecoration.add(mItemDecoration.size, decor)
     }
 
-    override fun addItemDecoration(decor: ItemDecoration, index: Int) {
+    final override fun addItemDecoration(decor: ItemDecoration, index: Int) {
         mItemDecoration.add(index, decor)
     }
 
-    override fun addItemTouchListener(l: OnItemTouchListener) {
+    final override fun addItemTouchListener(l: OnItemTouchListener) {
         mTouchDispatchHelper.addItemTouchListener(l, mTouchDispatchHelper.size)
     }
 
-    override fun addItemTouchListener(l: OnItemTouchListener, index: Int) {
+    final override fun addItemTouchListener(l: OnItemTouchListener, index: Int) {
         mTouchDispatchHelper.addItemTouchListener(l, index)
     }
 
-    override fun addSaveStateListener(tag: Int, l: OnSaveStateListener) {
+    final override fun addSaveStateListener(tag: Int, l: OnSaveStateListener) {
         val bundle = mSaveBundleListenerCache[tag]
         if (bundle != null) {
             // 如果有之前保留的数据，意思是设置监听前就得到了保留的数据

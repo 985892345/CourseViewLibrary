@@ -2,13 +2,11 @@ package com.mredrock.cyxbs.lib.courseview.helper.multitouch.entitymove
 
 import android.animation.ValueAnimator
 import android.graphics.Canvas
-import android.util.Log
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewConfiguration
 import android.view.animation.OvershootInterpolator
 import androidx.core.animation.addListener
-import androidx.core.view.ViewCompat
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.ICourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams

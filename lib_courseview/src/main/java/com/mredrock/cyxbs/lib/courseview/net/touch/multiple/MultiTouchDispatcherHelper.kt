@@ -33,9 +33,6 @@ open class MultiTouchDispatcherHelper : AbstractMultiTouchDispatcher() {
         event: IPointerEvent,
         view: View
     ): IPointerTouchHandler? {
-        if (event.event.actionMasked == MotionEvent.ACTION_DOWN) {
-            mDelayDispatchers.clear() // 防止出现问题，进行一次清理
-        }
         when (event.action) {
             DOWN, MOVE -> return findPointerTouchHandler(event, view)
             else -> { /*剩下 UP 和 CANCEL 是不会被回调的*/ }
@@ -87,6 +84,9 @@ open class MultiTouchDispatcherHelper : AbstractMultiTouchDispatcher() {
      * 询问所有的 dispatcher 是否拦截当前手指事件，需要拦截的话要么立即交出处理者，要么延后交出处理者
      */
     private fun findPointerTouchHandler(event: IPointerEvent, view: View): IPointerTouchHandler? {
+        if (event.event.actionMasked == MotionEvent.ACTION_DOWN) {
+            mDelayDispatchers.clear() // 防止出现问题，进行一次清理
+        }
         val dispatcher = mDelayDispatchers.get(event.pointerId, null)
         if (dispatcher != null) {
             val handler = dispatcher.getInterceptHandler(event, view)

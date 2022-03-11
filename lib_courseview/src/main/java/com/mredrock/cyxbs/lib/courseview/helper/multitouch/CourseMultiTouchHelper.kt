@@ -18,7 +18,7 @@ import com.mredrock.cyxbs.lib.courseview.scroll.ICourseScrollView
  * @email 2767465918@qq.com
  * @date 2022/2/20 20:58
  */
-class CourseMultiTouchHelper private constructor(
+class CourseMultiTouchHelper(
     private val course: ICourseLayout,
     private val scroll: ICourseScrollView
 ): MultiTouchDispatcherHelper() {
@@ -26,6 +26,8 @@ class CourseMultiTouchHelper private constructor(
     fun add(dispatcher: CoursePointerDispatcher) {
         dispatcher.course = course
         dispatcher.scroll = scroll
+        dispatcher.initCourse(course)
+        dispatcher.initScroll(scroll)
         super.addPointerDispatcher(dispatcher)
     }
 
@@ -67,16 +69,8 @@ class CourseMultiTouchHelper private constructor(
             internal set
         lateinit var course: ICourseLayout
             internal set
-    }
 
-    companion object {
-        /**
-         * 采用这种方式更能明白该类的作用
-         */
-        fun attach(course: ICourseLayout, scroll: ICourseScrollView): CourseMultiTouchHelper {
-            return CourseMultiTouchHelper(course, scroll).apply {
-                course.addItemTouchListener(this) // 监听 course 的事件分发
-            }
-        }
+        internal open fun initScroll(scroll: ICourseScrollView) { }
+        internal open fun initCourse(course: ICourseLayout) { }
     }
 }

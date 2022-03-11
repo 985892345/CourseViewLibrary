@@ -2,11 +2,11 @@ package com.mredrock.cyxbs.lib.courseview.helper.multitouch.createaffair
 
 import android.os.Bundle
 import android.os.Parcelable
-import android.util.Log
 import android.util.SparseArray
 import android.view.MotionEvent
 import android.view.View
 import androidx.core.view.isGone
+import com.mredrock.cyxbs.lib.courseview.course.ICourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.net.touch.multiple.IPointerTouchHandler
 import com.mredrock.cyxbs.lib.courseview.net.touch.multiple.event.IPointerEvent
@@ -127,8 +127,6 @@ internal class CreateAffairPointerDispatcher : CourseRecyclerPointerDispatcher()
         fun hasViewInUsed(): Boolean {
             mViews.forEach {
                 if (it.isUsed()) {
-                    Log.d("ggg", "(CreateAffairPointerDispatcher.kt:130)-->> " +
-                            "it = $it")
                     return true
                 }
             }
@@ -185,7 +183,7 @@ internal class CreateAffairPointerDispatcher : CourseRecyclerPointerDispatcher()
         mTouchAffairViewPool.restoreBundle(savedState)
     }
 
-    init {
+    override fun initCourse(course: ICourseLayout) {
         // 在 View 被摧毁时保存临时生成的 TouchAffairView
         course.addSaveStateListener(38278467, this)
     }
