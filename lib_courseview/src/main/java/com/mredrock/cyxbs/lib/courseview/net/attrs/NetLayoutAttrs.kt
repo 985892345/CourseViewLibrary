@@ -2,6 +2,7 @@ package com.mredrock.cyxbs.lib.courseview.net.attrs
 
 import android.content.Context
 import android.util.AttributeSet
+import android.view.View
 import com.mredrock.cyxbs.lib.courseview.R
 import com.mredrock.cyxbs.lib.courseview.base.BaseViewAttrs
 import com.mredrock.cyxbs.lib.courseview.base.BaseViewAttrs.Companion.newAttrs
@@ -25,9 +26,17 @@ open class NetLayoutAttrs(
     companion object {
         fun newInstance(
             context: Context,
-            attrs: AttributeSet
+            attrs: AttributeSet?,
+            defStyleAttr: Int = 0,
+            defStyleRes: Int = 0,
         ): NetLayoutAttrs {
-            return newAttrs(context, attrs, R.styleable.NetLayout) {
+            return newAttrs(
+                context,
+                attrs,
+                R.styleable.NetLayout,
+                defStyleAttr,
+                defStyleRes
+            ) {
                 NetLayoutAttrs(
                     R.styleable.NetLayout_net_rowCount.int(ROW_COUNT),
                     R.styleable.NetLayout_net_columnCount.int(COLUMN_COUNT)

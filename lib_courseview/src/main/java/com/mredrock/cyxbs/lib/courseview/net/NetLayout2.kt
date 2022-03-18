@@ -31,7 +31,12 @@ import com.mredrock.cyxbs.lib.courseview.net.touch.ItemTouchProvider
  * @email 2767465918@qq.com
  * @date 2022/3/7 16:16
  */
-open class NetLayout2 : NetLayout,
+open class NetLayout2 @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0,
+    defStyleRes: Int = 0
+) : NetLayout(context, attrs, defStyleAttr, defStyleRes),
     ItemDecorationProvider, ItemTouchProvider, SaveStateProvider {
 
     final override fun addItemDecoration(decor: ItemDecoration) {
@@ -59,20 +64,6 @@ open class NetLayout2 : NetLayout,
         }
         mSaveBundleListeners.put(tag, l)
     }
-
-    constructor(context: Context, attrs: NetLayoutAttrs) : super(context, attrs)
-    constructor(context: Context, attrs: AttributeSet) : super(context, attrs)
-    constructor(
-        context: Context,
-        attrs: AttributeSet,
-        defStyleAttr: Int
-    ) : super(context, attrs, defStyleAttr)
-    constructor(
-        context: Context,
-        attrs: AttributeSet,
-        defStyleAttr: Int,
-        defStyleRes: Int
-    ) : super(context, attrs, defStyleAttr, defStyleRes)
 
     // 自定义绘图的监听
     private val mItemDecoration = ArrayList<ItemDecoration>(5)

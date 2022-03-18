@@ -56,7 +56,12 @@ import kotlin.math.roundToInt
  * @email 2767465918@qq.com
  * @date 2022/1/17
  */
-open class NetLayout : ViewGroup, INetLayout {
+open class NetLayout @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0,
+    defStyleRes: Int = 0
+) : ViewGroup(context, attrs, defStyleAttr, defStyleRes), INetLayout {
 
     /**
      * 打开测试功能，会绘制方格
@@ -278,7 +283,7 @@ open class NetLayout : ViewGroup, INetLayout {
     }
 
     // 属性值
-    protected val mNetAttrs: NetLayoutAttrs
+    protected val mNetAttrs: NetLayoutAttrs = NetLayoutAttrs.newInstance(context, attrs)
 
     // 参考 FrameLayout，用于在自身 wrap_content 而子 View 为 match_parent 时的测量
     private val mMatchParentChildren = ArrayList<View>()
@@ -295,25 +300,6 @@ open class NetLayout : ViewGroup, INetLayout {
 
     // 比重改变监听
     private val mOnWeightChangeListeners = ArrayList<OnWeightChangeListener>(2)
-
-    constructor(context: Context, attrs: NetLayoutAttrs) : super(context) {
-        mNetAttrs = attrs
-    }
-
-    constructor(context: Context, attrs: AttributeSet) : this(context, attrs, 0)
-    constructor(
-        context: Context,
-        attrs: AttributeSet,
-        defStyleAttr: Int
-    ) : this(context, attrs, defStyleAttr, 0)
-    constructor(
-        context: Context,
-        attrs: AttributeSet,
-        defStyleAttr: Int,
-        defStyleRes: Int
-    ) : super(context, attrs, defStyleAttr, defStyleRes)  {
-        mNetAttrs = NetLayoutAttrs.newInstance(context, attrs)
-    }
 
     /**
      * 控制 View 被添加进来时的顺序，如果有重复的相同值，则是最后一位相同值的索引加 1

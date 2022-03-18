@@ -30,7 +30,7 @@ internal interface BaseViewAttrs {
     companion object {
         inline fun <T> newAttrs(
             context: Context,
-            attrs: AttributeSet,
+            attrs: AttributeSet?,
             @StyleableRes
             styleableId: IntArray,
             defStyleAttr: Int = 0,
@@ -67,7 +67,7 @@ internal interface BaseViewAttrs {
 }
 
 internal inline fun <T> Context.netAttrs(
-    attrs: AttributeSet,
+    attrs: AttributeSet?,
     @StyleableRes
     styleableId: IntArray,
     defStyleAttr: Int,

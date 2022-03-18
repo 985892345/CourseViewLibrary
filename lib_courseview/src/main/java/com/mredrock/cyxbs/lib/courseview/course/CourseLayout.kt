@@ -61,7 +61,12 @@ import com.mredrock.cyxbs.lib.courseview.net.save.OnSaveStateListener
  * @email 2767465918@qq.com
  * @date 2022/1/20
  */
-internal class CourseLayout : AbstractCourseLayout, OnSaveStateListener {
+internal class CourseLayout @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0,
+    defStyleRes: Int = 0
+) : AbstractCourseLayout(context, attrs, defStyleAttr, defStyleRes), OnSaveStateListener {
 
     override fun getNoonRowState(): RowState {
         if (mNoonAnimation is FoldAnimation) return RowState.FOLD_ANIM
@@ -253,20 +258,6 @@ internal class CourseLayout : AbstractCourseLayout, OnSaveStateListener {
     private var mDuskRowState = RowState.FOLD // 当前傍晚时间段的状态，主要用于上一层保险，不能光靠他来判断
     private var mOnFoldNoonListener = ArrayList<OnFoldListener>(3)
     private var mOnFoldDuskListener = ArrayList<OnFoldListener>(3)
-
-    constructor(context: Context, attrs: CourseLayoutAttrs) : super(context, attrs)
-    constructor(context: Context, attrs: AttributeSet) : this(context, attrs, 0)
-    constructor(
-        context: Context,
-        attrs: AttributeSet,
-        defStyleAttr: Int
-    ) : this(context, attrs, defStyleAttr, 0)
-    constructor(
-        context: Context,
-        attrs: AttributeSet,
-        defStyleAttr: Int,
-        defStyleRes: Int
-    ) : super(context, attrs, defStyleAttr, defStyleRes)
 
     init {
         /*

@@ -16,7 +16,12 @@ import com.mredrock.cyxbs.lib.courseview.net.attrs.NetLayoutParams
  * @email 2767465918@qq.com
  * @date 2022/3/13 14:11
  */
-abstract class AbstractCourseLayout : NetLayout2, IFoldImpl {
+abstract class AbstractCourseLayout(
+    context: Context,
+    attrs: AttributeSet? = null,
+    defStyleAttr: Int = 0,
+    defStyleRes: Int = 0
+) : NetLayout2(context, attrs, defStyleAttr, defStyleRes), IFoldImpl {
 
     /**
      * 添加课程
@@ -45,25 +50,10 @@ abstract class AbstractCourseLayout : NetLayout2, IFoldImpl {
      */
     abstract fun isContainDusk(lp: CourseLayoutParams): Boolean
 
-    protected val mCourseAttrs: CourseLayoutAttrs
-
-    constructor(context: Context, attrs: CourseLayoutAttrs) : super(context, attrs) {
-        mCourseAttrs = attrs
-    }
-    constructor(context: Context, attrs: AttributeSet) : this(context, attrs, 0)
-    constructor(
-        context: Context,
-        attrs: AttributeSet,
-        defStyleAttr: Int
-    ) : this(context, attrs, defStyleAttr, 0)
-    constructor(
-        context: Context,
-        attrs: AttributeSet,
-        defStyleAttr: Int,
-        defStyleRes: Int
-    ) : super(context, attrs, defStyleAttr, defStyleRes) {
-        mCourseAttrs = CourseLayoutAttrs(mNetAttrs)
-    }
+    /**
+     * 属性文件
+     */
+    protected val mCourseAttrs: CourseLayoutAttrs = CourseLayoutAttrs(mNetAttrs)
 
     @Deprecated(
         "不建议使用该方法",
