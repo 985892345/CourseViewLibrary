@@ -1,4 +1,4 @@
-package com.ndhzs.courseviewlibrary.demo.page.activity
+package com.ndhzs.courseviewlibrary.demo
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
