@@ -4,17 +4,9 @@ import android.content.Context
 import android.util.AttributeSet
 import android.view.View
 import android.widget.LinearLayout
-import com.mredrock.cyxbs.lib.courseview.course.CourseBeanInternal
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
-import com.mredrock.cyxbs.lib.courseview.helper.*
-import com.mredrock.cyxbs.lib.courseview.helper.multitouch.CourseMultiTouchHelper
-import com.mredrock.cyxbs.lib.courseview.helper.multitouch.createaffair.CreateAffairPointerDispatcher
-import com.mredrock.cyxbs.lib.courseview.helper.multitouch.entitymove.EntityMovePointerDispatcher
-import com.mredrock.cyxbs.lib.courseview.helper.multitouch.fold.FoldPointerDispatcher
-import com.mredrock.cyxbs.lib.courseview.lesson.LessonView
-import com.mredrock.cyxbs.lib.courseview.utils.CourseLayoutContainer
-import com.mredrock.cyxbs.lib.courseview.utils.LessonHelper
-import com.mredrock.cyxbs.lib.courseview.utils.WeekLayoutContainer
+import com.mredrock.cyxbs.lib.courseview.utils.CourseContainer
+import com.mredrock.cyxbs.lib.courseview.utils.WeekContainer
 
 /**
  * 该 View 作用：
@@ -55,95 +47,36 @@ import com.mredrock.cyxbs.lib.courseview.utils.WeekLayoutContainer
  * @email 2767465918@qq.com
  * @date 2022/1/20
  */
-class CourseView(
-    context: Context,
-    attrs: AttributeSet
-) : LinearLayout(context, attrs) {
+class CourseView : LinearLayout {
 
-    fun addMyLesson(
-        day: Int,
-        beginLesson: Int,
-        period: Int,
-        title: String,
-        content: String,
-        onClick: ((view: LessonView, lp: CourseLayoutParams) -> Unit)? = null
+    constructor(context: Context) : super(context)
+    constructor(context: Context, attrs: AttributeSet) : this(context, attrs, 0)
+    constructor(context: Context, attrs: AttributeSet, defStyleAttr: Int) : this(
+        context,
+        attrs,
+        defStyleAttr,
+        0
+    )
+    constructor(context: Context, attrs: AttributeSet, defStyleAttr: Int, defStyleRes: Int) : super(
+        context,
+        attrs,
+        defStyleAttr,
+        defStyleRes
     ) {
-        LessonHelper.addLessonItem(
-            day,
-            beginLesson,
-            period,
-            mCourse.course,
-            title, content,
-            LessonHelper.LessonType.MY,
-            onClick
-        )
+        mWeek.initAttrs(attrs)
+        mCourse.initAttrs(attrs)
     }
 
-    fun addMyAffair(
-        day: Int,
-        beginLesson: Int,
-        period: Int,
-        title: String,
-        content: String,
-        onClick: ((view: LessonView, lp: CourseLayoutParams) -> Unit)? = null
-    ) {
-        LessonHelper.addLessonItem(
-            day,
-            beginLesson,
-            period,
-            mCourse.course,
-            title, content,
-            LessonHelper.LessonType.AFFAIR,
-            onClick
-        )
-    }
+    fun getWeekContainer() = mWeek
 
-    fun addLinkLesson(
-        day: Int,
-        beginLesson: Int,
-        period: Int,
-        title: String,
-        content: String,
-        onClick: ((view: LessonView, lp: CourseLayoutParams) -> Unit)? = null
-    ) {
-        LessonHelper.addLessonItem(
-            day,
-            beginLesson,
-            period,
-            mCourse.course,
-            title, content,
-            LessonHelper.LessonType.LINK,
-            onClick
-        )
-    }
-
-    fun addAnyLesson(
-        bean: CourseBeanInternal,
-        title: String,
-        content: String,
-        type: LessonHelper.LessonType,
-        onClick: ((view: LessonView, lp: CourseLayoutParams) -> Unit)? = null
-    ) {
-        LessonHelper.addLessonItem(
-            bean,
-            mCourse.course,
-            title,
-            content,
-            type,
-            onClick
-        )
-    }
-
-    fun clear() {
-        LessonHelper.clearLessonAndAffair(mCourse.course)
-    }
+    fun getCourseContainer() = mCourse
 
     fun setOnClickTouchAffairListener(onClick: (view: View, lp: CourseLayoutParams) -> Unit) {
         mOnClickTouchAffairListener = onClick
     }
 
-    private val mWeek = WeekLayoutContainer(this)
-    private val mCourse = CourseLayoutContainer(this)
+    private val mWeek = WeekContainer(this)
+    private val mCourse = CourseContainer(this)
     private var mOnClickTouchAffairListener: ((View, CourseLayoutParams) -> Unit)? = null
 
     init {
@@ -158,33 +91,33 @@ class CourseView(
 
     private fun initCourse() {
         addView(mCourse.scroll)
-        mCourse.course.addItemDecoration(
-            CourseTimelineHelper(mCourse.course),
-        )
-        mCourse.course.addItemTouchListener(
-            CourseDownAnimHelper(mCourse.scroll, mCourse.course),
-            CourseMultiTouchHelper(mCourse.course, mCourse.scroll).apply {
-                add(
-                    FoldPointerDispatcher(),
-                    EntityMovePointerDispatcher(),
-                    CreateAffairPointerDispatcher().apply {
-                        setOnClickListener {
-                            it.remove()
-                            addAnyLesson(it.cloneLp(), "自习", "233", LessonHelper.LessonType.AFFAIR)
-                        }
-                    },
-                )
-            }
-        )
-
-        addMyLesson(0, 3, 2, "高等数学", "233")
-        addMyLesson(3, 5, 2, "大学物理", "233")
-        addMyLesson(5, 9, 4, "数据结构", "233")
-        addMyLesson(1, 11, 2, "离散数学", "233")
-        addMyAffair(2, -1, 1, "自习", "233")
-
-        addMyLesson(0, 5, 4, "顶部的课", "233")
-        addMyLesson(0, 5, 3, "中间的课", "233")
-        addMyLesson(0, 5, 2, "底部的课", "233")
+//        mCourse.course.addItemDecoration(
+//            CourseTimelineHelper(mCourse.course),
+//        )
+//        mCourse.course.addItemTouchListener(
+//            CourseDownAnimHelper(mCourse.scroll, mCourse.course),
+//            CourseMultiTouchHelper(mCourse.course, mCourse.scroll).apply {
+//                add(
+//                    FoldPointerDispatcher(),
+//                    EntityMovePointerDispatcher(),
+//                    CreateAffairPointerDispatcher().apply {
+//                        setOnClickListener {
+//                            it.remove()
+//                            addAnyLesson(it.cloneLp(), "自习", "233", LessonHelper.LessonType.AFFAIR)
+//                        }
+//                    },
+//                )
+//            }
+//        )
+//
+//        addMyLesson(0, 3, 2, "高等数学", "233")
+//        addMyLesson(3, 5, 2, "大学物理", "233")
+//        addMyLesson(5, 9, 4, "数据结构", "233")
+//        addMyLesson(1, 11, 2, "离散数学", "233")
+//        addMyAffair(2, -1, 1, "自习", "233")
+//
+//        addMyLesson(0, 5, 4, "顶部的课", "233")
+//        addMyLesson(0, 5, 3, "中间的课", "233")
+//        addMyLesson(0, 5, 2, "底部的课", "233")
     }
 }

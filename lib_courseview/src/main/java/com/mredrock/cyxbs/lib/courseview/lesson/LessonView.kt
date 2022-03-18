@@ -5,6 +5,10 @@ import android.graphics.Canvas
 import android.util.AttributeSet
 import androidx.cardview.widget.CardView
 import com.mredrock.cyxbs.lib.courseview.R
+import com.mredrock.cyxbs.lib.courseview.course.AbstractCourseLayout.Companion.DUSK_BOTTOM
+import com.mredrock.cyxbs.lib.courseview.course.AbstractCourseLayout.Companion.DUSK_TOP
+import com.mredrock.cyxbs.lib.courseview.course.AbstractCourseLayout.Companion.NOON_BOTTOM
+import com.mredrock.cyxbs.lib.courseview.course.AbstractCourseLayout.Companion.NOON_TOP
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.attrs.CourseLayoutParams
 import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
@@ -38,10 +42,10 @@ open class LessonView(
         val parent = parent
         if (parent is CourseLayout) {
             val lp = layoutParams as CourseLayoutParams
-            if (lp.startRow == CourseLayout.NOON_TOP
-                && lp.endRow == CourseLayout.NOON_BOTTOM
-                || lp.startRow == CourseLayout.DUSK_TOP
-                && lp.endRow == CourseLayout.DUSK_BOTTOM
+            if (lp.startRow == NOON_TOP
+                && lp.endRow == NOON_BOTTOM
+                || lp.startRow == DUSK_TOP
+                && lp.endRow == DUSK_BOTTOM
             ) {
                 val totalHeight = lp.rowCount * parent.getRowsHeight(0, 0)
                 val x = height / totalHeight.toFloat()

@@ -78,6 +78,12 @@ open class CourseLayoutParams :
         }
     }
 
+    /**
+     * @param day 周数，星期一为 1
+     * @param startPos 课开始的位置，以 0 开始，与课的开始节数不对应，如：一、二节课，为 0；三、四节课为 2；中午为 4
+     * @param length 一节课的长度
+     * @param type 课的类型
+     */
     constructor(
         day: Int,
         startPos : Int,

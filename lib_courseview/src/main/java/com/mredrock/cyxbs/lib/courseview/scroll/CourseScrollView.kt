@@ -7,8 +7,8 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.widget.NestedScrollView
 import com.mredrock.cyxbs.lib.courseview.R
+import com.mredrock.cyxbs.lib.courseview.course.AbstractCourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
-import com.mredrock.cyxbs.lib.courseview.course.ICourseLayout
 import kotlin.math.max
 
 /**
@@ -20,7 +20,7 @@ import kotlin.math.max
  * |
  * |
  * |
- * |          控件布局可以看 [R.layout.layout_course]（使用 xml 来布局，是为了方便以后修改）
+ * |          控件布局可以看 [R.layout.lib_course_layout_course]（使用 xml 来布局，是为了方便以后修改）
  * |          里面包裹了一个 [CourseLayout]
  * |
  * |
@@ -121,9 +121,9 @@ class CourseScrollView(
     // 在 measureChildWithMargins() 方法中赋值
     override var innerHeight: Int = 0
 
-    override fun getDistance(course: ICourseLayout): Int {
-        var dHeight = course.getTop() // 与 CourseScrollView 去掉 scrollY 后的高度差，即屏幕上显示的高度差
-        var parent = course.getParent()
+    override fun getDistance(course: AbstractCourseLayout): Int {
+        var dHeight = course.top // 与 CourseScrollView 去掉 scrollY 后的高度差，即屏幕上显示的高度差
+        var parent = course.parent
         while (parent is ViewGroup) { // 这个循环用于计算 dHeight
             dHeight -= parent.scrollY
             if (parent === this) { // 找到 scrollView 就结束

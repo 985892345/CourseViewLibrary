@@ -8,11 +8,11 @@ group = 'com.github.985892345'
 version = '1.0'
 
 android {
-    compileSdk 32
+    compileSdk 31
 
     defaultConfig {
         minSdk 21
-        targetSdk 32
+        targetSdk 31
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
@@ -31,6 +31,11 @@ android {
     kotlinOptions {
         jvmTarget = '1.8'
     }
+
+    // https://developer.android.com/reference/tools/gradle-api/7.1/com/android/build/api/dsl/LibraryPublishing
+    publishing {
+        singleVariant "courseRelease"
+    }
 }
 
 dependencies {
@@ -45,8 +50,7 @@ dependencies {
 afterEvaluate {
     publishing {
         publications {
-            // Creates a Maven publication called "release".
-            release(MavenPublication) {
+            courseRelease(MavenPublication) {
                 from components.release
                 groupId = 'com.github.985892345'
                 artifactId = 'CourseViewLibrary'

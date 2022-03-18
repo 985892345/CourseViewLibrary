@@ -1,18 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <declare-styleable name="CourseView">
+        <attr name="course_month_color" format="color"/>
+        <attr name="course_month_size" format="dimension"/>
+        <attr name="course_week_color" format="color"/>
+        <attr name="course_week_size" format="dimension"/>
+        <attr name="course_date_color" format="color"/>
+        <attr name="course_date_size" format="dimension"/>
+        <attr name="course_time_color" format="color"/>
+        <attr name="course_time_size" format="dimension"/>
+        <attr name="course_noon_color" format="color"/>
+        <attr name="course_noon_size" format="dimension"/>
+        <attr name="course_dusk_color" format="color"/>
+        <attr name="course_dusk_size" format="dimension"/>
+    </declare-styleable>
+
     <declare-styleable name="CourseLayout_Layout">
+        <!--周的天数，星期一为 1-->
         <attr name="course_layout_day" format="integer"/>
-        <!--从 0 开始-->
+        <!--课的开始位置，从 0 开始，与课的开始节数不对应，如：一、二节课，为 0；三、四节课为 2；中午为 4-->
         <attr name="course_layout_startPos" format="integer"/>
+        <!--课的长度-->
         <attr name="course_layout_length" format="integer"/>
         <!--添加进来的子 View 的类型，与 utils 包下 CourseType 一一对应-->
         <attr name="course_layout_type" format="enum">
-            <!--这里并不需要写完全部类型-->
-            <enum name="my" value="0"/>
+            <!--这里并不需要写完全部类型，只需要写 xml 中会使用的即可，且按顺序对应-->
             <enum name="time" value="3"/>
-            <enum name="arrow_noon" value="5"/>
-            <enum name="arrow_dusk" value="6"/>
+            <enum name="noon" value="4"/>
+            <enum name="dusk" value="5"/>
         </attr>
     </declare-styleable>
 
@@ -32,7 +48,7 @@
         <attr name="net_layout_startColumn" format="integer"/>
         <!--结束列的索引值，以 0 开始，注意：如果不给属性赋值，则默认不会显示 View-->
         <attr name="net_layout_endColumn" format="integer"/>
-        <!--子 View 的 layout_gravity-->
+        <!--子 View 的 layout_gravity，与 Fragment 相同-->
         <attr name="net_layout_gravity">
             <!-- Push object to the top of its container, not changing its size. -->
             <flag name="top" value="0x30" />

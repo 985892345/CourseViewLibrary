@@ -1,7 +1,7 @@
 package com.mredrock.cyxbs.lib.courseview.scroll
 
+import com.mredrock.cyxbs.lib.courseview.course.AbstractCourseLayout
 import com.mredrock.cyxbs.lib.courseview.course.CourseLayout
-import com.mredrock.cyxbs.lib.courseview.course.ICourseLayout
 
 /**
  * [CourseLayout] 外层包裹的 ScrollView
@@ -36,5 +36,5 @@ interface ICourseScrollView : IAbsoluteCoordinates {
      *   |-- 得到的值 --| (注意：此时值为负)
      * ```
      */
-    fun getDistance(course: ICourseLayout): Int
+    fun getDistance(course: AbstractCourseLayout): Int
 }

@@ -15,35 +15,27 @@ import com.mredrock.cyxbs.lib.courseview.R
  * @email 2767465918@qq.com
  * @date 2022/1/27
  */
-enum class CourseType(val i: Int) {
-    MY(0), // 我的课程
-    AFFAIR(1), // 我的事务
-    LINK(2), // 关联人的课程
-    TIME(3), // 时间轴上的数字和中午、傍晚
-    AFFAIR_TOUCH(4), // 带有加号的那个 View
-    ARROW_NOON(5), // 中午时间段的那个箭头
-    ARROW_DUSK(6), // 傍晚时间段的那个箭头
-    SUBSTITUTE(7), // 长按事务后生成的替身
-    UNKNOWN(114514); // 未知
+enum class CourseType {
+    MY, // 我的课程
+    AFFAIR, // 我的事务
+    LINK, // 关联人的课程
+    TIME, // 时间轴上的数字
+    NOON, // 中午时间段
+    DUSK, // 傍晚时间段
+    AFFAIR_TOUCH, // 带有加号的那个 View
+    SUBSTITUTE, // 长按事务后生成的替身
+    UNKNOWN; // 未知
+    // 按顺序书写
 
     companion object {
-        fun default() = TIME
+        fun default() = UNKNOWN
 
         fun get(i: Int): CourseType {
-            return when (i) {
-                MY.i -> MY
-                LINK.i -> LINK
-                AFFAIR.i -> AFFAIR
-                TIME.i -> TIME
-                AFFAIR_TOUCH.i -> AFFAIR_TOUCH
-                ARROW_NOON.i -> ARROW_NOON
-                ARROW_DUSK.i -> ARROW_DUSK
-                else -> UNKNOWN
-            }
+            return values().getOrNull(i) ?: default()
         }
     }
 }
 
 internal fun Int.courseType(ty: TypedArray): CourseType {
-    return CourseType.get(ty.getInt(this, CourseType.default().i))
+    return CourseType.get(ty.getInt(this, CourseType.default().ordinal))
 }

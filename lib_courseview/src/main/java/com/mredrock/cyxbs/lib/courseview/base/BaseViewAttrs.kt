@@ -1,13 +1,13 @@
 package com.mredrock.cyxbs.lib.courseview.base
 
 import android.content.Context
-import android.content.res.Resources
 import android.content.res.TypedArray
 import android.util.AttributeSet
-import android.util.Log
-import android.view.View
+import androidx.annotation.ColorRes
+import androidx.annotation.DimenRes
 import androidx.annotation.StyleableRes
-import androidx.core.content.res.getIntOrThrow
+import androidx.core.content.ContextCompat
+import com.mredrock.cyxbs.lib.courseview.utils.ViewExtend
 
 /**
  * ...
@@ -16,6 +16,16 @@ import androidx.core.content.res.getIntOrThrow
  * @date 2022/1/13
  */
 internal interface BaseViewAttrs {
+
+    fun <T> newAttrs(
+        context: Context,
+        attrs: AttributeSet,
+        @StyleableRes
+        styleableId: IntArray,
+        defStyleAttr: Int = 0,
+        defStyleRes: Int = 0,
+        func: Typedef.() -> T
+    ): T = BaseViewAttrs.newAttrs(context, attrs, styleableId, defStyleAttr, defStyleRes, func)
 
     companion object {
         inline fun <T> newAttrs(
@@ -29,29 +39,34 @@ internal interface BaseViewAttrs {
         ): T {
             val ty = context.obtainStyledAttributes(attrs, styleableId, defStyleAttr, defStyleRes)
             try {
-                return Typedef(ty).func()
+                return Typedef(ty, context).func()
             } finally {
                 ty.recycle()
             }
         }
     }
 
-    class Typedef(val ty: TypedArray) {
+    class Typedef(val ty: TypedArray, private val context: Context) : ViewExtend {
         fun Int.int(defValue: Int): Int = this.int(ty, defValue)
         fun Int.color(defValue: Int): Int = this.color(ty, defValue)
+        fun Int.colorById(@ColorRes defValueId: Int): Int = this.color(ContextCompat.getColor(context, defValueId))
         fun Int.dimens(defValue: Int): Int = this.dimens(ty, defValue)
         fun Int.dimens(defValue: Float): Float = this.dimens(ty, defValue)
+        fun Int.layoutDimens(defValue: Int): Int = this.layoutDimens(ty, defValue)
+        fun Int.dimensById(@DimenRes defValueId: Int): Int = this.dimens(context.resources.getDimensionPixelSize(defValueId))
         fun Int.string(defValue: String? = null): String = this.string(ty, defValue)
         fun Int.boolean(defValue: Boolean): Boolean = this.boolean(ty, defValue)
         fun Int.float(defValue: Float): Float = this.float(ty, defValue)
-        inline fun <reified E: RuntimeException> Int.intOrThrow(
+        internal inline fun <reified E: RuntimeException> Int.intOrThrow(
             attrsName: String): Int = this.intOrThrow<E>(ty, attrsName)
-        inline fun <reified E: RuntimeException> Int.stringOrThrow(
+        internal inline fun <reified E: RuntimeException> Int.stringOrThrow(
             attrsName: String): String = this.stringOrThrow<E>(ty, attrsName)
+
+        override fun getContext(): Context = context
     }
 }
 
-internal inline fun <T> Context.getAttrs(
+internal inline fun <T> Context.netAttrs(
     attrs: AttributeSet,
     @StyleableRes
     styleableId: IntArray,
@@ -74,6 +89,10 @@ internal fun Int.dimens(ty: TypedArray, defValue: Int): Int {
 
 internal fun Int.dimens(ty: TypedArray, defValue: Float): Float {
     return ty.getDimension(this, defValue)
+}
+
+internal fun Int.layoutDimens(ty: TypedArray, defValue: Int): Int {
+    return ty.getLayoutDimension(this, defValue)
 }
 
 internal fun Int.string(ty: TypedArray, defValue: String? = null): String {
